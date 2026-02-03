@@ -52,7 +52,6 @@
   box-shadow: 0 6px 20px rgba(10, 37, 64, 0.3) !important;
 }
 
-/* Responsive */
 @media (max-width: 600px) {
   .signup-paper {
     padding: 32px 24px;
