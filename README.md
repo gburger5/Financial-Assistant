@@ -88,12 +88,12 @@ git commit -m "<short description>"
 git push -u origin feature/<short-description>
 ```
 
-Open a Pull Request to main:
+### Open a Pull Request to main:
 
-Include a clear summary of changes
+1. Include a clear summary of changes
 
-Mention any relevant context
+2. Mention any relevant context
 
-Confirm npm run lint and npm run build pass
+3. Confirm npm run lint and npm run build pass
 
-After approval, merge into main.
+4. After approval, merge into main.
