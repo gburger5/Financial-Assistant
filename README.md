@@ -2,9 +2,16 @@
 The proposed project is a multi-agent personal financial assistant designed to help users manage and optimize their finances. Each autonomous agent focuses on a specific aspect of a user’s finances budgeting, savings, investments, and debt repayment. The agents communicate and coordinate to provide a holistic view of financial health, optimize resource allocation, and offer personalized recommendations.
 
 ### Project Structure
-financial-assistant
-  client/ Frontend (React + Vite)
-  server/ Backend (Fastify + TypeScript)
+```
+financial-assistant/
+├── client/          # Frontend (React + Vite)
+│   ├── src/
+│   ├── public/
+│   └── package.json
+└── server/          # Backend (Fastify + TypeScript)
+    ├── src/
+    └── package.json
+```
 
 ### Requirements
 * Node.js 18+
