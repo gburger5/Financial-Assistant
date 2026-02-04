@@ -3,9 +3,8 @@ The proposed project is a multi-agent personal financial assistant designed to h
 
 ### Project Structure
 financial-assistant
-├── client/ Frontend (React + Vite)
-├── server/ Backend (Fastify + TypeScript)
-└── package.json
+  client/ Frontend (React + Vite)
+  server/ Backend (Fastify + TypeScript)
 
 ### Requirements
 * Node.js 18+
