@@ -20,7 +20,7 @@ financial-assistant/
 ### Setup
 1. Clone the repository:
 ```sh
-git clonehttps://github.com/gburger5/Financial-Assistant
+git clone https://github.com/gburger5/Financial-Assistant
 ```
 
 2. Install dependencies from the repository root:
