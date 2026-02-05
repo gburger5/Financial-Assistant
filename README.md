@@ -1,19 +1,99 @@
-# Financial-Assistant
+# FinanceAI
 The proposed project is a multi-agent personal financial assistant designed to help users manage and optimize their finances. Each autonomous agent focuses on a specific aspect of a user’s finances budgeting, savings, investments, and debt repayment. The agents communicate and coordinate to provide a holistic view of financial health, optimize resource allocation, and offer personalized recommendations.
 
-# React + Vite
+### Project Structure
+```
+financial-assistant/
+├── client/          # Frontend (React + Vite)
+│   ├── src/
+│   ├── public/
+│   └── package.json
+└── server/          # Backend (Fastify + TypeScript)
+    ├── src/
+    └── package.json
+```
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### Requirements
+* Node.js 18+
+* npm 9+
 
-Currently, two official plugins are available:
+### Setup
+1. Clone the repository:
+```sh
+git clone https://github.com/gburger5/Financial-Assistant
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+2. Install dependencies from the repository root:
+```sh
+npm install
+```
 
-## React Compiler
+3. Create environment files:
+#### Windows
+```sh
+copy server/.env.example server/.env
+copy client/.env.example client/.env
+```
+#### macOS/Linux
+```sh
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Development
+1. Start frontend and backend:
+```sh
+npm run dev
+```
 
-## Expanding the ESLint configuration
+* Frontend: http://localhost:5173
+* Backend: http://localhost:4000
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+#### Stop servers:
+* Ctrl + C
+
+### Scripts
+Start the client and server in development mode.
+```sh
+npm run dev
+```
+
+Runs the build script in each workspace.
+```sh
+npm run build
+```
+
+Runs ESLint in each workspace.
+```sh
+npm run lint
+```
+
+### Pull Requests
+
+1. Create a new feature branch from main:
+```sh
+git checkout main
+git pull
+git checkout -b features/<short-description>
+```
+
+2. Make changes and commit:
+```sh
+git add .
+git commit -m "<short description>"
+```
+
+3. Push your branch:
+```sh
+git push -u origin feature/<short-description>
+```
+
+### Open a Pull Request to main:
+
+1. Include a clear summary of changes
+
+2. Mention any relevant context
+
+3. Confirm npm run lint and npm run build pass
+
+4. After approval, merge into main.

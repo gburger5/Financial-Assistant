@@ -1,33 +1,16 @@
 {
-  "name": "Financial Assistant",
+  "name": "financial-assistant",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "workspaces": ["client", "server"],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@emotion/react": "^11.11.3",
-    "@emotion/styled": "^11.11.0",
-    "@mui/icons-material": "^5.15.10",
-    "@mui/material": "^5.15.10",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0"
+    "dev": "npm run dev -w client & npm run dev -w server",
+    "dev:win": "start /B npm run dev -w client && start /B npm run dev -w server",
+    "build": "npm run build -ws",
+    "lint": "npm run lint -ws"
   },
   "devDependencies": {
-    "@types/react": "^18.2.55",
-    "@types/react-dom": "^18.2.19",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^9.39.2",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "typescript": "^5.2.2",
-    "vite": "^7.3.1"
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2"
   }
 }
