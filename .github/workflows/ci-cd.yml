@@ -21,10 +21,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      # Clean install to fix Rollup Linux issue
+      - name: Clean client dependencies (fix Rollup Linux)
+        working-directory: ./client
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Lint client
         working-directory: ./client
@@ -41,7 +44,7 @@ jobs:
   # Server CI + Deploy
   server-ci:
     runs-on: ubuntu-latest
-    needs: client-ci  # only run after client-ci passes
+    needs: client-ci
     permissions:
       id-token: write
       contents: read
@@ -53,9 +56,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install dependencies
+      # Install server dependencies
+      - name: Install server dependencies
+        working-directory: ./server
         run: npm install
 
       - name: Lint server
@@ -75,16 +79,18 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
-          aws-region: us-east-1
+          aws-region: us-east-2
 
       # Deploy frontend to S3 + CloudFront
       - name: Deploy frontend
         working-directory: ./client
+        env:
+          AWS_REGION: us-east-1
         run: |
           aws s3 sync ./dist s3://financial-assistant-client/ --delete
           aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*"
 
-      # Deploy backend Lambda
+      # Deploy backend Lambda via Serverless
       - name: Deploy backend Lambda
         working-directory: ./server
         run: npm run deploy
