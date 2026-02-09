@@ -1,20 +1,29 @@
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
   { ignores: ["dist/**", "node_modules/**"] },
 
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+
   {
-    files: ["src/**/*.ts"],
+    files: ["**/*.{ts,tsx}"],
     languageOptions: {
+      parser: tsParser,
       parserOptions: {
-        project: "./tsconfig.json"
-      }
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        process: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+      },
     },
-    rules: {
-      "no-console": "off"
-    }
-  }
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+    },
+    rules: {},
+  },
 ];

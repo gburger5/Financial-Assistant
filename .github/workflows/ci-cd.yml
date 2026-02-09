@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: 20
 
-      # Clean install to fix Rollup Linux issue
-      - name: Clean client dependencies (fix Rollup Linux)
+      # Clean install
+      - name: Clean client dependencies
         working-directory: ./client
         run: |
           rm -rf node_modules package-lock.json
