@@ -7,9 +7,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "echo \"TODO\""
   },
   "dependencies": {
+    "@fastify/aws-lambda": "^6.4.0",
     "dotenv": "^17.2.3",
     "fastify": "^5.7.4"
   },
@@ -17,6 +19,8 @@
     "@eslint/js": "^9.39.2",
     "@types/node": "^25.2.0",
     "eslint": "^9.39.2",
+    "serverless": "^4.31.2",
+    "serverless-esbuild": "^1.57.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0"
