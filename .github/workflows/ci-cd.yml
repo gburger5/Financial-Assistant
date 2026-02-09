@@ -21,13 +21,14 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ./client/package-lock.json
 
-      # Clean install
-      - name: Clean & install client dependencies
+      # Install with proper optional dependency handling
+      - name: Install client dependencies
         working-directory: ./client
         run: |
-          rm -rf node_modules package-lock.json
-          npm install --force
+          npm ci --include=optional || npm install --include=optional
 
       - name: Lint client
         working-directory: ./client
@@ -56,13 +57,14 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ./server/package-lock.json
 
-      # Clean install server dependencies
-      - name: Clean & install server dependencies
+      # Install server dependencies
+      - name: Install server dependencies
         working-directory: ./server
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
+          npm ci || npm install
 
       - name: Lint server
         working-directory: ./server
