@@ -53,15 +53,16 @@ jobs:
         working-directory: ./server
         run: npm test
 
-      # AWS OIDC authentication
+      # Deploy only on main branch
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
           aws-region: us-east-2
 
-      # Deploy frontend to S3 + CloudFront
       - name: Deploy frontend
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./client
         env:
           AWS_REGION: us-east-1
@@ -69,7 +70,7 @@ jobs:
           aws s3 sync ./dist s3://financial-assistant-client/ --delete
           aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*"
 
-      # Deploy backend Lambda via Serverless
       - name: Deploy backend Lambda
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./server
         run: npm run deploy
