@@ -22,14 +22,12 @@ jobs:
         with:
           node-version: 20
 
-      # Clean install client dependencies
-      - name: Clean client dependencies
+      # Clean install
+      - name: Clean & install client dependencies
         working-directory: ./client
-        run: rm -rf node_modules package-lock.json
-
-      - name: Install client dependencies
-        working-directory: ./client
-        run: npm install
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --force
 
       - name: Lint client
         working-directory: ./client
@@ -38,8 +36,6 @@ jobs:
       - name: Build client
         working-directory: ./client
         run: npm run build
-        env:
-          npm_config_legacy_peer_deps: true
 
       - name: Test client
         working-directory: ./client
@@ -62,13 +58,11 @@ jobs:
           node-version: 20
 
       # Clean install server dependencies
-      - name: Clean server dependencies
+      - name: Clean & install server dependencies
         working-directory: ./server
-        run: rm -rf node_modules package-lock.json
-
-      - name: Install server dependencies
-        working-directory: ./server
-        run: npm install
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Lint server
         working-directory: ./server
@@ -82,7 +76,7 @@ jobs:
         working-directory: ./server
         run: npm test
 
-      # AWS Deployment
+      # AWS OIDC authentication
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
