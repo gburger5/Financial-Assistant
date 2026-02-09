@@ -23,11 +23,8 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Clean install client dependencies
-        working-directory: ./client
-        run: |
-          rm -rf node_modules package-lock.json
-          npm ci
+      - name: Install dependencies
+        run: npm install
 
       - name: Lint client
         working-directory: ./client
@@ -44,7 +41,7 @@ jobs:
   # Server CI + Deploy
   server-ci:
     runs-on: ubuntu-latest
-    needs: client-ci
+    needs: client-ci  # only run after client-ci passes
     permissions:
       id-token: write
       contents: read
@@ -58,11 +55,8 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Clean install server dependencies
-        working-directory: ./server
-        run: |
-          rm -rf node_modules package-lock.json
-          npm ci
+      - name: Install dependencies
+        run: npm install
 
       - name: Lint server
         working-directory: ./server
@@ -76,26 +70,21 @@ jobs:
         working-directory: ./server
         run: npm test
 
-      # Deploy frontend
-      - name: Configure AWS credentials (frontend)
+      # AWS OIDC authentication
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
           aws-region: us-east-1
 
+      # Deploy frontend to S3 + CloudFront
       - name: Deploy frontend
         working-directory: ./client
         run: |
-          aws s3 sync ./dist s3://financial-assistant-client/ --delete --region us-east-1
-          aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*" --region us-east-1
+          aws s3 sync ./dist s3://financial-assistant-client/ --delete
+          aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*"
 
-      # Deploy backend
-      - name: Configure AWS credentials (backend)
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
-          aws-region: us-east-2
-
+      # Deploy backend Lambda
       - name: Deploy backend Lambda
         working-directory: ./server
         run: npm run deploy
