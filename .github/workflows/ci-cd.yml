@@ -1,0 +1,90 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  # Client CI job
+  client-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint client
+        working-directory: ./client
+        run: npm run lint
+
+      - name: Build client
+        working-directory: ./client
+        run: npm run build
+
+      - name: Test client
+        working-directory: ./client
+        run: npm test
+
+  # Server CI + Deploy
+  server-ci:
+    runs-on: ubuntu-latest
+    needs: client-ci  # only run after client-ci passes
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint server
+        working-directory: ./server
+        run: npm run lint
+
+      - name: Build server
+        working-directory: ./server
+        run: npm run build
+
+      - name: Test server
+        working-directory: ./server
+        run: npm test
+
+      # AWS OIDC authentication
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
+          aws-region: us-east-1
+
+      # Deploy frontend to S3 + CloudFront
+      - name: Deploy frontend
+        working-directory: ./client
+        run: |
+          aws s3 sync ./dist s3://financial-assistant-client/ --delete
+          aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*"
+
+      # Deploy backend Lambda
+      - name: Deploy backend Lambda
+        working-directory: ./server
+        run: npm run deploy
