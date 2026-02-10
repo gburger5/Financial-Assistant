@@ -87,6 +87,30 @@ function Dashboard() {
             </Paper>
           </Grid>
 
+                    {/* Quick Actions Sidebar */}
+          <Grid item xs={12} lg={4}>
+            <Paper className="wireframe-card section-card">
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                Quick Actions
+              </Typography>
+              
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box className="placeholder-box action-button-box">
+                  <Typography variant="body2">View Transactions</Typography>
+                </Box>
+                <Box className="placeholder-box action-button-box">
+                  <Typography variant="body2">Manage Budget</Typography>
+                </Box>
+                <Box className="placeholder-box action-button-box">
+                  <Typography variant="body2">Agent Actions</Typography>
+                </Box>
+                <Box className="placeholder-box action-button-box">
+                  <Typography variant="body2">Action History</Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
         </Grid>
 
       </Container>
