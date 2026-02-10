@@ -88,7 +88,7 @@ function Dashboard() {
               </Box>
             </Paper>
           </Grid>
-          
+
           {/* Agent Actions Section */}
           <Grid item xs={12} lg={8}>
             <Paper className="wireframe-card section-card">
@@ -138,6 +138,70 @@ function Dashboard() {
                 <Box className="placeholder-box action-button-box">
                   <Typography variant="body2">Action History</Typography>
                 </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Budget Overview */}
+          <Grid item xs={12} lg={6}>
+            <Paper className="wireframe-card section-card">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Budget Overview
+                </Typography>
+                <Button variant="text" size="small">
+                  Manage
+                </Button>
+              </Box>
+
+              <Box className="placeholder-box budget-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Category 1</Typography>
+                <Box className="progress-bar-placeholder" sx={{ my: 1 }} />
+                <Typography variant="caption" color="text.secondary">$XXX / $XXX (XX%)</Typography>
+              </Box>
+
+              <Box className="placeholder-box budget-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Category 2</Typography>
+                <Box className="progress-bar-placeholder" sx={{ my: 1 }} />
+                <Typography variant="caption" color="text.secondary">$XXX / $XXX (XX%)</Typography>
+              </Box>
+
+              <Box className="placeholder-box budget-item-box">
+                <Typography variant="body2">Category 3</Typography>
+                <Box className="progress-bar-placeholder" sx={{ my: 1 }} />
+                <Typography variant="caption" color="text.secondary">$XXX / $XXX (XX%)</Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Recent Transactions */}
+          <Grid item xs={12} lg={6}>
+            <Paper className="wireframe-card section-card">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Recent Transactions
+                </Typography>
+                <Button variant="text" size="small">
+                  View All
+                </Button>
+              </Box>
+
+              <Box className="placeholder-box transaction-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Transaction Description</Typography>
+                <Typography variant="caption" color="text.secondary">Category • Date</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>$XX.XX</Typography>
+              </Box>
+
+              <Box className="placeholder-box transaction-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Transaction Description</Typography>
+                <Typography variant="caption" color="text.secondary">Category • Date</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>$XX.XX</Typography>
+              </Box>
+
+              <Box className="placeholder-box transaction-item-box">
+                <Typography variant="body2">Transaction Description</Typography>
+                <Typography variant="caption" color="text.secondary">Category • Date</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>$XX.XX</Typography>
               </Box>
             </Paper>
           </Grid>
