@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+//import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Container,
@@ -17,7 +17,7 @@ import {
 import './Dashboard.css'
 
 function Dashboard() {
-  const navigate = useNavigate()
+  //const navigate = useNavigate()
 
   return (
     <Box className="dashboard-wireframe-container">
