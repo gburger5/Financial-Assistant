@@ -58,17 +58,17 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::020091542855:role/github-actions-financial-assistant
-          aws-region: us-east-2
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Deploy frontend
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./client
         env:
-          AWS_REGION: us-east-1
+          AWS_REGION: ${{ vars.AWS_REGION_FRONTEND }}
         run: |
-          aws s3 sync ./dist s3://financial-assistant-client/ --delete
-          aws cloudfront create-invalidation --distribution-id E3PYDE7F96OV3M --paths "/*"
+          aws s3 sync ./dist s3://${{ vars.S3_BUCKET }}/ --delete
+          aws cloudfront create-invalidation --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
 
       - name: Deploy backend Lambda
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

@@ -22,7 +22,7 @@
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "eslint": "^9.39.2",
-    "serverless": "^4.31.2",
+    "serverless": "^3.39.0",
     "serverless-esbuild": "^1.57.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
