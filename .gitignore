@@ -6,9 +6,6 @@ dist/
 build/
 coverage/
 
-# Serverless
-.serverless
-
 # Env files
 .env
 .env.*
