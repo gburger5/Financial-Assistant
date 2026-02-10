@@ -1,7 +1,7 @@
 import "dotenv/config";
-import Fastify from "fastify";
+import { buildApp } from "./app";
 
-const app = Fastify({ logger: true });
+const app = buildApp();
 
 const port = Number(process.env.PORT ?? 4000);
 
