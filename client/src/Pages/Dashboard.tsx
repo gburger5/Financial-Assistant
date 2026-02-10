@@ -47,6 +47,7 @@ function Dashboard() {
           </Box>
         </Container>
       </Box>
+
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         {/* Welcome Section */}
         <Box sx={{ mb: 4 }}>
@@ -56,6 +57,7 @@ function Dashboard() {
           </Box>
         </Box>
         <Grid container spacing={3}>
+
           {/* Financial Summary Cards Row */}
           <Grid item xs={12} md={4}>
             <Paper className="wireframe-card summary-card">
@@ -86,8 +88,37 @@ function Dashboard() {
               </Box>
             </Paper>
           </Grid>
+          
+          {/* Agent Actions Section */}
+          <Grid item xs={12} lg={8}>
+            <Paper className="wireframe-card section-card">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  AI Agent Actions
+                </Typography>
+                <Button variant="outlined" size="small">
+                  View All
+                </Button>
+              </Box>
+              
+              <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Agent Action Item 1</Typography>
+                <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
+              </Box>
+              
+              <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
+                <Typography variant="body2">Agent Action Item 2</Typography>
+                <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
+              </Box>
+              
+              <Box className="placeholder-box list-item-box">
+                <Typography variant="body2">Agent Action Item 3</Typography>
+                <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
+              </Box>
+            </Paper>
+          </Grid>
 
-                    {/* Quick Actions Sidebar */}
+          {/* Quick Actions Sidebar */}
           <Grid item xs={12} lg={4}>
             <Paper className="wireframe-card section-card">
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
