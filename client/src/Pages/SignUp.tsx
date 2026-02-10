@@ -51,7 +51,7 @@ function SignUp() {
       return
     }
 
-    if (!formData.email.includes('@') || !formData.email.includes('.com')) {
+    if (!formData.email.includes('@') && !formData.email.includes('.com')) {
         setError('Please put a valid email address')
         return
     }
