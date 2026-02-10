@@ -47,7 +47,49 @@ function Dashboard() {
           </Box>
         </Container>
       </Box>
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        {/* Welcome Section */}
+        <Box sx={{ mb: 4 }}>
+          <Box className="placeholder-box welcome-box">
+            <Typography variant="h5">Welcome Message</Typography>
+            <Typography variant="body2" color="text.secondary">Subtitle/Date</Typography>
+          </Box>
+        </Box>
+        <Grid container spacing={3}>
+          {/* Financial Summary Cards Row */}
+          <Grid item xs={12} md={4}>
+            <Paper className="wireframe-card summary-card">
+              <Box className="placeholder-box">
+                <Typography variant="body2" color="text.secondary">Total Balance</Typography>
+                <Typography variant="h4" sx={{ my: 1 }}>$XX,XXX.XX</Typography>
+                <Typography variant="caption">+X.X% this month</Typography>
+              </Box>
+            </Paper>
+          </Grid>
 
+          <Grid item xs={12} md={4}>
+            <Paper className="wireframe-card summary-card">
+              <Box className="placeholder-box">
+                <Typography variant="body2" color="text.secondary">Monthly Income</Typography>
+                <Typography variant="h4" sx={{ my: 1 }}>$X,XXX.XX</Typography>
+                <Typography variant="caption">From all sources</Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Paper className="wireframe-card summary-card">
+              <Box className="placeholder-box">
+                <Typography variant="body2" color="text.secondary">Monthly Expenses</Typography>
+                <Typography variant="h4" sx={{ my: 1 }}>$X,XXX.XX</Typography>
+                <Typography variant="caption">Across all categories</Typography>
+              </Box>
+            </Paper>
+          </Grid>
+
+        </Grid>
+
+      </Container>
 
     </Box>
   )
