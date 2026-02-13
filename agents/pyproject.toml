@@ -1,0 +1,9 @@
+[project]
+name = "financial-agents"
+version = "1.0.0"
+description = "Financial Intelligence Platform - Strands Agents Service"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*", "tools*"]
