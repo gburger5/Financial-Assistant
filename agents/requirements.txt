@@ -1,0 +1,10 @@
+strands-agents[anthropic]
+strands-agents-tools
+fastapi
+uvicorn
+boto3
+httpx
+plaid-python
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
