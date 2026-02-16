@@ -3,8 +3,6 @@ import cors from "@fastify/cors";
 import { registerUser, loginUser } from "./services/auth.js";
 import { verifyToken } from "./middleware/auth.js";
 
-
-
 interface RegisterBody {
   firstName: string;
   lastName: string;
