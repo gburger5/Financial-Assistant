@@ -4,7 +4,24 @@ frameworkVersion: '3'
 provider:
   name: aws
   runtime: nodejs18.x
-  region: us-east-2
+  region: us-east-1
+  environment:
+    JWT_SECRET: ${ssm:/myapp/jwt-secret}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+          Resource: "arn:aws:ssm:us-east-1:*:parameter/myapp/jwt-secret"
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/users"
+            - "arn:aws:dynamodb:us-east-1:*:table/users/index/email-index"
 
 functions:
   api:

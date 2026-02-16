@@ -68,6 +68,11 @@ Runs ESLint in each workspace.
 npm run lint
 ```
 
+Runs Test suite in each workspace.
+```sh
+npm run test
+```
+
 ### Pull Requests
 
 1. Create a new feature branch from main:
