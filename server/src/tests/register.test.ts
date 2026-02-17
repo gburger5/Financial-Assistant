@@ -94,33 +94,27 @@ describe('POST /register', () => {
   });
 
   it('should reject duplicate email registration', async () => {
-    const email = generateUniqueEmail();
-    await app.inject({
-      method: 'POST',
-      url: '/register',
-      payload: {
-        firstName: 'First',
-        lastName: 'User',
-        email,
-        password: 'Pass123!',
-        confirmPassword: 'Pass123!',
-      },
+      const email = generateUniqueEmail();
+      await app.inject({
+        method: 'POST',
+        url: '/register',
+        payload: {
+          firstName: 'First', lastName: 'User', email,
+          password: 'Pass123!', confirmPassword: 'Pass123!',
+        },
+      });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/register',
+        payload: {
+          firstName: 'Second', lastName: 'User', email,
+          password: 'Pass123!', confirmPassword: 'Pass123!',
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe('User already exists');
     });
-    const response = await app.inject({
-      method: 'POST',
-      url: '/register',
-      payload: {
-        firstName: 'Second',
-        lastName: 'User',
-        email,
-        password: 'Pass123!',
-        confirmPassword: 'Pass123!',
-      },
-    });
-    expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    expect(body.message).toContain('If this email is not already registered');
-  });
 
   it('should normalize email to lowercase', async () => {
     const response = await app.inject({

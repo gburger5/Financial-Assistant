@@ -89,28 +89,15 @@ export function buildApp() {
       });
     }
 
-    try {
-      const user = await registerUser(firstName, lastName, email, password);
-      req.log.info({ userId: user.id }, 'User registered successfully');
-      
-      // Don't reveal if user exists
-      return reply.status(200).send({
-        message: "Registration successful. Please check your email to verify your account.",
-        user
-      });
-    } catch (error) {
-      req.log.error({ error }, 'Registration error');
-      const message = error instanceof Error ? error.message : "Registration failed";
-      
-      // Generic error message for duplicate email
-      if (message === "User already exists") {
-        return reply.status(200).send({ 
-          message: "If this email is not already registered, you will receive a verification email shortly." 
-        });
+  try {
+        const user = await registerUser(firstName, lastName, email, password);
+        req.log.info({ userId: user.id }, 'User registered successfully');
+        return reply.status(200).send({ user });
+      } catch (error) {
+        req.log.error({ error }, 'Registration error');
+        const message = error instanceof Error ? error.message : "Registration failed";
+        return reply.status(400).send({ error: message });
       }
-      
-      return reply.status(400).send({ error: message });
-    }
   });
 
   // Login endpoint with strict limit and account lockout
