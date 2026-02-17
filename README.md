@@ -14,8 +14,9 @@ financial-assistant/
 ```
 
 ### Requirements
-* Node.js 18+
-* npm 9+
+* Node.js 24+ - https://nodejs.org/en/download
+* npm 10+
+* AWS CLI - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions
 
 ### Setup
 1. Clone the repository:
@@ -39,6 +40,24 @@ copy client/.env.example client/.env
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
+
+#### AWS Setup
+An IAM user role may be required depending on what features you are working on. Once you receive your access and secret keys, configure your AWS credentials:
+```sh
+aws configure
+```
+You will be prompted for:
+```sh
+AWS Access Key ID: <your key>
+AWS Secret Access Key: <your secret>
+Default region name: us-east-1
+Default output format: json
+```
+Verify your credentials are working:
+```sh
+shaws sts get-caller-identity
+```
+You should see a JSON response with your UserId, Account, and Arn.
 
 ### Development
 1. Start frontend and backend:
