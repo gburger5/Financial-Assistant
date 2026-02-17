@@ -20,7 +20,6 @@ describe('POST /register', () => {
 
   it('should register a new user successfully', async () => {
     const email = generateUniqueEmail();
-    
     const response = await app.inject({
       method: 'POST',
       url: '/register',
@@ -28,18 +27,17 @@ describe('POST /register', () => {
         firstName: 'John',
         lastName: 'Doe',
         email,
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
-
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('id');
-    expect(body).toHaveProperty('email');
-    expect(body.firstName).toBe('John');
-    expect(body.lastName).toBe('Doe');
-    expect(body.email).toBe(email.toLowerCase());
+    expect(body.user).toHaveProperty('id');
+    expect(body.user).toHaveProperty('email');
+    expect(body.user.firstName).toBe('John');
+    expect(body.user.lastName).toBe('Doe');
+    expect(body.user.email).toBe(email.toLowerCase());
   });
 
   it('should reject registration with mismatched passwords', async () => {
@@ -90,16 +88,13 @@ describe('POST /register', () => {
         confirmPassword: '123',
       },
     });
-
     expect(response.statusCode).toBe(400);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('Password must be at least 6 characters');
+    expect(body.error).toBe('Password must be at least 8 characters');
   });
 
   it('should reject duplicate email registration', async () => {
     const email = generateUniqueEmail();
-    
-    // First registration
     await app.inject({
       method: 'POST',
       url: '/register',
@@ -107,12 +102,10 @@ describe('POST /register', () => {
         firstName: 'First',
         lastName: 'User',
         email,
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
-
-    // Duplicate registration
     const response = await app.inject({
       method: 'POST',
       url: '/register',
@@ -120,14 +113,13 @@ describe('POST /register', () => {
         firstName: 'Second',
         lastName: 'User',
         email,
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
-
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('User already exists');
+    expect(body.message).toContain('If this email is not already registered');
   });
 
   it('should normalize email to lowercase', async () => {
@@ -138,13 +130,12 @@ describe('POST /register', () => {
         firstName: 'Test',
         lastName: 'User',
         email: `TEST${Date.now()}@EXAMPLE.COM`,
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
-
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body.email).toMatch(/^test.*@example\.com$/);
+    expect(body.user.email).toMatch(/^test.*@example\.com$/);
   });
 });

@@ -20,31 +20,17 @@ describe('POST /login', () => {
 
   it('should login successfully with valid credentials', async () => {
     const email = generateUniqueEmail();
-    const password = 'Pass123';
-
-    // Register user first
+    const password = 'Pass123!';
     await app.inject({
       method: 'POST',
       url: '/register',
-      payload: {
-        firstName: 'Login',
-        lastName: 'Test',
-        email,
-        password,
-        confirmPassword: password,
-      },
+      payload: { firstName: 'Login', lastName: 'Test', email, password, confirmPassword: password },
     });
-
-    // Login
     const response = await app.inject({
       method: 'POST',
       url: '/login',
-      payload: {
-        email,
-        password,
-      },
+      payload: { email, password },
     });
-
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body).toHaveProperty('token');
@@ -60,74 +46,48 @@ describe('POST /login', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/login',
-      payload: {
-        email: 'nonexistent@example.com',
-        password: 'WrongPass',
-      },
+      payload: { email: 'nonexistent@example.com', password: 'WrongPass' },
     });
-
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('Invalid credentials');
+    expect(body.error).toBe('Invalid email or password');
   });
 
   it('should reject login with invalid password', async () => {
     const email = generateUniqueEmail();
-
-    // Register user
     await app.inject({
       method: 'POST',
       url: '/register',
       payload: {
-        firstName: 'Test',
-        lastName: 'User',
-        email,
-        password: 'CorrectPass123',
-        confirmPassword: 'CorrectPass123',
+        firstName: 'Test', lastName: 'User', email,
+        password: 'CorrectPass123!', confirmPassword: 'CorrectPass123!',
       },
     });
-
-    // Try login with wrong password
     const response = await app.inject({
       method: 'POST',
       url: '/login',
-      payload: {
-        email,
-        password: 'WrongPass123',
-      },
+      payload: { email, password: 'WrongPass123!' },
     });
-
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('Invalid credentials');
+    expect(body.error).toBe('Invalid email or password');
   });
 
   it('should handle case-insensitive email login', async () => {
     const email = generateUniqueEmail();
-
-    // Register with lowercase
     await app.inject({
       method: 'POST',
       url: '/register',
       payload: {
-        firstName: 'Test',
-        lastName: 'User',
-        email: email.toLowerCase(),
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        firstName: 'Test', lastName: 'User', email: email.toLowerCase(),
+        password: 'Pass123!', confirmPassword: 'Pass123!',
       },
     });
-
-    // Login with uppercase
     const response = await app.inject({
       method: 'POST',
       url: '/login',
-      payload: {
-        email: email.toUpperCase(),
-        password: 'Pass123',
-      },
+      payload: { email: email.toUpperCase(), password: 'Pass123!' },
     });
-
     expect(response.statusCode).toBe(200);
   });
 });

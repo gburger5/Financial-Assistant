@@ -14,8 +14,6 @@ describe('GET /verify', () => {
 
   beforeEach(async () => {
     clearMockDb();
-    
-    // Create a user and get token before each test
     const email = generateUniqueEmail();
     testUser = { email, firstName: 'Verify', lastName: 'Test' };
 
@@ -26,18 +24,15 @@ describe('GET /verify', () => {
         firstName: testUser.firstName,
         lastName: testUser.lastName,
         email,
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
 
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/login',
-      payload: {
-        email,
-        password: 'Pass123',
-      },
+      payload: { email, password: 'Pass123!' },
     });
 
     const loginBody = JSON.parse(loginResponse.body);
@@ -110,10 +105,9 @@ describe('GET /verify', () => {
       method: 'GET',
       url: '/verify',
       headers: {
-        authorization: validToken, // Missing 'Bearer '
+        authorization: `token ${validToken}`,
       },
     });
-
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
     expect(body.error).toBe('No token provided');
