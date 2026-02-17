@@ -53,24 +53,150 @@ describe('POST /login', () => {
     expect(body.error).toBe('Invalid email or password');
   });
 
-  it('should reject login with invalid password', async () => {
+  it('should show remaining attempts on failed login', async () => {
     const email = generateUniqueEmail();
     await app.inject({
       method: 'POST',
       url: '/register',
       payload: {
         firstName: 'Test', lastName: 'User', email,
-        password: 'CorrectPass123!', confirmPassword: 'CorrectPass123!',
+        password: 'Pass123!', confirmPassword: 'Pass123!',
       },
     });
+
     const response = await app.inject({
       method: 'POST',
       url: '/login',
       payload: { email, password: 'WrongPass123!' },
     });
+
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('Invalid email or password');
+    expect(body.error).toContain('4 attempts remaining');
+  });
+
+  it('should lock account after 5 failed attempts', async () => {
+    const email = generateUniqueEmail();
+    await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: 'Test', lastName: 'User', email,
+        password: 'Pass123!', confirmPassword: 'Pass123!',
+      },
+    });
+
+    // 5 failed attempts
+    for (let i = 0; i < 5; i++) {
+      await app.inject({
+        method: 'POST',
+        url: '/login',
+        payload: { email, password: 'WrongPass123!' },
+      });
+    }
+
+    // 6th attempt - should be locked
+    const response = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { email, password: 'WrongPass123!' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.error).toContain('Account locked');
+  });
+
+  it('should lock account even with correct password after 5 failed attempts', async () => {
+    const email = generateUniqueEmail();
+    await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: 'Test', lastName: 'User', email,
+        password: 'Pass123!', confirmPassword: 'Pass123!',
+      },
+    });
+
+    // 5 failed attempts
+    for (let i = 0; i < 5; i++) {
+      await app.inject({
+        method: 'POST',
+        url: '/login',
+        payload: { email, password: 'WrongPass123!' },
+      });
+    }
+
+    // Try with correct password - still locked
+    const response = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { email, password: 'Pass123!' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.error).toContain('Account locked');
+  });
+
+  it('should reset failed attempts after successful login', async () => {
+    const email = generateUniqueEmail();
+    await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: 'Test', lastName: 'User', email,
+        password: 'Pass123!', confirmPassword: 'Pass123!',
+      },
+    });
+
+    // 2 failed attempts
+    for (let i = 0; i < 2; i++) {
+      await app.inject({
+        method: 'POST',
+        url: '/login',
+        payload: { email, password: 'WrongPass123!' },
+      });
+    }
+
+    // Successful login resets counter
+    const successResponse = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { email, password: 'Pass123!' },
+    });
+    expect(successResponse.statusCode).toBe(200);
+
+    // Should have full 5 attempts again
+    for (let i = 0; i < 4; i++) {
+      await app.inject({
+        method: 'POST',
+        url: '/login',
+        payload: { email, password: 'WrongPass123!' },
+      });
+    }
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { email, password: 'WrongPass123!' },
+    });
+
+    // 5th attempt - should lock now, not before
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.error).toContain('Account locked');
+  });
+
+  it('should require email and password', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: { email: 'test@example.com' }, // missing password
+    });
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe('Email and password are required');
   });
 
   it('should handle case-insensitive email login', async () => {

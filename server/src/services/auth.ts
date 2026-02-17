@@ -85,7 +85,7 @@ export async function loginUser(email: string, password: string) {
 
   const user = result.Items?.[0];
   if (!user) {
-    throw new Error("Invalid credentials");
+    throw new Error("Invalid email or password");
   }
 
   // Check if account is locked
@@ -95,14 +95,15 @@ export async function loginUser(email: string, password: string) {
       const minutesLeft = Math.ceil((lockoutEnd.getTime() - Date.now()) / 60000);
       throw new Error(`Account locked. Try again in ${minutesLeft} minutes.`);
     }
-    // Lockout expired, reset counter
+    // Lockout expired, reset
     await db.send(new UpdateCommand({
       TableName: TABLE,
       Key: { id: user.id },
-      UpdateExpression: "SET failedLoginAttempts = :zero, accountLockedUntil = :null",
+      UpdateExpression: "SET failedLoginAttempts = :zero, accountLockedUntil = :null, updated_at = :now",
       ExpressionAttributeValues: {
         ":zero": 0,
         ":null": null,
+        ":now": new Date().toISOString(),
       },
     }));
     user.failedLoginAttempts = 0;
@@ -112,44 +113,46 @@ export async function loginUser(email: string, password: string) {
   const valid = await bcrypt.compare(password, user.password_hash);
   
   if (!valid) {
-    // Increment failed attempts
     const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
-    const updateParams: UpdateParams = {
-      TableName: TABLE,
-      Key: { id: user.id },
-      UpdateExpression: "SET failedLoginAttempts = :attempts, updated_at = :now",
-      ExpressionAttributeValues: {
-        ":attempts": newFailedAttempts,
-        ":now": new Date().toISOString(),
-      },
-    };
+    const shouldLock = newFailedAttempts >= 5;
+    const lockoutEnd = new Date();
+    lockoutEnd.setMinutes(lockoutEnd.getMinutes() + 15);
 
-    // Lock account after 5 failed attempts
-    if (newFailedAttempts >= 5) {
-      const lockoutEnd = new Date();
-      lockoutEnd.setMinutes(lockoutEnd.getMinutes() + 15);
-      updateParams.UpdateExpression += ", accountLockedUntil = :lockout";
-      updateParams.ExpressionAttributeValues[":lockout"] = lockoutEnd.toISOString();
-    }
-
-    await db.send(new UpdateCommand(updateParams));
-
-    if (newFailedAttempts >= 5) {
-      throw new Error("Account locked due to too many failed attempts. Try again in 15 minutes.");
-    }
-    
-    throw new Error("Invalid credentials");
-  }
-
-  // Reset failed attempts on successful login
-  if (user.failedLoginAttempts > 0) {
     await db.send(new UpdateCommand({
       TableName: TABLE,
       Key: { id: user.id },
-      UpdateExpression: "SET failedLoginAttempts = :zero, accountLockedUntil = :null",
+      UpdateExpression: shouldLock
+        ? "SET failedLoginAttempts = :attempts, accountLockedUntil = :lockout, updated_at = :now"
+        : "SET failedLoginAttempts = :attempts, updated_at = :now",
+      ExpressionAttributeValues: shouldLock ? {
+        ":attempts": newFailedAttempts,
+        ":lockout": lockoutEnd.toISOString(),
+        ":now": new Date().toISOString(),
+      } : {
+        ":attempts": newFailedAttempts,
+        ":now": new Date().toISOString(),
+      },
+    }));
+
+    // Throw lockout message immediately on 5th attempt
+    if (shouldLock) {
+      throw new Error("Account locked due to too many failed attempts. Try again in 15 minutes.");
+    }
+
+    const remaining = 5 - newFailedAttempts;
+    throw new Error(`Invalid email or password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+  }
+
+  // Reset on successful login
+  if ((user.failedLoginAttempts || 0) > 0) {
+    await db.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { id: user.id },
+      UpdateExpression: "SET failedLoginAttempts = :zero, accountLockedUntil = :null, updated_at = :now",
       ExpressionAttributeValues: {
         ":zero": 0,
         ":null": null,
+        ":now": new Date().toISOString(),
       },
     }));
   }
@@ -174,11 +177,4 @@ export async function loginUser(email: string, password: string) {
       email: user.email
     }
   };
-}
-
-interface UpdateParams {
-  TableName: string;
-  Key: { id: string };
-  UpdateExpression: string;
-  ExpressionAttributeValues: Record<string, string | number | null>;
 }

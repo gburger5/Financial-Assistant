@@ -102,29 +102,28 @@ export function buildApp() {
 
   // Login endpoint with strict limit and account lockout
   app.post<{ Body: LoginBody }>("/login", {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: '15 minutes'
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes'
+        }
       }
-    }
-  }, async (req, reply) => {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return reply.status(400).send({ error: "Email and password are required" });
-    }
-    
-    try {
-      const result = await loginUser(email, password);
-      return result;
-    } catch {
-      req.log.warn({ email }, 'Login attempt failed');
-      return reply.status(401).send({ 
-        error: "Invalid email or password" 
-      });
-    }
-  });
+    }, async (req, reply) => {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return reply.status(400).send({ error: "Email and password are required" });
+      }
+      
+      try {
+        const result = await loginUser(email, password);
+        return result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid email or password";
+        req.log.warn({ email }, 'Login attempt failed');
+        return reply.status(401).send({ error: message });
+      }
+    });
 
   return app;
 }

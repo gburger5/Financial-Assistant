@@ -67,14 +67,15 @@ export const mockDb = {
     const foundUser = Array.from(users.values()).find(u => u.email === normalizedEmail);
 
     if (!foundUser) {
-      throw new Error('Invalid credentials');
+      throw new Error('Invalid email or password');
     }
 
     // Check account lockout
     if (foundUser.accountLockedUntil) {
       const lockoutEnd = new Date(foundUser.accountLockedUntil);
       if (new Date() < lockoutEnd) {
-        throw new Error('Account locked. Try again later.');
+        const minutesLeft = Math.ceil((lockoutEnd.getTime() - Date.now()) / 60000);
+        throw new Error(`Account locked. Try again in ${minutesLeft} minutes.`);
       }
       foundUser.failedLoginAttempts = 0;
       foundUser.accountLockedUntil = null;
@@ -82,18 +83,20 @@ export const mockDb = {
 
     if (foundUser.password !== password) {
       foundUser.failedLoginAttempts += 1;
-      
-      if (foundUser.failedLoginAttempts >= 5) {
+      const shouldLock = foundUser.failedLoginAttempts >= 5;
+
+      if (shouldLock) {
         const lockoutEnd = new Date();
         lockoutEnd.setMinutes(lockoutEnd.getMinutes() + 15);
         foundUser.accountLockedUntil = lockoutEnd.toISOString();
-        throw new Error('Account locked due to too many failed attempts.');
+        throw new Error('Account locked due to too many failed attempts. Try again in 15 minutes.');
       }
-      
-      throw new Error('Invalid credentials');
+
+      const remaining = 5 - foundUser.failedLoginAttempts;
+      throw new Error(`Invalid email or password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
     }
 
-    // Reset failed attempts on successful login
+    // Reset on success
     foundUser.failedLoginAttempts = 0;
     foundUser.accountLockedUntil = null;
 
@@ -109,9 +112,6 @@ export const mockDb = {
     );
 
     const { password: _, ...userWithoutPassword } = foundUser;
-    return {
-      token,
-      user: userWithoutPassword,
-    };
+    return { token, user: userWithoutPassword };
   },
 };
