@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import './mocks/auth.js';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getApp, closeApp, generateUniqueEmail, clearMockDb } from './helpers.js';

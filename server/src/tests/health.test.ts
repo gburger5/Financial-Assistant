@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getApp, closeApp } from './helpers.js';
 import type { FastifyInstance } from 'fastify';

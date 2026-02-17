@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import './mocks/auth.js';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getApp, closeApp, generateUniqueEmail, clearMockDb } from './helpers.js';
@@ -57,11 +56,6 @@ describe('GET /verify', () => {
         authorization: `Bearer ${validToken}`,
         },
     });
-
-    // Log the response
-    console.log('Token:', validToken);
-    console.log('Response status:', response.statusCode);
-    console.log('Response body:', response.body);
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);

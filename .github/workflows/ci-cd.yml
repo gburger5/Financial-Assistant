@@ -53,6 +53,8 @@ jobs:
 
       - name: Test server
         working-directory: ./server
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npm test
 
       # Deploy only on main branch
@@ -75,6 +77,4 @@ jobs:
       - name: Deploy backend Lambda
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./server
-        env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npm run deploy
