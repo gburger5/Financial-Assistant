@@ -3,7 +3,7 @@ frameworkVersion: '3'
 
 provider:
   name: aws
-  runtime: nodejs24.x
+  runtime: nodejs20.x
   region: us-east-1
   environment:
     JWT_SECRET: ${ssm:/myapp/jwt-secret}
@@ -42,4 +42,4 @@ plugins:
 custom:
   esbuild:
     bundle: true
-    target: node24
+    target: node20
