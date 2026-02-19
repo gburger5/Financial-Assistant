@@ -12,6 +12,8 @@ import {
   Divider,
   Link,
   Alert,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material'
 import {
   Visibility,
@@ -28,6 +30,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -55,7 +58,13 @@ function Login() {
         return
       }
 
-      localStorage.setItem('token', data.token)
+      // Remember Me: persist token across browser closes vs session only
+      if (rememberMe) {
+        localStorage.setItem('token', data.token)
+      } else {
+        sessionStorage.setItem('token', data.token)
+      }
+
       navigate('/dashboard')
     } catch {
       setError('Unable to connect to server. Please try again.')
@@ -138,7 +147,21 @@ function Login() {
               sx={{ mb: 1.5 }}
             />
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Remember me
+                  </Typography>
+                }
+              />
               <Link
                 href="#"
                 variant="body2"

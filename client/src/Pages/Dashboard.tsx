@@ -21,12 +21,22 @@ import './Dashboard.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
+// Helper to read token from whichever storage it was saved in
+const getToken = () =>
+  localStorage.getItem('token') || sessionStorage.getItem('token')
+
+// Helper to clear token from both storages
+const clearToken = () => {
+  localStorage.removeItem('token')
+  sessionStorage.removeItem('token')
+}
+
 function Dashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
     const verifyAuth = async () => {
-      const token = localStorage.getItem('token')
+      const token = getToken()
 
       if (!token) {
         navigate('/login')
@@ -42,11 +52,11 @@ function Dashboard() {
         })
 
         if (!res.ok) {
-          localStorage.removeItem('token')
+          clearToken()
           navigate('/login')
         }
       } catch {
-        localStorage.removeItem('token')
+        clearToken()
         navigate('/login')
       }
     }
@@ -55,7 +65,7 @@ function Dashboard() {
   }, [navigate])
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
+    clearToken()
     navigate('/login')
   }
 
@@ -145,17 +155,17 @@ function Dashboard() {
                   View All
                 </Button>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
                 <Typography variant="body2">Agent Action Item 1</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
                 <Typography variant="body2">Agent Action Item 2</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box">
                 <Typography variant="body2">Agent Action Item 3</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
@@ -169,7 +179,7 @@ function Dashboard() {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Quick Actions
               </Typography>
-              
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box className="placeholder-box action-button-box">
                   <Typography variant="body2">View Transactions</Typography>
