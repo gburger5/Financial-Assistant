@@ -9,11 +9,13 @@ import {
   Button,
   IconButton,
   Avatar,
+  Tooltip,
 } from '@mui/material'
 import {
   Person,
   Notifications,
   Settings,
+  Logout,
 } from '@mui/icons-material'
 import './Dashboard.css'
 
@@ -52,6 +54,11 @@ function Dashboard() {
     verifyAuth()
   }, [navigate])
 
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    navigate('/login')
+  }
+
   return (
     <Box className="dashboard-wireframe-container">
       {/* Header */}
@@ -76,6 +83,11 @@ function Dashboard() {
                   <Person />
                 </Avatar>
               </IconButton>
+              <Tooltip title="Logout">
+                <IconButton onClick={handleLogout} color="default">
+                  <Logout />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Box>
         </Container>
