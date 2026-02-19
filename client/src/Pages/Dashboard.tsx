@@ -1,4 +1,5 @@
-//import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Container,
@@ -16,8 +17,40 @@ import {
 } from '@mui/icons-material'
 import './Dashboard.css'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 function Dashboard() {
-  //const navigate = useNavigate()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        navigate('/login')
+        return
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/verify`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!res.ok) {
+          localStorage.removeItem('token')
+          navigate('/login')
+        }
+      } catch {
+        localStorage.removeItem('token')
+        navigate('/login')
+      }
+    }
+
+    verifyAuth()
+  }, [navigate])
 
   return (
     <Box className="dashboard-wireframe-container">
