@@ -25,6 +25,8 @@ import {
 } from '@mui/icons-material'
 import './SignUp.css'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 function SignUp() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
@@ -37,37 +39,86 @@ function SignUp() {
     confirmPassword: '',
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [field]: e.target.value })
   }
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+    const { firstName, lastName, email, password, confirmPassword } = formData
+
+    if (!firstName || !lastName || !email || !password) {
       setError('Please fill in all fields')
       return
     }
 
-    if (!formData.email.includes('@') && !formData.email.includes('.com')) {
-        setError('Please put a valid email address')
-        return
+    if (!email.includes('@') && !email.includes('.com')) {
+      setError('Please put a valid email address')
+      return
     }
 
-    if (formData.password.length < 8) {
+    if (password.length < 8) {
       setError('Password must be at least 8 characters')
       return
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    const hasUpper = /[A-Z]/.test(password)
+    const hasLower = /[a-z]/.test(password)
+    const hasNumber = /\d/.test(password)
+
+    if (!hasUpper || !hasLower || !hasNumber) {
+      setError('Password must contain uppercase, lowercase, and number')
+      return
+    }
+
+    if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    navigate('/dashboard')
-  }
+    setLoading(true)
+        try {
+        // Step 1: Register
+        const registerRes = await fetch(`${API_BASE}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ firstName, lastName, email, password, confirmPassword }),
+        })
+
+        const registerData = await registerRes.json()
+
+        if (!registerRes.ok) {
+            setError(registerData.error || 'Registration failed. Please try again.')
+            return
+        }
+
+        // Step 2: Auto-login
+        const loginRes = await fetch(`${API_BASE}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        })
+
+        const loginData = await loginRes.json()
+
+        if (!loginRes.ok) {
+            // Registration succeeded but auto-login failed, send to login page
+            navigate('/login')
+            return
+        }
+
+        localStorage.setItem('token', loginData.token)
+        navigate('/dashboard')
+        } catch {
+        setError('Unable to connect to server. Please try again.')
+        } finally {
+        setLoading(false)
+        }
+    }
 
   return (
     <Box className="signup-container">
@@ -211,9 +262,10 @@ function SignUp() {
                     variant="contained"
                     size="large"
                     className="signup-button"
+                    disabled={loading}
                     sx={{ mt: 3 }}
                     >
-                    Create Account
+                    {loading ? 'Creating Account...' : 'Create Account'}
                     </Button>
 
                     <Divider sx={{ my: 3 }}>

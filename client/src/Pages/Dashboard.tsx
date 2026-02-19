@@ -1,4 +1,5 @@
-//import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Container,
@@ -8,16 +9,65 @@ import {
   Button,
   IconButton,
   Avatar,
+  Tooltip,
 } from '@mui/material'
 import {
   Person,
   Notifications,
   Settings,
+  Logout,
 } from '@mui/icons-material'
 import './Dashboard.css'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+// Helper to read token from whichever storage it was saved in
+const getToken = () =>
+  localStorage.getItem('token') || sessionStorage.getItem('token')
+
+// Helper to clear token from both storages
+const clearToken = () => {
+  localStorage.removeItem('token')
+  sessionStorage.removeItem('token')
+}
+
 function Dashboard() {
-  //const navigate = useNavigate()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const token = getToken()
+
+      if (!token) {
+        navigate('/login')
+        return
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/verify`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!res.ok) {
+          clearToken()
+          navigate('/login')
+        }
+      } catch {
+        clearToken()
+        navigate('/login')
+      }
+    }
+
+    verifyAuth()
+  }, [navigate])
+
+  const handleLogout = () => {
+    clearToken()
+    navigate('/login')
+  }
 
   return (
     <Box className="dashboard-wireframe-container">
@@ -43,6 +93,11 @@ function Dashboard() {
                   <Person />
                 </Avatar>
               </IconButton>
+              <Tooltip title="Logout">
+                <IconButton onClick={handleLogout} color="default">
+                  <Logout />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Box>
         </Container>
@@ -100,17 +155,17 @@ function Dashboard() {
                   View All
                 </Button>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
                 <Typography variant="body2">Agent Action Item 1</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box" sx={{ mb: 2 }}>
                 <Typography variant="body2">Agent Action Item 2</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
               </Box>
-              
+
               <Box className="placeholder-box list-item-box">
                 <Typography variant="body2">Agent Action Item 3</Typography>
                 <Typography variant="caption" color="text.secondary">Description and timestamp</Typography>
@@ -124,7 +179,7 @@ function Dashboard() {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Quick Actions
               </Typography>
-              
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box className="placeholder-box action-button-box">
                   <Typography variant="body2">View Transactions</Typography>
