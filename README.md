@@ -14,7 +14,7 @@ financial-assistant/
 ```
 
 ### Requirements
-* Node.js 24+ - https://nodejs.org/en/download
+* Node.js 20+ - https://nodejs.org/en/download
 * npm 10+
 * AWS CLI - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions
 
@@ -55,7 +55,7 @@ Default output format: json
 ```
 Verify your credentials are working:
 ```sh
-shaws sts get-caller-identity
+aws sts get-caller-identity
 ```
 You should see a JSON response with your UserId, Account, and Arn.
 
@@ -66,7 +66,7 @@ npm run dev
 ```
 
 * Frontend: http://localhost:5173
-* Backend: http://localhost:4000
+* Backend: http://localhost:3000
 
 #### Stop servers:
 * Ctrl + C
