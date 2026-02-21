@@ -12,6 +12,8 @@ import {
   Divider,
   Link,
   Alert,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material'
 import {
   Visibility,
@@ -21,28 +23,53 @@ import {
 } from '@mui/icons-material'
 import './Login.css'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 function Login() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    // Basic validation
     if (!email || !password) {
       setError('Please fill in all fields')
       return
     }
 
-    // Simulate login (replace with actual authentication)
-    if (email && password.length >= 6) {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Invalid credentials. Please try again.')
+        return
+      }
+
+      // Remember Me: persist token across browser closes vs session only
+      if (rememberMe) {
+        localStorage.setItem('token', data.token)
+      } else {
+        sessionStorage.setItem('token', data.token)
+      }
+
       navigate('/dashboard')
-    } else {
-      setError('Invalid credentials. Please try again.')
+    } catch {
+      setError('Unable to connect to server. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -120,7 +147,21 @@ function Login() {
               sx={{ mb: 1.5 }}
             />
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Remember me
+                  </Typography>
+                }
+              />
               <Link
                 href="#"
                 variant="body2"
@@ -140,8 +181,9 @@ function Login() {
               variant="contained"
               size="large"
               className="login-button"
+              disabled={loading}
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In'}
             </Button>
 
             <Divider sx={{ my: 3 }}>
