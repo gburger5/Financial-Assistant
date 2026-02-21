@@ -1,8 +1,9 @@
 import { db } from "../lib/db.js";
-import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
+import { createEmptyBudget } from "./budget.js";
 
 const TABLE = "users";
 
@@ -55,6 +56,12 @@ export async function registerUser(
     updated_at: new Date().toISOString(),
     failedLoginAttempts: 0,
     accountLockedUntil: null,
+    plaidItems: [],
+    onboarding: {
+      plaidLinked: false,
+      budgetAnalyzed: false,
+      budgetConfirmed: false,
+    },
   };
 
   await db.send(new PutCommand({
@@ -62,11 +69,13 @@ export async function registerUser(
     Item: user,
   }));
 
-  return { 
-    id: user.id, 
+  await createEmptyBudget(user.id);
+
+  return {
+    id: user.id,
     firstName: user.firstName,
     lastName: user.lastName,
-    email: user.email 
+    email: user.email
   };
 }
 
@@ -168,7 +177,7 @@ export async function loginUser(email: string, password: string) {
     { expiresIn: "7d" }
   );
 
-  return { 
+  return {
     token,
     user: {
       id: user.id,
@@ -177,4 +186,12 @@ export async function loginUser(email: string, password: string) {
       email: user.email
     }
   };
+}
+
+export async function getUserById(userId: string) {
+  const result = await db.send(new GetCommand({
+    TableName: TABLE,
+    Key: { id: userId },
+  }));
+  return result.Item ?? null;
 }

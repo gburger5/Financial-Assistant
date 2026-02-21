@@ -3,6 +3,8 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { registerUser, loginUser } from "./services/auth.js";
 import { verifyToken } from "./middleware/auth.js";
+import plaidRoutes from "./routes/plaid.js";
+import budgetRoutes from "./routes/budget.js";
 
 interface RegisterBody {
   firstName: string;
@@ -25,6 +27,7 @@ export function buildApp() {
   app.register(cors, {
     origin: allowedOrigin,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
   });
 
   // Rate limiting
@@ -57,15 +60,15 @@ export function buildApp() {
     }
   }, async (req, reply) => {
     req.log.info({ email: req.body.email }, 'Register request received');
-    
+
     const { firstName, lastName, email, password, confirmPassword } = req.body;
-    
+
     // Validation
     if (!firstName || !lastName || !email || !password) {
       req.log.warn('Missing required fields');
       return reply.status(400).send({ error: "All fields are required" });
     }
-        
+
     if (password !== confirmPassword) {
       req.log.warn('Passwords do not match');
       return reply.status(400).send({ error: "Passwords do not match" });
@@ -73,19 +76,19 @@ export function buildApp() {
 
     if (password.length < 8) {
       req.log.warn('Password too short');
-      return reply.status(400).send({ 
-        error: "Password must be at least 8 characters" 
+      return reply.status(400).send({
+        error: "Password must be at least 8 characters"
       });
     }
 
     const hasUpper = /[A-Z]/.test(password);
     const hasLower = /[a-z]/.test(password);
     const hasNumber = /\d/.test(password);
-    
+
     if (!hasUpper || !hasLower || !hasNumber) {
       req.log.warn('Password does not meet complexity requirements');
-      return reply.status(400).send({ 
-        error: "Password must contain uppercase, lowercase, and number" 
+      return reply.status(400).send({
+        error: "Password must contain uppercase, lowercase, and number"
       });
     }
 
@@ -110,11 +113,11 @@ export function buildApp() {
       }
     }, async (req, reply) => {
       const { email, password } = req.body;
-      
+
       if (!email || !password) {
         return reply.status(400).send({ error: "Email and password are required" });
       }
-      
+
       try {
         const result = await loginUser(email, password);
         return result;
@@ -124,6 +127,9 @@ export function buildApp() {
         return reply.status(401).send({ error: message });
       }
     });
+
+  app.register(plaidRoutes);
+  app.register(budgetRoutes);
 
   return app;
 }
