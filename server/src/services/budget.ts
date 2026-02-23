@@ -168,9 +168,10 @@ export async function analyzeAndPopulateBudget(
       TableName: USERS_TABLE,
       Key: { id: userId },
       UpdateExpression:
-        "SET plaidItems = list_append(plaidItems, :newItems), onboarding.plaidLinked = :t, onboarding.budgetAnalyzed = :t, updated_at = :now",
+        "SET plaidItems = list_append(if_not_exists(plaidItems, :emptyList), :newItems), onboarding.plaidLinked = :t, onboarding.budgetAnalyzed = :t, updated_at = :now",
       ExpressionAttributeValues: {
         ":newItems": [newItem],
+        ":emptyList": [],
         ":t": true,
         ":now": now,
       },
@@ -200,6 +201,14 @@ export async function updateBudget(
   const merged: Budget = {
     ...existing,
     ...updates,
+    income: { ...existing.income, ...(updates.income ?? {}) },
+    needs: {
+      housing: { ...existing.needs.housing, ...(updates.needs?.housing ?? {}) },
+      utilities: { ...existing.needs.utilities, ...(updates.needs?.utilities ?? {}) },
+      transportation: { ...existing.needs.transportation, ...(updates.needs?.transportation ?? {}) },
+      other: { ...existing.needs.other, ...(updates.needs?.other ?? {}) },
+    } as Budget["needs"],
+    wants: { ...existing.wants, ...(updates.wants ?? {}) },
     userId: existing.userId,
     budgetId: existing.budgetId,
     createdAt: existing.createdAt,

@@ -1,3 +1,5 @@
+/** Unit tests covering budgeting service */
+
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -59,7 +61,7 @@ describe('budget service', () => {
 
   describe('createEmptyBudget', () => {
     it('returns a budget with all null fields and PENDING status', async () => {
-      mockSend.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({} as unknown as void);
 
       const budget = await createEmptyBudget(USER_ID);
 
@@ -79,7 +81,7 @@ describe('budget service', () => {
     });
 
     it('sets createdAt and updatedAt to the current time', async () => {
-      mockSend.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({} as unknown as void);
 
       const before = Date.now();
       const budget = await createEmptyBudget(USER_ID);
@@ -92,7 +94,7 @@ describe('budget service', () => {
     });
 
     it('persists the budget via PutCommand', async () => {
-      mockSend.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({} as unknown as void);
 
       await createEmptyBudget(USER_ID);
 
@@ -105,7 +107,7 @@ describe('budget service', () => {
 
   describe('getBudget', () => {
     it('returns null when no budget exists for the user', async () => {
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockResolvedValueOnce({ Items: [] } as unknown as void);
 
       const result = await getBudget(USER_ID);
 
@@ -113,7 +115,7 @@ describe('budget service', () => {
     });
 
     it('returns null when Items is undefined', async () => {
-      mockSend.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({} as unknown as void);
 
       const result = await getBudget(USER_ID);
 
@@ -122,7 +124,7 @@ describe('budget service', () => {
 
     it('returns the budget when one is found', async () => {
       const budget = makeBudget({ income: { monthlyNet: 4000 } });
-      mockSend.mockResolvedValueOnce({ Items: [budget] });
+      mockSend.mockResolvedValueOnce({ Items: [budget] } as unknown as void);
 
       const result = await getBudget(USER_ID);
 
@@ -132,7 +134,7 @@ describe('budget service', () => {
     it('returns only the first item (most recent) when multiple exist', async () => {
       const first = makeBudget({ name: 'First' });
       const second = makeBudget({ name: 'Second' });
-      mockSend.mockResolvedValueOnce({ Items: [first, second] });
+      mockSend.mockResolvedValueOnce({ Items: [first, second] } as unknown as void);
 
       const result = await getBudget(USER_ID);
 
@@ -140,7 +142,7 @@ describe('budget service', () => {
     });
 
     it('queries using a QueryCommand', async () => {
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockResolvedValueOnce({ Items: [] } as unknown as void);
 
       await getBudget(USER_ID);
 
@@ -152,7 +154,7 @@ describe('budget service', () => {
 
   describe('analyzeAndPopulateBudget', () => {
     it('throws when no budget is found for the user', async () => {
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockResolvedValueOnce({ Items: [] } as unknown as void);
 
       await expect(
         analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [])
@@ -161,9 +163,9 @@ describe('budget service', () => {
 
     it('populates grocery spending from FOOD_AND_DRINK_GROCERIES transactions', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -187,9 +189,9 @@ describe('budget service', () => {
 
     it('maps INCOME_SALARY transactions correctly (Plaid sends income as negative)', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -206,9 +208,9 @@ describe('budget service', () => {
 
     it('maps FOOD_AND_DRINK_RESTAURANT and FOOD_AND_DRINK_FAST_FOOD to wants.takeout', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -232,9 +234,9 @@ describe('budget service', () => {
 
     it('aggregates utility transactions from multiple subcategories into one field', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -265,9 +267,9 @@ describe('budget service', () => {
 
     it('maps RENT_AND_UTILITIES_WATER to needs.utilities.utilities', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -284,9 +286,9 @@ describe('budget service', () => {
 
     it('maps shopping transactions across multiple subcategories to wants.shopping', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -317,9 +319,9 @@ describe('budget service', () => {
 
     it('skips transactions with unknown categories', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -337,9 +339,9 @@ describe('budget service', () => {
 
     it('skips transactions with no personal_finance_category', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -356,9 +358,9 @@ describe('budget service', () => {
 
     it('skips expense transactions with negative amounts (refunds)', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -375,9 +377,9 @@ describe('budget service', () => {
 
     it('skips positive-amount income transactions (would be a debit from income category)', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
         {
@@ -394,9 +396,9 @@ describe('budget service', () => {
 
     it('rounds totals to 2 decimal places', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       // 10.005 + 20.006 = ~30.011 → rounded to 30.01
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [
@@ -421,9 +423,9 @@ describe('budget service', () => {
 
     it('sets budget status back to PENDING after analysis', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'REVIEWED' })] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'REVIEWED' })] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, []);
 
@@ -432,9 +434,9 @@ describe('budget service', () => {
 
     it('makes exactly 3 db calls: query budget, put budget, update user', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, []);
 
@@ -443,13 +445,28 @@ describe('budget service', () => {
       expect(mockSend).toHaveBeenNthCalledWith(2, expect.any(PutCommand));
       expect(mockSend).toHaveBeenNthCalledWith(3, expect.any(UpdateCommand));
     });
+
+    it('uses if_not_exists in UpdateExpression so first-time users without a plaidItems attribute do not cause a DynamoDB error', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, []);
+
+      const updateCall = mockSend.mock.calls[2][0] as UpdateCommand;
+      expect(updateCall.input.UpdateExpression).toContain(
+        'list_append(if_not_exists(plaidItems, :emptyList), :newItems)'
+      );
+      expect(updateCall.input.ExpressionAttributeValues?.[':emptyList']).toEqual([]);
+    });
   });
 
   // ─── updateBudget ─────────────────────────────────────────────────────────
 
   describe('updateBudget', () => {
     it('throws when the budget is not found', async () => {
-      mockSend.mockResolvedValueOnce({ Items: [] });
+      mockSend.mockResolvedValueOnce({ Items: [] } as unknown as void);
 
       await expect(
         updateBudget(USER_ID, BUDGET_ID, { income: { monthlyNet: 5000 } })
@@ -458,8 +475,8 @@ describe('budget service', () => {
 
     it('merges an income update into the existing budget', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {
         income: { monthlyNet: 5000 },
@@ -470,8 +487,8 @@ describe('budget service', () => {
 
     it('merges nested needs updates', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()]} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {
         needs: {
@@ -490,10 +507,36 @@ describe('budget service', () => {
       expect(result.needs.other.personalCare).toBe(50);
     });
 
+    it('preserves sibling fields when only a partial nested object is sent', async () => {
+      const existing = makeBudget({
+        needs: {
+          housing: { rentOrMortgage: 1200 },
+          utilities: { utilities: 150 },
+          transportation: { carPayment: 300, gasFuel: 80 },
+          other: { groceries: 500, personalCare: 40 },
+        },
+      });
+      mockSend
+        .mockResolvedValueOnce({ Items: [existing] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await updateBudget(USER_ID, BUDGET_ID, {
+        needs: { housing: { rentOrMortgage: 1500 } } as Budget['needs'],
+      });
+
+      expect(result.needs.housing.rentOrMortgage).toBe(1500);
+      // siblings must survive the partial update
+      expect(result.needs.utilities.utilities).toBe(150);
+      expect(result.needs.transportation.carPayment).toBe(300);
+      expect(result.needs.transportation.gasFuel).toBe(80);
+      expect(result.needs.other.groceries).toBe(500);
+      expect(result.needs.other.personalCare).toBe(40);
+    });
+
     it('advances status from PENDING to REVIEWED', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'PENDING' })] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'PENDING' })] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {});
 
@@ -502,8 +545,8 @@ describe('budget service', () => {
 
     it('keeps status at REVIEWED if already REVIEWED', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'REVIEWED' })] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'REVIEWED' })] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {});
 
@@ -512,8 +555,8 @@ describe('budget service', () => {
 
     it('keeps status as CONFIRMED if already CONFIRMED', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'CONFIRMED' })] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget({ status: 'CONFIRMED' })] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {});
 
@@ -523,8 +566,8 @@ describe('budget service', () => {
     it('preserves userId, budgetId, and createdAt regardless of what is passed in updates', async () => {
       const existing = makeBudget();
       mockSend
-        .mockResolvedValueOnce({ Items: [existing] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [existing] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await updateBudget(USER_ID, BUDGET_ID, {
         userId: 'attacker-id',
@@ -539,8 +582,8 @@ describe('budget service', () => {
 
     it('updates the updatedAt timestamp', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget({ updatedAt: '2025-01-01T00:00:00.000Z' })] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget({ updatedAt: '2025-01-01T00:00:00.000Z' })] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const before = Date.now();
       const result = await updateBudget(USER_ID, BUDGET_ID, {});
@@ -553,8 +596,8 @@ describe('budget service', () => {
 
     it('persists the merged budget via PutCommand', async () => {
       mockSend
-        .mockResolvedValueOnce({ Items: [makeBudget()] })
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       await updateBudget(USER_ID, BUDGET_ID, { income: { monthlyNet: 4000 } });
 
@@ -569,8 +612,8 @@ describe('budget service', () => {
   describe('confirmBudget', () => {
     it('issues two UpdateCommands: one for the budget and one for the user', async () => {
       mockSend
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       await confirmBudget(USER_ID, BUDGET_ID);
 
@@ -581,8 +624,8 @@ describe('budget service', () => {
 
     it('resolves without returning a value', async () => {
       mockSend
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({});
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
 
       const result = await confirmBudget(USER_ID, BUDGET_ID);
 

@@ -56,14 +56,15 @@ Authorization: Bearer <jwt>
 
 The server:
 1. Exchanges the public token for a permanent `accessToken` and `itemId` via Plaid.
-2. Looks up any previously linked banks from `user.plaidItems`.
-3. Syncs settled transactions from **every** linked bank (including the new one) for the last 30 days.
-4. Calls `analyzeAndPopulateBudget`, which:
+2. Looks up any previously linked banks from `user.plaidItems` and decrypts their stored `accessToken` values (AES-256-GCM via `src/lib/encryption.ts`) so they can be used for live Plaid API calls.
+3. Syncs settled transactions from **every** linked bank (including the new one) for the last 30 days, using plaintext tokens.
+4. Encrypts the new `accessToken` with `encryptToken` before storage — the plaintext token never reaches DynamoDB.
+5. Calls `analyzeAndPopulateBudget`, which:
    - Creates an empty budget if none exists yet, or overwrites the fields of the existing one.
    - Maps each transaction's Plaid `personal_finance_category.detailed` code to a budget field.
-   - Appends the new `{ accessToken, itemId, linkedAt }` item to `user.plaidItems`.
+   - Appends the new `{ accessToken, itemId, linkedAt }` item (with encrypted token) to `user.plaidItems` using `list_append(if_not_exists(plaidItems, :emptyList), :newItems)` — safe for first-time users who have no `plaidItems` attribute yet.
    - Sets `onboarding.plaidLinked = true` and `onboarding.budgetAnalyzed = true` on the user record.
-5. Returns `{ budget, banksConnected }`.
+6. Returns `{ budget, banksConnected }`.
 
 The user can repeat this step to link additional banks. Each new bank's transactions are added to the total before re-analyzing, so all linked banks contribute to a single consolidated budget estimate.
 
@@ -84,7 +85,7 @@ Authorization: Bearer <jwt>
 { ...updated Budget fields... }
 ```
 
-The server fetches the existing budget, shallow-merges the updates in (protecting `userId`, `budgetId`, and `createdAt` from being overwritten), and advances `status` from `"PENDING"` to `"REVIEWED"`. The merged budget is written back via `PutCommand`.
+The server fetches the existing budget, deep-merges the updates in at each nested sub-object level (so a partial update to one field does not erase sibling fields), and advances `status` from `"PENDING"` to `"REVIEWED"`. `userId`, `budgetId`, and `createdAt` cannot be overwritten. The merged budget is written back via `PutCommand`.
 
 The `:budgetId` path parameter **must be URL-encoded** because the ID format `budget#<ULID>` contains a `#` character, which browsers interpret as a URL fragment. Use `encodeURIComponent(budget.budgetId)` in any frontend code.
 

@@ -153,12 +153,12 @@ Merges partial updates from the user into the existing budget.
 
 **Steps:**
 1. Query the budget by `userId` AND `budgetId` (exact key lookup). Throws `"Budget not found"` if not found.
-2. Shallow-merge `updates` into the existing budget, then forcibly restore `userId`, `budgetId`, and `createdAt` from the existing record so they cannot be overwritten by the caller.
+2. Deep-merge `updates` into the existing budget: each nested sub-object (`income`, `needs.housing`, `needs.utilities`, `needs.transportation`, `needs.other`, `wants`) is merged at its own level, so a partial update to one sub-field does not erase sibling fields. `userId`, `budgetId`, and `createdAt` are always taken from the existing record and cannot be overwritten.
 3. Advance `status`: `"PENDING"` → `"REVIEWED"`. If already `"REVIEWED"` or `"CONFIRMED"`, the status is preserved unchanged.
 4. Update `updatedAt` to the current time.
 5. Write back via `PutCommand`.
 
-The fetch-merge-put pattern is used instead of dynamic `UpdateExpression` construction to keep the code simple when updating deeply nested fields.
+The fetch-deep-merge-put pattern is used instead of dynamic `UpdateExpression` construction to keep the code simple when updating deeply nested fields.
 
 ---
 
@@ -278,7 +278,7 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 
 ---
 
-### `analyzeAndPopulateBudget` tests (12 tests)
+### `analyzeAndPopulateBudget` tests (15 tests)
 
 | Test | What it verifies |
 |------|-----------------|
@@ -296,6 +296,7 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 | Rounding to 2dp | `10.005 + 20.006 = 30.01` after `Math.round(total * 100) / 100` |
 | Resets status to PENDING | Even if existing budget was `REVIEWED`, status becomes `PENDING` after re-analysis |
 | 3 db calls in correct order | `QueryCommand` (getBudget) → `PutCommand` (budget) → `UpdateCommand` (user) |
+| `if_not_exists` guard | The `UpdateCommand` uses `list_append(if_not_exists(plaidItems, :emptyList), :newItems)` with `:emptyList: []`, preventing a DynamoDB `ValidationException` for first-time users who have no `plaidItems` attribute yet |
 
 **What must be true for tests to pass:**
 - `getBudget` is called first; if it returns `null`, the function must throw before any writes.
@@ -307,13 +308,14 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 
 ---
 
-### `updateBudget` tests (8 tests)
+### `updateBudget` tests (10 tests)
 
 | Test | What it verifies |
 |------|-----------------|
 | Throws on missing budget | `Items: []` from DynamoDB → throws `"Budget not found"` |
 | Merges income update | Passing `{ income: { monthlyNet: 5000 } }` sets the field correctly |
 | Merges nested needs | All nested `needs` sub-fields can be set in one call |
+| Partial nested update preserves siblings | Sending only `{ needs: { housing: { rentOrMortgage: 1500 } } }` does not erase `needs.utilities`, `needs.transportation`, or `needs.other` |
 | PENDING → REVIEWED | Status advances when existing status is `"PENDING"` |
 | REVIEWED stays REVIEWED | Status does not change if already `"REVIEWED"` |
 | CONFIRMED stays CONFIRMED | Status does not change if already `"CONFIRMED"` |
@@ -323,7 +325,7 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 
 **What must be true for tests to pass:**
 - The query must use both `userId` and `budgetId` as key conditions (exact item lookup).
-- The merge must use `{ ...existing, ...updates, userId: existing.userId, budgetId: existing.budgetId, createdAt: existing.createdAt }` — the explicit overrides after the spread are what protect immutable fields.
+- The merge must deep-merge each nested sub-object individually (e.g., `needs.housing`, `needs.utilities`) so that a partial update does not erase sibling fields. `userId`, `budgetId`, and `createdAt` must always be taken from the existing record regardless of what is in `updates`.
 - Status logic must be: `existing.status === "PENDING" ? "REVIEWED" : existing.status` — only `"PENDING"` is promoted; `"REVIEWED"` and `"CONFIRMED"` are left unchanged.
 
 ---
@@ -340,3 +342,51 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 - Two separate `UpdateCommand` writes must occur: one targeting `Budgets` (by `{ userId, budgetId }`) and one targeting `users` (by `{ id: userId }`).
 - No value must be returned from the function.
 - No swallowed errors — if DynamoDB rejects, the exception propagates to the caller.
+
+---
+
+## Route-level Tests
+
+**File:** `src/tests/budget.test.ts`
+
+Integration tests for the budget HTTP routes. These mount the full Fastify app and fire requests through `app.inject()`. The following modules are mocked:
+
+```ts
+vi.mock('../services/budget.js', ...)   // getBudget, updateBudget, confirmBudget, createEmptyBudget
+vi.mock('../services/auth.js', ...)     // registerUser, loginUser, getUserById
+```
+
+`BUDGET_ID = 'budget-ROUTETEST'` — uses a hyphen instead of `#` because `light-my-request` (Fastify's inject library) treats `#` as a URL fragment separator, which would silently truncate paths like `/budget/budget#ROUTETEST/confirm`.
+
+`vi.clearAllMocks()` runs in `beforeEach` to reset call history between tests.
+
+---
+
+### `GET /budget` (3 tests)
+
+| Test | What it verifies |
+|------|-----------------|
+| 401 — no auth header | Unauthenticated requests are rejected |
+| 404 — no budget exists | `getBudget` returning `null` yields `{ error: "No budget found" }` |
+| 200 — budget returned | Budget is wrapped as `{ budget }` and `getBudget` is called with the user's ID from the token |
+
+---
+
+### `PUT /budget/:budgetId` (4 tests)
+
+| Test | What it verifies |
+|------|-----------------|
+| 401 — no auth header | Unauthenticated requests are rejected |
+| 400 — service throws "Budget not found" | Error message from `updateBudget` is forwarded in `{ error }` |
+| 200 — budget updated | Updated budget returned as `{ budget }`; `updateBudget` called with correct `userId`, `budgetId`, and body |
+| Args forwarded correctly | Route param and request body are both passed to `updateBudget` |
+
+---
+
+### `POST /budget/:budgetId/confirm` (3 tests)
+
+| Test | What it verifies |
+|------|-----------------|
+| 401 — no auth header | Unauthenticated requests are rejected |
+| 200 — confirmed | Returns `{ confirmed: true }`; `confirmBudget` called with correct `userId` and `budgetId` |
+| 400 — service throws | Error message from `confirmBudget` is forwarded in `{ error }` |

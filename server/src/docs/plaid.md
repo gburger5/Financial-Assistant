@@ -26,6 +26,7 @@ All Plaid logic lives in two files:
 | `PLAID_CLIENT_ID` | Your app's client ID from the Plaid developer dashboard |
 | `PLAID_SECRET` | Environment-specific secret (use the **sandbox** secret for development) |
 | `PLAID_ENV` | `sandbox`, `development`, or `production` (default: `sandbox`) |
+| `ENCRYPTION_KEY` | 64-character hex string (32 bytes) used to encrypt access tokens at rest with AES-256-GCM. Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Falls back to all-zeros in non-production; **required in production**. |
 
 The `PlaidApi` client in `src/lib/plaid.ts` reads these at startup and sets the correct `basePath` via `PlaidEnvironments[env]`.
 
@@ -56,7 +57,7 @@ Returns only the `link_token` string. The token is short-lived; the frontend mus
 
 After the user completes Plaid Link, the widget fires `onSuccess` with a one-time `public_token`. This function exchanges it for the long-lived credentials needed to pull data.
 
-- `accessToken` — used in all future API calls for this bank connection. Stored encrypted-at-rest in DynamoDB under the user's `plaidItems` list.
+- `accessToken` — used in all future API calls for this bank connection. The service returns it as plaintext; the route handler encrypts it with `encryptToken` (AES-256-GCM) before storing in DynamoDB under the user's `plaidItems` list.
 - `itemId` — Plaid's identifier for the bank connection (Item). Stored alongside `accessToken`.
 
 The raw Plaid response also includes `request_id` and other metadata; only `access_token` and `item_id` are extracted and returned.
@@ -93,6 +94,34 @@ interface PlaidTransaction {
 
 ---
 
+## Token Encryption
+
+**File:** `src/lib/encryption.ts`
+
+Plaid `accessToken` values are encrypted at rest using **AES-256-GCM** via Node.js's built-in `crypto` module. Encryption and decryption happen in the route handler (`src/routes/plaid.ts`); the service layer (`src/services/plaid.ts`) always operates on plaintext tokens.
+
+### `encryptToken(plaintext: string): string`
+
+Encrypts a plaintext token. Returns a colon-delimited hex string: `iv:authTag:ciphertext`.
+
+- Uses a 96-bit random IV per call (never reuses IVs, which is critical for GCM security).
+- The GCM auth tag allows tamper detection on decryption.
+
+### `decryptToken(encrypted: string): string`
+
+Decrypts a value produced by `encryptToken`. Throws if the auth tag is invalid (tampered or corrupted ciphertext).
+
+### Key configuration
+
+| Setting | Details |
+|---------|---------|
+| Algorithm | AES-256-GCM |
+| Key source | `ENCRYPTION_KEY` env var — 64-character hex string (32 bytes) |
+| Non-production fallback | All-zeros key (development/test only; **never use in production**) |
+| Production guard | If `ENCRYPTION_KEY` is unset and `NODE_ENV === "production"`, startup throws immediately |
+
+---
+
 ## API Routes
 
 Both routes are defined in `src/routes/plaid.ts` and require a valid Bearer JWT (`verifyToken` pre-handler).
@@ -125,12 +154,13 @@ Exchanges a public token, syncs transactions from all linked banks, and triggers
 
 **What happens internally:**
 1. Exchange the new public token → `accessToken` + `itemId`.
-2. Fetch `user.plaidItems` for previously linked banks.
-3. Sync transactions from **all** banks (existing + new) in parallel via `Promise.all`.
-4. Call `analyzeAndPopulateBudget` with the combined transaction set.
-5. Return the updated budget and total number of linked banks.
+2. Fetch `user.plaidItems` for previously linked banks; decrypt each stored `accessToken` with `decryptToken` so it can be used for Plaid API calls.
+3. Sync transactions from **all** banks (existing + new) in parallel via `Promise.all`, using plaintext tokens.
+4. Encrypt the new `accessToken` with `encryptToken` before building the item record to store.
+5. Call `analyzeAndPopulateBudget` with the combined transaction set and the encrypted new item.
+6. Return the updated budget and total number of linked banks.
 
-This design means each new bank link re-analyzes all transaction history, keeping the budget estimate accurate across multiple institutions.
+This design means each new bank link re-analyzes all transaction history, keeping the budget estimate accurate across multiple institutions. Access tokens are always decrypted in memory for API calls and re-encrypted before any write to DynamoDB.
 
 ---
 
@@ -209,3 +239,49 @@ Each `beforeEach` calls `vi.clearAllMocks()` to reset call counts and return val
 - `merchant_name` must be resolved as `tx.merchant_name ?? tx.original_description ?? ""`.
 - `personal_finance_category` must be set to `tx.personal_finance_category ?? null` (never `undefined`).
 - `transactionsSync` must be called with `{ access_token, cursor, count: 500, options: { days_requested: 30, include_personal_finance_category: true } }`.
+
+---
+
+## Route-level Tests
+
+**File:** `src/tests/plaid.test.ts`
+
+Integration tests for the Plaid HTTP routes. These mount the full Fastify app and fire requests through `app.inject()`. The following modules are mocked so no real external calls are made:
+
+```ts
+vi.mock('../services/plaid.js', ...)    // createLinkToken, exchangePublicToken, syncTransactions
+vi.mock('../services/budget.js', ...)   // analyzeAndPopulateBudget
+vi.mock('../services/auth.js', ...)     // getUserById
+vi.mock('../lib/encryption.js', () => ({
+  encryptToken: vi.fn((token) => `enc:${token}`),
+  decryptToken: vi.fn((token) => token.replace(/^enc:/, '')),
+}));
+```
+
+`vi.clearAllMocks()` runs in `beforeEach` to reset call history between tests.
+
+---
+
+### `POST /plaid/create-link-token` (3 tests)
+
+| Test | What it verifies |
+|------|-----------------|
+| 401 — no auth header | Unauthenticated requests are rejected before the handler runs |
+| 200 — returns `link_token` | `createLinkToken` is called with the user's ID; its return value is forwarded as `{ link_token }` |
+| 500 — service throws | If `createLinkToken` rejects, a `500` with `{ error: "Failed to create link token" }` is returned |
+
+---
+
+### `POST /plaid/exchange-token` (5 tests)
+
+| Test | What it verifies |
+|------|-----------------|
+| 401 — no auth header | Unauthenticated requests are rejected |
+| 400 — missing `public_token` | Body without `public_token` gets `{ error: "public_token is required" }` |
+| 200 — first-time user (no existing banks) | `syncTransactions` called once with the raw token; `analyzeAndPopulateBudget` called with the **encrypted** token (`enc:<raw>`); `banksConnected: 1` |
+| 200 — user with existing banks | Stored encrypted tokens are decrypted before syncing; `syncTransactions` called once per bank (existing + new); new token is encrypted before storage; `banksConnected` equals total linked banks |
+| 500 — `exchangePublicToken` throws | Error from Plaid is caught and returns `{ error: "Failed to link bank account" }` |
+
+**Key invariants tested:**
+- `syncTransactions` always receives **plaintext** tokens (decrypted from storage for existing banks, raw for the new one).
+- `analyzeAndPopulateBudget` always receives the new item with an **encrypted** token (`encryptToken` was called on it).

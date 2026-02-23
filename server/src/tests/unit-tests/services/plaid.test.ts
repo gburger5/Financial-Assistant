@@ -1,3 +1,5 @@
+/** Unit tests covering plaid service */
+
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('../../../lib/plaid.js', () => ({

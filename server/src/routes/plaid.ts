@@ -7,6 +7,7 @@ import {
 } from "../services/plaid.js";
 import { analyzeAndPopulateBudget } from "../services/budget.js";
 import { getUserById } from "../services/auth.js";
+import { encryptToken, decryptToken } from "../lib/encryption.js";
 
 export default async function plaidRoutes(app: FastifyInstance) {
   // Returns a short-lived link_token used to initialize Plaid Link on the frontend
@@ -45,7 +46,12 @@ export default async function plaidRoutes(app: FastifyInstance) {
 
         // Get existing linked banks so we can sync all of them
         const user = await getUserById(userId);
-        const existingItems: typeof newItem[] = user?.plaidItems ?? [];
+        // Decrypt stored tokens so they can be used for Plaid API calls
+        const rawExistingItems: typeof newItem[] = user?.plaidItems ?? [];
+        const existingItems = rawExistingItems.map((item) => ({
+          ...item,
+          accessToken: decryptToken(item.accessToken),
+        }));
         const allItems = [...existingItems, newItem];
 
         // Sync settled transactions from every linked bank and combine
@@ -53,8 +59,11 @@ export default async function plaidRoutes(app: FastifyInstance) {
           await Promise.all(allItems.map((item) => syncTransactions(item.accessToken)))
         ).flat();
 
+        // Encrypt the new item's access token before persisting
+        const itemToStore = { ...newItem, accessToken: encryptToken(newItem.accessToken) };
+
         // Analyze the combined transaction set and persist the budget
-        const budget = await analyzeAndPopulateBudget(userId, newItem, allTransactions);
+        const budget = await analyzeAndPopulateBudget(userId, itemToStore, allTransactions);
 
         return { budget, banksConnected: allItems.length };
       } catch (error) {
