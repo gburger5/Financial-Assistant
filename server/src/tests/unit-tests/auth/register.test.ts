@@ -1,6 +1,6 @@
-import './mocks/auth.js';
+import '../../mocks/auth.js';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { getApp, closeApp, generateUniqueEmail, clearMockDb } from './helpers.js';
+import { getApp, closeApp, generateUniqueEmail, clearMockDb } from '../../helpers.js';
 import type { FastifyInstance } from 'fastify';
 
 describe('POST /register', () => {
