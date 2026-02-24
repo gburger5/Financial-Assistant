@@ -3,6 +3,7 @@ import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
+import { LIMITS } from "../validation.js";
 
 const TABLE = "users";
 const AUTH_TOKENS_TABLE = "auth_tokens";
@@ -27,6 +28,23 @@ export async function registerUser(
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error("Invalid email format");
+  }
+
+  // Length validation
+  if (firstName.length < LIMITS.firstName.min || firstName.length > LIMITS.firstName.max) {
+    throw new Error(`First name must be between ${LIMITS.firstName.min} and ${LIMITS.firstName.max} characters`);
+  }
+
+  if (lastName.length < LIMITS.lastName.min || lastName.length > LIMITS.lastName.max) {
+    throw new Error(`Last name must be between ${LIMITS.lastName.min} and ${LIMITS.lastName.max} characters`);
+  }
+
+  if (email.length > LIMITS.email.max) {
+    throw new Error(`Email must not exceed ${LIMITS.email.max} characters`);
+  }
+
+  if (password.length < LIMITS.password.min || password.length > LIMITS.password.max) {
+    throw new Error(`Password must be between ${LIMITS.password.min} and ${LIMITS.password.max} characters`);
   }
 
   const normalizedEmail = email.toLowerCase();
