@@ -17,25 +17,16 @@ import {
   Settings,
   Logout,
 } from '@mui/icons-material'
+import { getToken, clearToken } from '../utils/auth'
 import './Dashboard.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-
-// Helper to read token from whichever storage it was saved in
-const getToken = () =>
-  localStorage.getItem('token') || sessionStorage.getItem('token')
-
-// Helper to clear token from both storages
-const clearToken = () => {
-  localStorage.removeItem('token')
-  sessionStorage.removeItem('token')
-}
 
 function Dashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const verifyAuth = async () => {
+    const verifyAuth = async (): Promise<void> => {
       const token = getToken()
 
       if (!token) {
@@ -56,7 +47,6 @@ function Dashboard() {
           navigate('/login')
         }
       } catch {
-        clearToken()
         navigate('/login')
       }
     }
@@ -64,7 +54,7 @@ function Dashboard() {
     verifyAuth()
   }, [navigate])
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     clearToken()
     navigate('/login')
   }
@@ -111,8 +101,8 @@ function Dashboard() {
             <Typography variant="body2" color="text.secondary">Subtitle/Date</Typography>
           </Box>
         </Box>
-        <Grid container spacing={3}>
 
+        <Grid container spacing={3}>
           {/* Financial Summary Cards Row */}
           <Grid item xs={12} md={4}>
             <Paper className="wireframe-card summary-card">
@@ -179,7 +169,6 @@ function Dashboard() {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Quick Actions
               </Typography>
-
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box className="placeholder-box action-button-box">
                   <Typography variant="body2">View Transactions</Typography>
@@ -260,11 +249,8 @@ function Dashboard() {
               </Box>
             </Paper>
           </Grid>
-
         </Grid>
-
       </Container>
-
     </Box>
   )
 }

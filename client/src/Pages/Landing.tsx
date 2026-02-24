@@ -99,7 +99,7 @@ function Landing() {
           clearToken()
         }
       } catch {
-        // Server unreachable — keep the token, try again next visit
+        // Server unreachable keep token try again next visit
       }
     }
 
@@ -141,7 +141,7 @@ function Landing() {
         </Container>
       </Box>
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <Container maxWidth="md" className="landing-hero">
         <Box className="landing-hero-inner">
           <Typography variant="h1" component="h1" className="hero-headline">
@@ -178,7 +178,7 @@ function Landing() {
         </Box>
       </Container>
 
-      {/* ── Features Grid ── */}
+      {/* Features Grid */}
       <Box className="features-section">
         <Container maxWidth="lg">
           <Typography variant="h4" component="h2" className="section-title" sx={{ mb: 1 }}>
@@ -201,7 +201,7 @@ function Landing() {
         </Container>
       </Box>
 
-      {/* ── How It Works / Checklist ── */}
+      {/* Preview + Checklist */}
       <Box className="checklist-section">
         <Container maxWidth="md">
           <Grid container spacing={6} alignItems="center">
@@ -274,22 +274,6 @@ function Landing() {
         </Container>
       </Box>
 
-      {/* ── Footer ── */}
-      <Box className="landing-footer">
-        <Container maxWidth="xl">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Box className="logo-container" sx={{ mb: 0 }}>
-              <Box className="logo-icon" style={{ width: 28, height: 28 }} />
-              <Typography variant="body1" component="span" className="logo-text">
-                FinanceAI
-              </Typography>
-            </Box>
-            <Typography variant="caption" className="footer-copy">
-              © {new Date().getFullYear()} FinanceAI. For development reference only.
-            </Typography>
-          </Box>
-        </Container>
-      </Box>
     </Box>
   )
 }

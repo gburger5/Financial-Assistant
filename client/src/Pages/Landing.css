@@ -1,4 +1,4 @@
-/* ── Container ─────────────────────────────────────────────── */
+/* Container */
 .landing-container {
   min-height: 100vh;
   position: relative;
@@ -6,7 +6,7 @@
   background: linear-gradient(135deg, #F7F9FC 0%, #E8EEF5 100%);
 }
 
-/* ── Background (reuses orb classes from Login.css) ────────── */
+/* Background (reuses orb classes from Login.css) */
 .landing-background {
   position: fixed;
   top: 0;
@@ -18,7 +18,7 @@
   pointer-events: none;
 }
 
-/* ── Navbar ─────────────────────────────────────────────────── */
+/* Navbar */
 .landing-nav {
   position: sticky;
   top: 0;
@@ -56,7 +56,7 @@
   box-shadow: 0 6px 20px rgba(10, 37, 64, 0.3) !important;
 }
 
-/* ── Hero ───────────────────────────────────────────────────── */
+/* Hero */
 .landing-hero {
   position: relative;
   z-index: 1;
@@ -143,7 +143,7 @@
   font-size: 0.85rem !important;
 }
 
-/* ── Features ───────────────────────────────────────────────── */
+/* Features */
 .features-section {
   position: relative;
   z-index: 1;
@@ -199,7 +199,7 @@
   line-height: 1.65 !important;
 }
 
-/* ── Checklist Section ──────────────────────────────────────── */
+/* Checklist Section */
 .checklist-section {
   position: relative;
   z-index: 1;
@@ -267,7 +267,7 @@
   font-weight: 500 !important;
 }
 
-/* ── Bottom CTA ─────────────────────────────────────────────── */
+/* Bottom CTA */
 .bottom-cta-section {
   position: relative;
   z-index: 1;
@@ -300,20 +300,7 @@
   color: #00B891;
 }
 
-/* ── Footer ─────────────────────────────────────────────────── */
-.landing-footer {
-  position: relative;
-  z-index: 1;
-  padding: 20px 0;
-  background: rgba(255, 255, 255, 0.7);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.footer-copy {
-  color: #94A3B8 !important;
-}
-
-/* ── Responsive ─────────────────────────────────────────────── */
+/* Responsive */
 @media (max-width: 900px) {
   .landing-hero {
     padding-top: 56px;
