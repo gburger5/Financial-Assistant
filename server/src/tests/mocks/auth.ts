@@ -1,3 +1,4 @@
+import './dynamodb.js';
 import { vi } from 'vitest';
 import { mockDb } from './db.js';
 

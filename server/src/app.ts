@@ -3,6 +3,8 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { registerUser, loginUser } from "./services/auth.js";
 import { verifyToken } from "./middleware/auth.js";
+import { db } from "./lib/db.js";
+import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 
 interface RegisterBody {
   firstName: string;
@@ -45,6 +47,42 @@ export function buildApp() {
       valid: true,
       user: req.user
     };
+  });
+
+  // Logout endpoint that revokes current session
+  app.post("/logout", { preHandler: verifyToken }, async (req, reply) => {
+    try {
+      const user = req.user!;
+
+      await db.send(new UpdateCommand({
+        TableName: "auth_tokens",
+        Key: { tokenId: user.jti },
+
+        UpdateExpression: "SET revoked = :true, revokedAt = :now",
+
+        // Only allow update if session actually exists
+        ConditionExpression: "attribute_exists(tokenId)",
+
+        ExpressionAttributeValues: {
+          ":true": true,
+          ":now": new Date().toISOString()
+        }
+      }));
+
+      req.log.info({ userId: user.userId, tokenId: user.jti }, "User logged out");
+
+      return reply.send({ success: true });
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.name === "ConditionalCheckFailedException"
+      ) {
+        return reply.send({ success: true });
+      }
+
+      req.log.error({ error }, "Logout failed");
+      return reply.status(500).send({ error: "Logout failed" });
+    }
   });
 
   // Register endpoint with rate limit and lockout tracking

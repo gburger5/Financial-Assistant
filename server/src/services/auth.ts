@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
 
 const TABLE = "users";
+const AUTH_TOKENS_TABLE = "auth_tokens";
 
 // Only allow fallback in non-production
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -157,16 +158,33 @@ export async function loginUser(email: string, password: string) {
     }));
   }
 
+  // Unique ID for specific session
+  const jti = uuid();
+
   const token = jwt.sign(
     { 
       userId: user.id, 
       email: user.email,
       firstName: user.firstName,
-      lastName: user.lastName
+      lastName: user.lastName,
+      jti
     },
     SECRET,
     { expiresIn: "7d" }
   );
+
+  // Store the issued token for revocation checks
+  await db.send(new PutCommand({
+    TableName: AUTH_TOKENS_TABLE,
+    Item: {
+      tokenId: jti,
+      userId: user.id,
+      type: "access",
+      revoked: false,
+      createdAt: new Date().toISOString(),
+      expiresAt: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+    }
+  }));
 
   return { 
     token,
