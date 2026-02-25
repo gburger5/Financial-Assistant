@@ -270,6 +270,12 @@ function renderBudgetForm(budget) {
         { label: "Monthly contribution", path: "investments.monthlyContribution" },
       ],
     },
+    {
+      title: "Debts",
+      fields: [
+        { label: "Minimum monthly payments", path: "debts.minimumPayments" },
+      ],
+    },
   ];
 
   for (const section of sections) {
@@ -354,6 +360,7 @@ function renderBudgetSummary(budget) {
     ["Takeout", budget.wants?.takeout],
     ["Shopping", budget.wants?.shopping],
     ["Investments (monthly)", budget.investments?.monthlyContribution],
+    ["Min. debt payments", budget.debts?.minimumPayments],
   ];
 
   container.innerHTML = lines

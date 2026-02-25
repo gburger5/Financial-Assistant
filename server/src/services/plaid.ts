@@ -9,7 +9,8 @@ export async function createLinkToken(userId: string): Promise<string> {
   const response = await plaidClient.linkTokenCreate({
     user: { client_user_id: userId },
     client_name: "Financial Assistant",
-    products: [Products.Transactions, Products.Investments],
+    products: [Products.Transactions],
+    optional_products: [Products.Investments, Products.Liabilities],
     country_codes: [CountryCode.Us],
     language: "en",
   });
@@ -136,6 +137,51 @@ export async function syncInvestmentTransactions(
     }
     // Log unexpected errors so we can diagnose silently-swallowed failures
     console.warn("[syncInvestmentTransactions] unhandled error", {
+      error_code: code,
+      message: (e as Error)?.message,
+    });
+    throw e;
+  }
+}
+
+// Returns the total minimum monthly debt payments across all liability accounts
+// (student loans, credit cards, mortgages) for an Item.
+export async function syncLiabilities(accessToken: string): Promise<number> {
+  try {
+    const response = await plaidClient.liabilitiesGet({
+      access_token: accessToken,
+    });
+
+    const { student, credit, mortgage } = response.data.liabilities;
+    let total = 0;
+
+    for (const loan of student ?? []) {
+      if (loan.minimum_payment_amount != null && loan.minimum_payment_amount > 0) {
+        total += loan.minimum_payment_amount;
+      }
+    }
+
+    for (const card of credit ?? []) {
+      if (card.minimum_payment_amount != null && card.minimum_payment_amount > 0) {
+        total += card.minimum_payment_amount;
+      }
+    }
+
+    for (const mort of mortgage ?? []) {
+      if (mort.next_monthly_payment != null && mort.next_monthly_payment > 0) {
+        total += mort.next_monthly_payment;
+      }
+    }
+
+    return Math.round(total * 100) / 100;
+  } catch (e: unknown) {
+    const code = (e as { response?: { data?: { error_code?: string } } })
+      ?.response?.data?.error_code;
+    if (code === "PRODUCTS_NOT_SUPPORTED" || code === "NO_LIABILITY_ACCOUNTS") {
+      console.warn("[syncLiabilities] liabilities not available for this item:", code);
+      return 0;
+    }
+    console.warn("[syncLiabilities] unhandled error", {
       error_code: code,
       message: (e as Error)?.message,
     });

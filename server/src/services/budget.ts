@@ -62,6 +62,9 @@ export interface Budget {
   investments: {
     monthlyContribution: number | null;
   };
+  debts: {
+    minimumPayments: number | null;
+  };
 }
 
 function emptyBudgetItem(userId: string): Budget {
@@ -82,6 +85,7 @@ function emptyBudgetItem(userId: string): Budget {
     },
     wants: { takeout: null, shopping: null },
     investments: { monthlyContribution: null },
+    debts: { minimumPayments: null },
   };
 }
 
@@ -131,7 +135,8 @@ export async function analyzeAndPopulateBudget(
   userId: string,
   newItem: PlaidItem,
   transactions: PlaidTransaction[],
-  investmentTransactions: InvestmentTransaction[] = []
+  investmentTransactions: InvestmentTransaction[] = [],
+  liabilityMinPayments: number = 0
 ): Promise<Budget> {
   const budget = await getBudget(userId);
   if (!budget) throw new Error("No budget found for user");
@@ -186,6 +191,10 @@ export async function analyzeAndPopulateBudget(
   if (contributionTotal > 0) {
     budget.investments.monthlyContribution =
       Math.round(contributionTotal * 100) / 100;
+  }
+
+  if (liabilityMinPayments > 0) {
+    budget.debts.minimumPayments = Math.round(liabilityMinPayments * 100) / 100;
   }
 
   budget.status = "PENDING";
@@ -243,6 +252,7 @@ export async function updateBudget(
     } as Budget["needs"],
     wants: { ...existing.wants, ...(updates.wants ?? {}) },
     investments: { ...existing.investments, ...(updates.investments ?? {}) },
+    debts: { ...existing.debts, ...(updates.debts ?? {}) },
     userId: existing.userId,
     budgetId: existing.budgetId,
     createdAt: existing.createdAt,

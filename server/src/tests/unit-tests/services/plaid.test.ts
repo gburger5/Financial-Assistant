@@ -8,6 +8,7 @@ vi.mock('../../../lib/plaid.js', () => ({
     itemPublicTokenExchange: vi.fn(),
     transactionsSync: vi.fn(),
     investmentsTransactionsGet: vi.fn(),
+    liabilitiesGet: vi.fn(),
   },
 }));
 
@@ -17,12 +18,14 @@ import {
   exchangePublicToken,
   syncTransactions,
   syncInvestmentTransactions,
+  syncLiabilities,
 } from '../../../services/plaid.js';
 
 const mockLinkTokenCreate = vi.mocked(plaidClient.linkTokenCreate);
 const mockExchangeToken = vi.mocked(plaidClient.itemPublicTokenExchange);
 const mockTransactionsSync = vi.mocked(plaidClient.transactionsSync);
 const mockInvestmentsTransactionsGet = vi.mocked(plaidClient.investmentsTransactionsGet);
+const mockLiabilitiesGet = vi.mocked(plaidClient.liabilitiesGet);
 
 // Minimal Plaid transaction shape used in tests
 function makePlaidTx(overrides: object = {}) {
@@ -100,7 +103,7 @@ describe('plaid service', () => {
       );
     });
 
-    it('requests the investments product', async () => {
+    it('lists investments as an optional product (not required)', async () => {
       mockLinkTokenCreate.mockResolvedValueOnce({
         data: { link_token: 'link-token' },
       } as never);
@@ -109,7 +112,21 @@ describe('plaid service', () => {
 
       expect(mockLinkTokenCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          products: expect.arrayContaining(['investments']),
+          optional_products: expect.arrayContaining(['investments']),
+        })
+      );
+    });
+
+    it('lists liabilities as an optional product (not required, enables best-effort initialization)', async () => {
+      mockLinkTokenCreate.mockResolvedValueOnce({
+        data: { link_token: 'link-token' },
+      } as never);
+
+      await createLinkToken('user-123');
+
+      expect(mockLinkTokenCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          optional_products: expect.arrayContaining(['liabilities']),
         })
       );
     });
@@ -422,14 +439,14 @@ describe('plaid service', () => {
 
       const startDate = new Date(call.start_date);
       const endDate = new Date(call.end_date);
-      const expectedStart = new Date(before.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const expectedStart = new Date(before.getTime() - 60 * 24 * 60 * 60 * 1000);
 
       // end_date should be today
       expect(endDate.toISOString().split('T')[0]).toBe(after.toISOString().split('T')[0]);
 
-      // start_date should be ~30 days ago (within 1 day tolerance for test timing)
+      // start_date should be ~60 days ago (within 1 day tolerance for test timing)
       const daysDiff = Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-      expect(daysDiff).toBe(30);
+      expect(daysDiff).toBe(60);
 
       // sanity: start is before or equal to expected
       expect(startDate.getTime()).toBeGreaterThanOrEqual(expectedStart.getTime() - 24 * 60 * 60 * 1000);
@@ -457,6 +474,146 @@ describe('plaid service', () => {
       mockInvestmentsTransactionsGet.mockRejectedValueOnce(new Error('Network timeout'));
 
       await expect(syncInvestmentTransactions('access-token')).rejects.toThrow('Network timeout');
+    });
+  });
+
+  // ─── syncLiabilities ──────────────────────────────────────────────────────
+
+  describe('syncLiabilities', () => {
+    it('returns the sum of student loan minimum payments', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: {
+            student: [
+              { minimum_payment_amount: 200 },
+              { minimum_payment_amount: 150 },
+            ],
+            credit: [],
+            mortgage: [],
+          },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(350);
+    });
+
+    it('returns the sum of credit card minimum payments', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: {
+            student: [],
+            credit: [
+              { minimum_payment_amount: 25 },
+              { minimum_payment_amount: 35 },
+            ],
+            mortgage: [],
+          },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(60);
+    });
+
+    it('uses next_monthly_payment for mortgages', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: {
+            student: [],
+            credit: [],
+            mortgage: [{ next_monthly_payment: 1200 }],
+          },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(1200);
+    });
+
+    it('sums across all liability types', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: {
+            student: [{ minimum_payment_amount: 300 }],
+            credit: [{ minimum_payment_amount: 50 }],
+            mortgage: [{ next_monthly_payment: 1500 }],
+          },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(1850);
+    });
+
+    it('skips null and zero minimum payment amounts', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: {
+            student: [{ minimum_payment_amount: null }, { minimum_payment_amount: 0 }],
+            credit: [{ minimum_payment_amount: 40 }],
+            mortgage: [],
+          },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(40);
+    });
+
+    it('returns 0 when all liability arrays are empty', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: { student: [], credit: [], mortgage: [] },
+        },
+      } as never);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(0);
+    });
+
+    it('returns 0 for PRODUCTS_NOT_SUPPORTED error', async () => {
+      const err = { response: { data: { error_code: 'PRODUCTS_NOT_SUPPORTED' } } };
+      mockLiabilitiesGet.mockRejectedValueOnce(err);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(0);
+    });
+
+    it('returns 0 for NO_LIABILITY_ACCOUNTS error', async () => {
+      const err = { response: { data: { error_code: 'NO_LIABILITY_ACCOUNTS' } } };
+      mockLiabilitiesGet.mockRejectedValueOnce(err);
+
+      const total = await syncLiabilities('access-token');
+
+      expect(total).toBe(0);
+    });
+
+    it('propagates unexpected errors from the Plaid API', async () => {
+      mockLiabilitiesGet.mockRejectedValueOnce(new Error('Server error'));
+
+      await expect(syncLiabilities('access-token')).rejects.toThrow('Server error');
+    });
+
+    it('calls liabilitiesGet with the provided access token', async () => {
+      mockLiabilitiesGet.mockResolvedValueOnce({
+        data: {
+          liabilities: { student: [], credit: [], mortgage: [] },
+        },
+      } as never);
+
+      await syncLiabilities('access-sandbox-liab');
+
+      expect(mockLiabilitiesGet).toHaveBeenCalledWith({
+        access_token: 'access-sandbox-liab',
+      });
     });
   });
 });

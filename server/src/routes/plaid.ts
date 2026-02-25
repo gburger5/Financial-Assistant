@@ -5,6 +5,7 @@ import {
   exchangePublicToken,
   syncTransactions,
   syncInvestmentTransactions,
+  syncLiabilities,
 } from "../services/plaid.js";
 import { analyzeAndPopulateBudget } from "../services/budget.js";
 import { getUserById } from "../services/auth.js";
@@ -60,11 +61,13 @@ export default async function plaidRoutes(app: FastifyInstance) {
           ? existingItems.map((i) => (i.itemId === newItem.itemId ? newItem : i))
           : [...existingItems, newItem];
 
-        // Sync regular and investment transactions from every linked bank in parallel
-        const [allTransactions, allInvestmentTransactions] = await Promise.all([
+        // Sync transactions, investment transactions, and liabilities from every linked bank in parallel
+        const [allTransactions, allInvestmentTransactions, allLiabilityMinPayments] = await Promise.all([
           Promise.all(allItems.map((item) => syncTransactions(item.accessToken))).then((r) => r.flat()),
           Promise.all(allItems.map((item) => syncInvestmentTransactions(item.accessToken))).then((r) => r.flat()),
+          Promise.all(allItems.map((item) => syncLiabilities(item.accessToken))),
         ]);
+        const totalLiabilityMinPayments = allLiabilityMinPayments.reduce((sum, n) => sum + n, 0);
 
         // Encrypt the new item's access token before persisting
         const itemToStore = { ...newItem, accessToken: encryptToken(newItem.accessToken) };
@@ -74,7 +77,8 @@ export default async function plaidRoutes(app: FastifyInstance) {
           userId,
           itemToStore,
           allTransactions,
-          allInvestmentTransactions
+          allInvestmentTransactions,
+          totalLiabilityMinPayments
         );
 
         return { budget, banksConnected: allItems.length };

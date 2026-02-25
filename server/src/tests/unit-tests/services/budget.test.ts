@@ -44,6 +44,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
     },
     wants: { takeout: null, shopping: null },
     investments: { monthlyContribution: null },
+    debts: { minimumPayments: null },
     ...overrides,
   };
 }
@@ -80,6 +81,7 @@ describe('budget service', () => {
       expect(budget.needs.other.personalCare).toBeNull();
       expect(budget.wants.takeout).toBeNull();
       expect(budget.wants.shopping).toBeNull();
+      expect(budget.debts.minimumPayments).toBeNull();
     });
 
     it('sets createdAt and updatedAt to the current time', async () => {
@@ -661,6 +663,39 @@ describe('budget service', () => {
 
       expect(result.investments.monthlyContribution).toBeNull();
     });
+
+    it('populates debts.minimumPayments from liabilityMinPayments', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [], 850);
+
+      expect(result.debts.minimumPayments).toBe(850);
+    });
+
+    it('rounds debts.minimumPayments to 2 decimal places', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [], 200.005);
+
+      expect(result.debts.minimumPayments).toBe(200.01);
+    });
+
+    it('leaves debts.minimumPayments null when liabilityMinPayments is 0', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [], 0);
+
+      expect(result.debts.minimumPayments).toBeNull();
+    });
   });
 
   // ─── updateBudget ─────────────────────────────────────────────────────────
@@ -805,6 +840,18 @@ describe('budget service', () => {
       expect(mockSend).toHaveBeenCalledTimes(2);
       expect(mockSend).toHaveBeenNthCalledWith(1, expect.any(QueryCommand));
       expect(mockSend).toHaveBeenNthCalledWith(2, expect.any(PutCommand));
+    });
+
+    it('merges a debts update into the existing budget', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await updateBudget(USER_ID, BUDGET_ID, {
+        debts: { minimumPayments: 450 },
+      });
+
+      expect(result.debts.minimumPayments).toBe(450);
     });
   });
 
