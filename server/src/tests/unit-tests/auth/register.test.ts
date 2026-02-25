@@ -1,7 +1,8 @@
-import './mocks/auth.js';
+import '../../mocks/auth.js';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { getApp, closeApp, generateUniqueEmail, clearMockDb } from './helpers.js';
+import { getApp, closeApp, generateUniqueEmail, clearMockDb } from '../../helpers.js';
 import type { FastifyInstance } from 'fastify';
+import { LIMITS } from '../../../validation.js';
 
 describe('POST /register', () => {
   let app: FastifyInstance;
@@ -11,7 +12,7 @@ describe('POST /register', () => {
   });
 
   beforeEach(() => {
-    clearMockDb(); // Clear data before each test
+    clearMockDb();
   });
 
   afterAll(async () => {
@@ -34,10 +35,9 @@ describe('POST /register', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.user).toHaveProperty('id');
-    expect(body.user).toHaveProperty('email');
+    expect(body.user.email).toBe(email.toLowerCase());
     expect(body.user.firstName).toBe('John');
     expect(body.user.lastName).toBe('Doe');
-    expect(body.user.email).toBe(email.toLowerCase());
   });
 
   it('should reject registration with mismatched passwords', async () => {
@@ -48,11 +48,10 @@ describe('POST /register', () => {
         firstName: 'Test',
         lastName: 'User',
         email: generateUniqueEmail(),
-        password: 'Pass123',
+        password: 'Pass123!',
         confirmPassword: 'DifferentPass',
       },
     });
-
     expect(response.statusCode).toBe(400);
     const body = JSON.parse(response.body);
     expect(body.error).toBe('Passwords do not match');
@@ -66,11 +65,10 @@ describe('POST /register', () => {
         firstName: 'Test',
         lastName: '',
         email: generateUniqueEmail(),
-        password: 'Pass123',
-        confirmPassword: 'Pass123',
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
       },
     });
-
     expect(response.statusCode).toBe(400);
     const body = JSON.parse(response.body);
     expect(body.error).toBe('All fields are required');
@@ -90,10 +88,10 @@ describe('POST /register', () => {
     });
     expect(response.statusCode).toBe(400);
     const body = JSON.parse(response.body);
-    expect(body.error).toBe('Password must be at least 8 characters');
+    expect(body.error).toBe(`Password must be between ${LIMITS.password.min} and ${LIMITS.password.max} characters`);
   });
 
-  it('should reject duplicate email registration', async () => {
+  it('should reject registration with duplicate email', async () => {
     const email = generateUniqueEmail();
     await app.inject({
       method: 'POST',
@@ -144,6 +142,76 @@ describe('POST /register', () => {
     expect(response.statusCode).toBe(400);
     const body = JSON.parse(response.body);
     expect(body.error).toBe('Password must contain uppercase, lowercase, and number');
+  });
+
+  it('should reject first name that is too long', async () => {
+    const longName = 'A'.repeat(LIMITS.firstName.max + 1);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: longName,
+        lastName: 'User',
+        email: generateUniqueEmail(),
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe(`First name must be between ${LIMITS.firstName.min} and ${LIMITS.firstName.max} characters`);
+  });
+
+  it('should reject last name that is too long', async () => {
+    const longName = 'B'.repeat(LIMITS.lastName.max + 1);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: 'Test',
+        lastName: longName,
+        email: generateUniqueEmail(),
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe(`Last name must be between ${LIMITS.lastName.min} and ${LIMITS.lastName.max} characters`);
+  });
+
+  it('should reject first name that is too short', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: '',
+        lastName: 'User',
+        email: generateUniqueEmail(),
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe('All fields are required');
+  });
+
+  it('should reject last name that is too short', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/register',
+      payload: {
+        firstName: 'Test',
+        lastName: '',
+        email: generateUniqueEmail(),
+        password: 'Pass123!',
+        confirmPassword: 'Pass123!',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe('All fields are required');
   });
 
   it('should normalize email to lowercase', async () => {

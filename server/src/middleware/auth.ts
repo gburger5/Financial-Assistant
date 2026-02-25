@@ -1,3 +1,5 @@
+import { db } from "../lib/db.js";
+import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 
@@ -9,12 +11,14 @@ if (!JWT_SECRET) {
   }
 }
 const SECRET = JWT_SECRET || 'test-secret-key';
+const AUTH_TOKENS_TABLE = "auth_tokens";
 
 interface JWTPayload {
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
+  jti: string;
 }
 
 declare module 'fastify' {
@@ -36,6 +40,26 @@ export async function verifyToken(
 
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, SECRET) as JWTPayload;
+
+    // Check if this token session still exists
+    const record = await db.send(new GetCommand({
+      TableName: AUTH_TOKENS_TABLE,
+      Key: { tokenId: decoded.jti }
+    }));
+
+    // Reject if token not found or revoked or expired
+    if (!record.Item) {
+      return reply.status(401).send({ error: "Session not found" });
+    }
+
+    if (record.Item.revoked === true) {
+      return reply.status(401).send({ error: "Session revoked" });
+    }
+
+    if (record.Item.expiresAt && record.Item.expiresAt < Math.floor(Date.now() / 1000)) {
+      return reply.status(401).send({ error: "Session expired" });
+    }
+
     request.user = decoded;
   } catch {
     return reply.status(401).send({ error: 'Invalid or expired token' });

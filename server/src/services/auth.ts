@@ -3,8 +3,10 @@ import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
+import { LIMITS } from "../validation.js";
 
 const TABLE = "users";
+const AUTH_TOKENS_TABLE = "auth_tokens";
 
 // Only allow fallback in non-production
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -26,6 +28,23 @@ export async function registerUser(
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error("Invalid email format");
+  }
+
+  // Length validation
+  if (firstName.length < LIMITS.firstName.min || firstName.length > LIMITS.firstName.max) {
+    throw new Error(`First name must be between ${LIMITS.firstName.min} and ${LIMITS.firstName.max} characters`);
+  }
+
+  if (lastName.length < LIMITS.lastName.min || lastName.length > LIMITS.lastName.max) {
+    throw new Error(`Last name must be between ${LIMITS.lastName.min} and ${LIMITS.lastName.max} characters`);
+  }
+
+  if (email.length > LIMITS.email.max) {
+    throw new Error(`Email must not exceed ${LIMITS.email.max} characters`);
+  }
+
+  if (password.length < LIMITS.password.min || password.length > LIMITS.password.max) {
+    throw new Error(`Password must be between ${LIMITS.password.min} and ${LIMITS.password.max} characters`);
   }
 
   const normalizedEmail = email.toLowerCase();
@@ -157,16 +176,33 @@ export async function loginUser(email: string, password: string) {
     }));
   }
 
+  // Unique ID for specific session
+  const jti = uuid();
+
   const token = jwt.sign(
     { 
       userId: user.id, 
       email: user.email,
       firstName: user.firstName,
-      lastName: user.lastName
+      lastName: user.lastName,
+      jti
     },
     SECRET,
     { expiresIn: "7d" }
   );
+
+  // Store the issued token for revocation checks
+  await db.send(new PutCommand({
+    TableName: AUTH_TOKENS_TABLE,
+    Item: {
+      tokenId: jti,
+      userId: user.id,
+      type: "access",
+      revoked: false,
+      createdAt: new Date().toISOString(),
+      expiresAt: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+    }
+  }));
 
   return { 
     token,

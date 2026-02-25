@@ -13,6 +13,7 @@ interface User {
 }
 
 const users: Map<string, User> = new Map();
+const sessions: Map<string, { tokenId: string; revoked: boolean; expiresAt?: number }> = new Map();
 
 // Test environment always uses fallback
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
@@ -20,6 +21,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 export const mockDb = {
   clear: (): void => {
     users.clear();
+    sessions.clear();
   },
 
   registerUser: async (
@@ -100,12 +102,20 @@ export const mockDb = {
     foundUser.failedLoginAttempts = 0;
     foundUser.accountLockedUntil = null;
 
+    const tokenId = `session-${Date.now()}-${Math.random()}`;
+
+    sessions.set(tokenId, {
+      tokenId,
+      revoked: false,
+    });
+
     const token = jwt.sign(
       {
         userId: foundUser.id,
         email: foundUser.email,
         firstName: foundUser.firstName,
         lastName: foundUser.lastName,
+        jti: tokenId,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -113,5 +123,21 @@ export const mockDb = {
 
     const { password: _, ...userWithoutPassword } = foundUser;
     return { token, user: userWithoutPassword };
+  },
+
+  createSession: (tokenId: string) => {
+    sessions.set(tokenId, {
+      tokenId,
+      revoked: false,
+    });
+  },
+
+  getSession: (tokenId: string) => {
+    return sessions.get(tokenId);
+  },
+
+  revokeSession: (tokenId: string) => {
+    const session = sessions.get(tokenId);
+    if (session) session.revoked = true;
   },
 };
