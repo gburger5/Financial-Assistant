@@ -1,0 +1,34 @@
+terraform {
+  required_version = ">= 1.14"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
+  }
+
+  backend "s3" {
+    bucket       = "financial-assistant-tf-state"
+    key          = "agents/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = "financial-assistant"
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}

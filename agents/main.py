@@ -51,7 +51,7 @@ class ProposalResponse(BaseModel):
 
 
 def get_user(user_id: str) -> dict:
-    response = users_table.get_item(Key={"userId": user_id})
+    response = users_table.get_item(Key={"id": user_id})
     return response.get("Item", {})
 
 

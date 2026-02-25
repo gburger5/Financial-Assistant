@@ -36,6 +36,8 @@ jobs:
 
       - name: Build client
         working-directory: ./client
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: npm run build
 
       - name: Test client
@@ -66,18 +68,112 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Deploy frontend
+      - name: Deploy frontend to S3
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        working-directory: ./client
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION_FRONTEND }}
         run: |
-          aws s3 sync ./dist s3://${{ vars.S3_BUCKET }}/ --delete
-          aws cloudfront create-invalidation --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          aws s3 sync ./client/dist s3://${{ vars.FRONTEND_BUCKET_NAME }}/ --delete
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
 
-      - name: Deploy backend Lambda
+      - name: Bundle Lambda with esbuild
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./server
+        run: |
+          npx esbuild src/lambda.ts \
+            --bundle \
+            --platform=node \
+            --target=node20 \
+            --outfile=dist/lambda.js \
+            --external:@aws-sdk/*
+          cd dist && zip ../lambda.zip lambda.js
+
+      - name: Deploy Lambda function code
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: ./server
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://lambda.zip \
+            --output text \
+            --query 'FunctionName'
+
+  test-terraform:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.14"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "~> 1.22"
+
+      - name: Terraform init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Run Terratest
+        working-directory: ./terraform/tests
+        run: go test -v -timeout 10m
+
+  deploy-agents:
+    name: Build & Deploy Agents to ECS
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image to ECR
         env:
-          NODE_ENV: production
-        run: npm run deploy
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t $ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REPOSITORY:latest \
+            agents/
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REPOSITORY:latest
+
+      - name: Force ECS redeployment
+        env:
+          ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment \
+            --query 'service.deployments[0].status' \
+            --output text
