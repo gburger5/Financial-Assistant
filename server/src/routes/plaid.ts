@@ -4,6 +4,7 @@ import {
   createLinkToken,
   exchangePublicToken,
   syncTransactions,
+  syncInvestmentTransactions,
 } from "../services/plaid.js";
 import { analyzeAndPopulateBudget } from "../services/budget.js";
 import { getUserById } from "../services/auth.js";
@@ -25,8 +26,8 @@ export default async function plaidRoutes(app: FastifyInstance) {
     }
   );
 
-  // Exchanges the public_token from Plaid Link, syncs transactions from ALL linked
-  // banks, re-analyzes, and returns the populated budget + total banks connected.
+  // Exchanges the public_token from Plaid Link, syncs transactions and investment
+  // transactions from ALL linked banks, re-analyzes, and returns the populated budget.
   app.post<{ Body: { public_token: string } }>(
     "/plaid/exchange-token",
     { preHandler: verifyToken },
@@ -52,18 +53,29 @@ export default async function plaidRoutes(app: FastifyInstance) {
           ...item,
           accessToken: decryptToken(item.accessToken),
         }));
-        const allItems = [...existingItems, newItem];
+        // De-duplicate: if this item was already linked (same itemId), replace the stored
+        // entry with the fresh token rather than adding a second copy.
+        const existingItemIds = new Set(rawExistingItems.map((i) => i.itemId));
+        const allItems = existingItemIds.has(newItem.itemId)
+          ? existingItems.map((i) => (i.itemId === newItem.itemId ? newItem : i))
+          : [...existingItems, newItem];
 
-        // Sync settled transactions from every linked bank and combine
-        const allTransactions = (
-          await Promise.all(allItems.map((item) => syncTransactions(item.accessToken)))
-        ).flat();
+        // Sync regular and investment transactions from every linked bank in parallel
+        const [allTransactions, allInvestmentTransactions] = await Promise.all([
+          Promise.all(allItems.map((item) => syncTransactions(item.accessToken))).then((r) => r.flat()),
+          Promise.all(allItems.map((item) => syncInvestmentTransactions(item.accessToken))).then((r) => r.flat()),
+        ]);
 
         // Encrypt the new item's access token before persisting
         const itemToStore = { ...newItem, accessToken: encryptToken(newItem.accessToken) };
 
         // Analyze the combined transaction set and persist the budget
-        const budget = await analyzeAndPopulateBudget(userId, itemToStore, allTransactions);
+        const budget = await analyzeAndPopulateBudget(
+          userId,
+          itemToStore,
+          allTransactions,
+          allInvestmentTransactions
+        );
 
         return { budget, banksConnected: allItems.length };
       } catch (error) {

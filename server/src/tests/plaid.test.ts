@@ -7,6 +7,7 @@ vi.mock('../services/plaid.js', () => ({
   createLinkToken: vi.fn(),
   exchangePublicToken: vi.fn(),
   syncTransactions: vi.fn(),
+  syncInvestmentTransactions: vi.fn(),
 }));
 
 vi.mock('../services/budget.js', () => ({
@@ -28,13 +29,14 @@ vi.mock('../lib/encryption.js', () => ({
   decryptToken: vi.fn((token: string) => token.replace(/^enc:/, '')),
 }));
 
-import { createLinkToken, exchangePublicToken, syncTransactions } from '../services/plaid.js';
+import { createLinkToken, exchangePublicToken, syncTransactions, syncInvestmentTransactions } from '../services/plaid.js';
 import { analyzeAndPopulateBudget } from '../services/budget.js';
 import { getUserById } from '../services/auth.js';
 
 const mockCreateLinkToken = vi.mocked(createLinkToken);
 const mockExchangePublicToken = vi.mocked(exchangePublicToken);
 const mockSyncTransactions = vi.mocked(syncTransactions);
+const mockSyncInvestmentTransactions = vi.mocked(syncInvestmentTransactions);
 const mockAnalyzeAndPopulateBudget = vi.mocked(analyzeAndPopulateBudget);
 const mockGetUserById = vi.mocked(getUserById);
 
@@ -61,6 +63,7 @@ const MOCK_BUDGET = {
     other: { groceries: null, personalCare: null },
   },
   wants: { takeout: null, shopping: null },
+  investments: { monthlyContribution: null },
 };
 
 describe('Plaid routes', () => {
@@ -76,6 +79,8 @@ describe('Plaid routes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Investment sync returns empty by default — individual tests override when needed
+    mockSyncInvestmentTransactions.mockResolvedValue([]);
   });
 
   // ─── POST /plaid/create-link-token ────────────────────────────────────────
@@ -171,10 +176,15 @@ describe('Plaid routes', () => {
       expect(mockSyncTransactions).toHaveBeenCalledOnce();
       expect(mockSyncTransactions).toHaveBeenCalledWith('raw-access-token');
 
+      // syncInvestmentTransactions also called for the same account
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledOnce();
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledWith('raw-access-token');
+
       // the token stored via analyzeAndPopulateBudget must be encrypted
       expect(mockAnalyzeAndPopulateBudget).toHaveBeenCalledWith(
         TEST_USER_ID,
         expect.objectContaining({ accessToken: 'enc:raw-access-token' }),
+        [],
         []
       );
     });
@@ -210,12 +220,60 @@ describe('Plaid routes', () => {
       expect(mockSyncTransactions).toHaveBeenCalledWith('existing-token-2');
       expect(mockSyncTransactions).toHaveBeenCalledWith('new-raw-token');
 
+      // investment sync also called for all 3 banks with decrypted tokens
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledTimes(3);
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledWith('existing-token-1');
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledWith('existing-token-2');
+      expect(mockSyncInvestmentTransactions).toHaveBeenCalledWith('new-raw-token');
+
       // new item token must be encrypted before storage
       expect(mockAnalyzeAndPopulateBudget).toHaveBeenCalledWith(
         TEST_USER_ID,
         expect.objectContaining({ accessToken: 'enc:new-raw-token' }),
+        [],
         []
       );
+    });
+
+    it('passes investment transactions to analyzeAndPopulateBudget', async () => {
+      const mockInvTx = {
+        investment_transaction_id: 'inv-1',
+        amount: -500,
+        date: '2025-01-15',
+        type: 'transfer',
+        subtype: 'contribution',
+        name: '401K',
+      };
+
+      mockExchangePublicToken.mockResolvedValueOnce({
+        accessToken: 'raw-token',
+        itemId: 'item-001',
+      });
+      mockGetUserById.mockResolvedValueOnce(null);
+      mockSyncTransactions.mockResolvedValueOnce([]);
+      mockSyncInvestmentTransactions.mockResolvedValueOnce([mockInvTx]);
+      mockAnalyzeAndPopulateBudget.mockResolvedValueOnce({
+        ...MOCK_BUDGET,
+        investments: { monthlyContribution: 500 },
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/plaid/exchange-token',
+        headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+        payload: { public_token: 'public-sandbox-xyz' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // investment transactions forwarded as the 4th argument
+      expect(mockAnalyzeAndPopulateBudget).toHaveBeenCalledWith(
+        TEST_USER_ID,
+        expect.objectContaining({ accessToken: 'enc:raw-token' }),
+        [],
+        [mockInvTx]
+      );
+      const body = JSON.parse(response.body);
+      expect(body.budget.investments.monthlyContribution).toBe(500);
     });
 
     it('returns 500 when exchangePublicToken throws', async () => {

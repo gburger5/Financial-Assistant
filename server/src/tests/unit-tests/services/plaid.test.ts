@@ -7,6 +7,7 @@ vi.mock('../../../lib/plaid.js', () => ({
     linkTokenCreate: vi.fn(),
     itemPublicTokenExchange: vi.fn(),
     transactionsSync: vi.fn(),
+    investmentsTransactionsGet: vi.fn(),
   },
 }));
 
@@ -15,11 +16,13 @@ import {
   createLinkToken,
   exchangePublicToken,
   syncTransactions,
+  syncInvestmentTransactions,
 } from '../../../services/plaid.js';
 
 const mockLinkTokenCreate = vi.mocked(plaidClient.linkTokenCreate);
 const mockExchangeToken = vi.mocked(plaidClient.itemPublicTokenExchange);
 const mockTransactionsSync = vi.mocked(plaidClient.transactionsSync);
+const mockInvestmentsTransactionsGet = vi.mocked(plaidClient.investmentsTransactionsGet);
 
 // Minimal Plaid transaction shape used in tests
 function makePlaidTx(overrides: object = {}) {
@@ -34,6 +37,19 @@ function makePlaidTx(overrides: object = {}) {
       primary: 'FOOD_AND_DRINK',
       detailed: 'FOOD_AND_DRINK_GROCERIES',
     },
+    ...overrides,
+  };
+}
+
+// Minimal Plaid investment transaction shape used in tests
+function makeInvestmentTx(overrides: object = {}) {
+  return {
+    investment_transaction_id: 'inv-tx-1',
+    amount: -500,  // negative = inflow (contribution)
+    date: '2025-01-15',
+    type: 'transfer',
+    subtype: 'contribution',
+    name: '401K CONTRIBUTION',
     ...overrides,
   };
 }
@@ -80,6 +96,20 @@ describe('plaid service', () => {
       expect(mockLinkTokenCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           products: expect.arrayContaining(['transactions']),
+        })
+      );
+    });
+
+    it('requests the investments product', async () => {
+      mockLinkTokenCreate.mockResolvedValueOnce({
+        data: { link_token: 'link-token' },
+      } as never);
+
+      await createLinkToken('user-123');
+
+      expect(mockLinkTokenCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          products: expect.arrayContaining(['investments']),
         })
       );
     });
@@ -331,6 +361,102 @@ describe('plaid service', () => {
       mockTransactionsSync.mockRejectedValueOnce(new Error('Rate limit exceeded'));
 
       await expect(syncTransactions('access-token')).rejects.toThrow('Rate limit exceeded');
+    });
+  });
+
+  // ─── syncInvestmentTransactions ───────────────────────────────────────────
+
+  describe('syncInvestmentTransactions', () => {
+    it('returns investment transactions from the Plaid API', async () => {
+      mockInvestmentsTransactionsGet.mockResolvedValueOnce({
+        data: {
+          investment_transactions: [makeInvestmentTx()],
+        },
+      } as never);
+
+      const txs = await syncInvestmentTransactions('access-token');
+
+      expect(txs).toHaveLength(1);
+      expect(txs[0].investment_transaction_id).toBe('inv-tx-1');
+      expect(txs[0].amount).toBe(-500);
+      expect(txs[0].type).toBe('transfer');
+      expect(txs[0].subtype).toBe('contribution');
+      expect(txs[0].name).toBe('401K CONTRIBUTION');
+    });
+
+    it('returns an empty array when there are no investment transactions', async () => {
+      mockInvestmentsTransactionsGet.mockResolvedValueOnce({
+        data: { investment_transactions: [] },
+      } as never);
+
+      const txs = await syncInvestmentTransactions('access-token');
+
+      expect(txs).toEqual([]);
+    });
+
+    it('calls investmentsTransactionsGet with the provided access token', async () => {
+      mockInvestmentsTransactionsGet.mockResolvedValueOnce({
+        data: { investment_transactions: [] },
+      } as never);
+
+      await syncInvestmentTransactions('access-sandbox-invest');
+
+      expect(mockInvestmentsTransactionsGet).toHaveBeenCalledWith(
+        expect.objectContaining({ access_token: 'access-sandbox-invest' })
+      );
+    });
+
+    it('passes a 30-day date range (start_date and end_date)', async () => {
+      mockInvestmentsTransactionsGet.mockResolvedValueOnce({
+        data: { investment_transactions: [] },
+      } as never);
+
+      const before = new Date();
+      await syncInvestmentTransactions('access-token');
+      const after = new Date();
+
+      const call = mockInvestmentsTransactionsGet.mock.calls[0][0] as {
+        start_date: string;
+        end_date: string;
+      };
+
+      const startDate = new Date(call.start_date);
+      const endDate = new Date(call.end_date);
+      const expectedStart = new Date(before.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // end_date should be today
+      expect(endDate.toISOString().split('T')[0]).toBe(after.toISOString().split('T')[0]);
+
+      // start_date should be ~30 days ago (within 1 day tolerance for test timing)
+      const daysDiff = Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+      expect(daysDiff).toBe(30);
+
+      // sanity: start is before or equal to expected
+      expect(startDate.getTime()).toBeGreaterThanOrEqual(expectedStart.getTime() - 24 * 60 * 60 * 1000);
+    });
+
+    it('returns [] for PRODUCTS_NOT_SUPPORTED error (account has no investment access)', async () => {
+      const err = { response: { data: { error_code: 'PRODUCTS_NOT_SUPPORTED' } } };
+      mockInvestmentsTransactionsGet.mockRejectedValueOnce(err);
+
+      const txs = await syncInvestmentTransactions('access-token');
+
+      expect(txs).toEqual([]);
+    });
+
+    it('returns [] for NO_INVESTMENT_ACCOUNTS error', async () => {
+      const err = { response: { data: { error_code: 'NO_INVESTMENT_ACCOUNTS' } } };
+      mockInvestmentsTransactionsGet.mockRejectedValueOnce(err);
+
+      const txs = await syncInvestmentTransactions('access-token');
+
+      expect(txs).toEqual([]);
+    });
+
+    it('propagates unexpected errors from the Plaid API', async () => {
+      mockInvestmentsTransactionsGet.mockRejectedValueOnce(new Error('Network timeout'));
+
+      await expect(syncInvestmentTransactions('access-token')).rejects.toThrow('Network timeout');
     });
   });
 });

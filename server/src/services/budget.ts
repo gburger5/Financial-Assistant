@@ -1,7 +1,7 @@
 import { db } from "../lib/db.js";
 import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ulid } from "ulid";
-import type { PlaidTransaction } from "./plaid.js";
+import type { PlaidTransaction, InvestmentTransaction } from "./plaid.js";
 
 const BUDGETS_TABLE = "Budgets";
 const USERS_TABLE = "users";
@@ -59,6 +59,9 @@ export interface Budget {
     takeout: number | null;
     shopping: number | null;
   };
+  investments: {
+    monthlyContribution: number | null;
+  };
 }
 
 function emptyBudgetItem(userId: string): Budget {
@@ -78,6 +81,7 @@ function emptyBudgetItem(userId: string): Budget {
       other: { groceries: null, personalCare: null },
     },
     wants: { takeout: null, shopping: null },
+    investments: { monthlyContribution: null },
   };
 }
 
@@ -126,12 +130,13 @@ export interface PlaidItem {
 export async function analyzeAndPopulateBudget(
   userId: string,
   newItem: PlaidItem,
-  transactions: PlaidTransaction[]
+  transactions: PlaidTransaction[],
+  investmentTransactions: InvestmentTransaction[] = []
 ): Promise<Budget> {
   const budget = await getBudget(userId);
   if (!budget) throw new Error("No budget found for user");
 
-  // Accumulate totals by field path
+  // Accumulate totals by field path from regular transactions
   const totals: Record<string, number> = {};
 
   for (const tx of transactions) {
@@ -153,6 +158,34 @@ export async function analyzeAndPopulateBudget(
   // Apply totals to budget object
   for (const [path, total] of Object.entries(totals)) {
     setNestedValue(budget as unknown as Record<string, unknown>, path, Math.round(total * 100) / 100);
+  }
+
+  // Accumulate investment contributions from investment transactions.
+  // Plaid convention: amount is negative when cash is credited (flows INTO the account),
+  // positive when cash is debited (flows OUT, e.g. to buy securities).
+  // Contributions appear as type "cash" (or occasionally "transfer") with
+  // subtype "contribution" or "deposit" and a negative amount.
+  const cashContributionTotal = investmentTransactions
+    .filter(
+      (tx) =>
+        (tx.type === "cash" || tx.type === "transfer") &&
+        (tx.subtype === "contribution" || tx.subtype === "deposit")
+    )
+    .filter((tx) => tx.amount < 0) // negative = cash credited (inflow)
+    .reduce((sum, tx) => sum + -tx.amount, 0);
+
+  // Fall back to summing buy transactions (excluding dividend reinvestments).
+  // Some institutions (and Plaid sandbox) don't report contribution cash transactions
+  // with non-zero amounts; the actual deployed dollars show up in the buy transactions.
+  const buyTotal = investmentTransactions
+    .filter((tx) => tx.type === "buy" && tx.subtype !== "dividend reinvestment")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
+  const contributionTotal = cashContributionTotal > 0 ? cashContributionTotal : buyTotal;
+
+  if (contributionTotal > 0) {
+    budget.investments.monthlyContribution =
+      Math.round(contributionTotal * 100) / 100;
   }
 
   budget.status = "PENDING";
@@ -209,6 +242,7 @@ export async function updateBudget(
       other: { ...existing.needs.other, ...(updates.needs?.other ?? {}) },
     } as Budget["needs"],
     wants: { ...existing.wants, ...(updates.wants ?? {}) },
+    investments: { ...existing.investments, ...(updates.investments ?? {}) },
     userId: existing.userId,
     budgetId: existing.budgetId,
     createdAt: existing.createdAt,

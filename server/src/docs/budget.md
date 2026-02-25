@@ -45,6 +45,9 @@ interface Budget {
     takeout: number | null;
     shopping: number | null;
   };
+  investments: {
+    monthlyContribution: number | null;  // new money contributed to investment accounts per month
+  };
 }
 ```
 
@@ -125,7 +128,7 @@ Returns `null` if no budget exists for the user.
 
 ---
 
-### `analyzeAndPopulateBudget(userId, newItem, transactions): Promise<Budget>`
+### `analyzeAndPopulateBudget(userId, newItem, transactions, investmentTransactions?): Promise<Budget>`
 
 **File:** `src/services/budget.ts:126`
 
@@ -133,13 +136,14 @@ The core analysis function. Called after every successful Plaid token exchange.
 
 **Steps:**
 1. Fetch the user's current budget via `getBudget`. Throws `"No budget found for user"` if none exists.
-2. Iterate all transactions, accumulating totals by budget field path using `CATEGORY_MAP`.
+2. Iterate all regular transactions, accumulating totals by budget field path using `CATEGORY_MAP`.
 3. Apply the rounded totals to the budget object using `setNestedValue` (dot-notation path resolver).
-4. Set `budget.status = "PENDING"` and update `updatedAt`.
-5. Persist the updated budget via `PutCommand`.
-6. Append the new `PlaidItem` to `user.plaidItems` using `list_append(if_not_exists(plaidItems, :emptyList), :newItems)`, which handles the case where `plaidItems` does not yet exist on the user record (first-time link).
-7. Set `onboarding.plaidLinked = true` and `onboarding.budgetAnalyzed = true` on the user record.
-8. Return the populated budget.
+4. Accumulate investment contributions from `investmentTransactions` (optional, defaults to `[]`): filter for `type === "transfer"` and `subtype === "contribution" | "deposit"` with `amount < 0` (Plaid inflow convention), sum their absolute values, and set `budget.investments.monthlyContribution` if total > 0.
+5. Set `budget.status = "PENDING"` and update `updatedAt`.
+6. Persist the updated budget via `PutCommand`.
+7. Append the new `PlaidItem` to `user.plaidItems` using `list_append(if_not_exists(plaidItems, :emptyList), :newItems)`, which handles the case where `plaidItems` does not yet exist on the user record (first-time link).
+8. Set `onboarding.plaidLinked = true` and `onboarding.budgetAnalyzed = true` on the user record.
+9. Return the populated budget.
 
 **Total DynamoDB calls:** 3 — one `QueryCommand` (getBudget), one `PutCommand` (budget), one `UpdateCommand` (user).
 
@@ -278,7 +282,7 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 
 ---
 
-### `analyzeAndPopulateBudget` tests (15 tests)
+### `analyzeAndPopulateBudget` tests (22 tests)
 
 | Test | What it verifies |
 |------|-----------------|
@@ -297,6 +301,13 @@ A `makeBudget(overrides?)` helper builds a valid `Budget` fixture with all nulls
 | Resets status to PENDING | Even if existing budget was `REVIEWED`, status becomes `PENDING` after re-analysis |
 | 3 db calls in correct order | `QueryCommand` (getBudget) → `PutCommand` (budget) → `UpdateCommand` (user) |
 | `if_not_exists` guard | The `UpdateCommand` uses `list_append(if_not_exists(plaidItems, :emptyList), :newItems)` with `:emptyList: []`, preventing a DynamoDB `ValidationException` for first-time users who have no `plaidItems` attribute yet |
+| Contribution sets `investments.monthlyContribution` | A `transfer.contribution` with negative amount (inflow) populates the field with the absolute value |
+| Deposit sets `investments.monthlyContribution` | A `transfer.deposit` with negative amount populates the field |
+| Multiple contributions/deposits sum | Two investment inflow transactions are summed and rounded to 2dp |
+| Investment rounding to 2dp | `100.005 + 200.006 = 300.01` after `Math.round(total * 100) / 100` |
+| Non-contribution types ignored | `buy`, `sell`, `fee`, `cash` investment transactions do not affect `investments.monthlyContribution` |
+| Positive-amount transfer skipped | A `transfer.withdrawal` with positive amount (outflow) is excluded |
+| No investment transactions → null | Calling without `investmentTransactions` leaves the field `null` |
 
 **What must be true for tests to pass:**
 - `getBudget` is called first; if it returns `null`, the function must throw before any writes.

@@ -43,7 +43,7 @@ Calls Plaid's `linkTokenCreate` endpoint to generate a short-lived token the fro
 Parameters sent to Plaid:
 - `user.client_user_id` — the authenticated user's UUID (ties the Link session to the user)
 - `client_name` — `"Financial Assistant"`
-- `products` — `["transactions"]`
+- `products` — `["transactions", "investments"]`
 - `country_codes` — `["US"]`
 - `language` — `"en"`
 
@@ -91,6 +91,34 @@ interface PlaidTransaction {
   } | null;
 }
 ```
+
+---
+
+### `syncInvestmentTransactions(accessToken: string): Promise<InvestmentTransaction[]>`
+
+**File:** `src/services/plaid.ts`
+
+Fetches investment transactions for a linked account over the last 30 days using Plaid's `/investments/transactions/get` endpoint.
+
+**Amount sign convention (different from regular transactions):**
+Plaid investment transactions use the **opposite** sign from regular transactions:
+- **Negative** = inflow (money entering the investment account, e.g. a contribution or deposit)
+- **Positive** = outflow (money leaving the account, e.g. a securities purchase or fee)
+
+**Returns** an array of `InvestmentTransaction` objects:
+
+```ts
+interface InvestmentTransaction {
+  investment_transaction_id: string;
+  amount: number;    // negative = inflow, positive = outflow
+  date: string;      // YYYY-MM-DD
+  type: string;      // "buy" | "sell" | "cash" | "fee" | "transfer"
+  subtype: string;   // "contribution" | "deposit" | "withdrawal" | "buy" | "dividend" | ...
+  name: string;
+}
+```
+
+**Graceful degradation:** If the linked account does not have the investments product enabled (`PRODUCTS_NOT_SUPPORTED`) or has no investment accounts (`NO_INVESTMENT_ACCOUNTS`), the function returns `[]` instead of throwing. All other errors propagate to the caller.
 
 ---
 
@@ -272,16 +300,17 @@ vi.mock('../lib/encryption.js', () => ({
 
 ---
 
-### `POST /plaid/exchange-token` (5 tests)
+### `POST /plaid/exchange-token` (6 tests)
 
 | Test | What it verifies |
 |------|-----------------|
 | 401 — no auth header | Unauthenticated requests are rejected |
 | 400 — missing `public_token` | Body without `public_token` gets `{ error: "public_token is required" }` |
-| 200 — first-time user (no existing banks) | `syncTransactions` called once with the raw token; `analyzeAndPopulateBudget` called with the **encrypted** token (`enc:<raw>`); `banksConnected: 1` |
-| 200 — user with existing banks | Stored encrypted tokens are decrypted before syncing; `syncTransactions` called once per bank (existing + new); new token is encrypted before storage; `banksConnected` equals total linked banks |
+| 200 — first-time user (no existing banks) | `syncTransactions` and `syncInvestmentTransactions` called once each with the raw token; `analyzeAndPopulateBudget` called with encrypted new item and empty investment array; `banksConnected: 1` |
+| 200 — user with existing banks | Stored encrypted tokens are decrypted before syncing; both sync functions called once per bank (existing + new); new token is encrypted before storage; `banksConnected` equals total linked banks |
+| 200 — investment transactions forwarded | When `syncInvestmentTransactions` returns data, it is passed as the 4th argument to `analyzeAndPopulateBudget` and reflected in the returned budget |
 | 500 — `exchangePublicToken` throws | Error from Plaid is caught and returns `{ error: "Failed to link bank account" }` |
 
 **Key invariants tested:**
-- `syncTransactions` always receives **plaintext** tokens (decrypted from storage for existing banks, raw for the new one).
-- `analyzeAndPopulateBudget` always receives the new item with an **encrypted** token (`encryptToken` was called on it).
+- `syncTransactions` and `syncInvestmentTransactions` both receive **plaintext** tokens.
+- `analyzeAndPopulateBudget` always receives the new item with an **encrypted** token and the combined investment transactions array.

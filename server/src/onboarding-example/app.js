@@ -264,6 +264,12 @@ function renderBudgetForm(budget) {
         { label: "Shopping", path: "wants.shopping" },
       ],
     },
+    {
+      title: "Investments",
+      fields: [
+        { label: "Monthly contribution", path: "investments.monthlyContribution" },
+      ],
+    },
   ];
 
   for (const section of sections) {
@@ -347,6 +353,7 @@ function renderBudgetSummary(budget) {
     ["Personal care", budget.needs?.other?.personalCare],
     ["Takeout", budget.wants?.takeout],
     ["Shopping", budget.wants?.shopping],
+    ["Investments (monthly)", budget.investments?.monthlyContribution],
   ];
 
   container.innerHTML = lines

@@ -20,6 +20,7 @@ import {
   confirmBudget,
   type Budget,
 } from '../../../services/budget.js';
+import type { InvestmentTransaction } from '../../../services/plaid.js';
 
 const mockSend = vi.mocked(db.send);
 
@@ -42,6 +43,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
       other: { groceries: null, personalCare: null },
     },
     wants: { takeout: null, shopping: null },
+    investments: { monthlyContribution: null },
     ...overrides,
   };
 }
@@ -459,6 +461,205 @@ describe('budget service', () => {
         'list_append(if_not_exists(plaidItems, :emptyList), :newItems)'
       );
       expect(updateCall.input.ExpressionAttributeValues?.[':emptyList']).toEqual([]);
+    });
+
+    // ── Cash contributions (type: "cash") — primary path, used by Plaid sandbox ──
+
+    it('populates investments.monthlyContribution from a cash contribution (type "cash")', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTx: InvestmentTransaction = {
+        investment_transaction_id: 'inv-1',
+        amount: -500,  // negative = cash credited (inflow into investment account)
+        date: '2025-01-15',
+        type: 'cash',
+        subtype: 'contribution',
+        name: 'Employee Contribution - 401(k)',
+      };
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [investmentTx]);
+
+      expect(result.investments.monthlyContribution).toBe(500);
+    });
+
+    it('populates investments.monthlyContribution from a cash deposit (type "cash", subtype "deposit")', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTx: InvestmentTransaction = {
+        investment_transaction_id: 'inv-2',
+        amount: -250,
+        date: '2025-01-20',
+        type: 'cash',
+        subtype: 'deposit',
+        name: 'Roth IRA Contribution',
+      };
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [investmentTx]);
+
+      expect(result.investments.monthlyContribution).toBe(250);
+    });
+
+    it('also accepts type "transfer" contributions for backward compatibility', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTx: InvestmentTransaction = {
+        investment_transaction_id: 'inv-3',
+        amount: -300,
+        date: '2025-01-10',
+        type: 'transfer',
+        subtype: 'contribution',
+        name: '401K TRANSFER CONTRIBUTION',
+      };
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [investmentTx]);
+
+      expect(result.investments.monthlyContribution).toBe(300);
+    });
+
+    it('sums multiple cash contribution and deposit transactions', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        { investment_transaction_id: 'inv-1', amount: -300, date: '2025-01-01', type: 'cash', subtype: 'contribution', name: '401K payroll' },
+        { investment_transaction_id: 'inv-2', amount: -200, date: '2025-01-15', type: 'cash', subtype: 'deposit',      name: 'Roth IRA' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      expect(result.investments.monthlyContribution).toBe(500);
+    });
+
+    it('rounds investment contribution totals to 2 decimal places', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        { investment_transaction_id: 'inv-1', amount: -100.005, date: '2025-01-01', type: 'cash', subtype: 'contribution', name: 'A' },
+        { investment_transaction_id: 'inv-2', amount: -200.006, date: '2025-01-15', type: 'cash', subtype: 'contribution', name: 'B' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      expect(result.investments.monthlyContribution).toBe(300.01);
+    });
+
+    it('ignores cash dividends, sells, and fees — they are not contributions', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        { investment_transaction_id: 'inv-1', amount: -800,  date: '2025-01-02', type: 'sell', subtype: 'sell',     name: 'Sell MSFT' },
+        { investment_transaction_id: 'inv-2', amount: 25,    date: '2025-01-03', type: 'fee',  subtype: 'mgmt fee', name: 'Mgmt fee' },
+        { investment_transaction_id: 'inv-3', amount: -8.72, date: '2025-01-04', type: 'cash', subtype: 'dividend', name: 'Dividend' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      expect(result.investments.monthlyContribution).toBeNull();
+    });
+
+    it('skips cash/transfer contributions with a positive amount (outflow / withdrawal)', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTx: InvestmentTransaction = {
+        investment_transaction_id: 'inv-w',
+        amount: 500,  // positive = outflow (withdrawal)
+        date: '2025-01-10',
+        type: 'transfer',
+        subtype: 'withdrawal',
+        name: 'WITHDRAWAL',
+      };
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], [investmentTx]);
+
+      expect(result.investments.monthlyContribution).toBeNull();
+    });
+
+    // ── Buy fallback — used when contribution cash txs have amount 0 (e.g. Plaid sandbox) ──
+
+    it('falls back to summing buy transactions when cash contributions have amount 0', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        // Sandbox-style cash contribution — amount is 0, won't satisfy the primary path
+        { investment_transaction_id: 'inv-cash', amount: 0,   date: '2025-01-01', type: 'cash', subtype: 'contribution', name: 'Employee Contribution' },
+        // Buy transactions represent the actual deployed dollars
+        { investment_transaction_id: 'inv-buy1', amount: 200, date: '2025-01-01', type: 'buy',  subtype: 'buy', name: 'Buy FXAIX' },
+        { investment_transaction_id: 'inv-buy2', amount: 100, date: '2025-01-01', type: 'buy',  subtype: 'buy', name: 'Buy FSKAX' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      expect(result.investments.monthlyContribution).toBe(300);
+    });
+
+    it('excludes dividend reinvestment buys from the fallback sum', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        { investment_transaction_id: 'inv-buy',  amount: 300,  date: '2025-01-01', type: 'buy', subtype: 'buy',                  name: 'Buy VTI' },
+        { investment_transaction_id: 'inv-drip', amount: 36.5, date: '2025-01-15', type: 'buy', subtype: 'dividend reinvestment', name: 'Dividend Reinvestment VTI' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      // Only the regular buy counts; dividend reinvestment is excluded
+      expect(result.investments.monthlyContribution).toBe(300);
+    });
+
+    it('cash contributions take priority over buy fallback (no double-counting)', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const investmentTxs: InvestmentTransaction[] = [
+        // Non-zero cash contribution → primary path fires
+        { investment_transaction_id: 'inv-cash', amount: -500, date: '2025-01-01', type: 'cash', subtype: 'contribution', name: 'Contribution' },
+        // Buy transaction for the same money — should NOT be double-counted
+        { investment_transaction_id: 'inv-buy',  amount: 500,  date: '2025-01-01', type: 'buy',  subtype: 'buy',          name: 'Buy FXAIX' },
+      ];
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, [], investmentTxs);
+
+      // Only the cash contribution amount is used, not cash + buy
+      expect(result.investments.monthlyContribution).toBe(500);
+    });
+
+    it('leaves investments.monthlyContribution null when no investment transactions are provided', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [makeBudget()] } as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void)
+        .mockResolvedValueOnce({} as unknown as void);
+
+      const result = await analyzeAndPopulateBudget(USER_ID, PLAID_ITEM, []);
+
+      expect(result.investments.monthlyContribution).toBeNull();
     });
   });
 

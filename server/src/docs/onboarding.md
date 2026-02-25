@@ -11,7 +11,7 @@ Onboarding moves a new user through four sequential steps:
 | Step | Name | What happens |
 |------|------|--------------|
 | 0 | Auth | Register or log in |
-| 1 | Connect bank | One or more Plaid Link sessions |
+| 1 | Connect bank | One or more Plaid Link sessions (transactions + investments product) |
 | 2 | Review budget | Inspect and edit AI-estimated values |
 | 3 | Confirm budget | Lock the budget as final |
 | 4 | Done | Onboarding complete |
@@ -57,11 +57,12 @@ Authorization: Bearer <jwt>
 The server:
 1. Exchanges the public token for a permanent `accessToken` and `itemId` via Plaid.
 2. Looks up any previously linked banks from `user.plaidItems` and decrypts their stored `accessToken` values (AES-256-GCM via `src/lib/encryption.ts`) so they can be used for live Plaid API calls.
-3. Syncs settled transactions from **every** linked bank (including the new one) for the last 30 days, using plaintext tokens.
+3. Syncs regular settled transactions **and** investment transactions from **every** linked bank (including the new one) for the last 30 days in parallel. Both `syncTransactions` and `syncInvestmentTransactions` are called per bank via `Promise.all`. For accounts that don't support investments, `syncInvestmentTransactions` silently returns `[]`.
 4. Encrypts the new `accessToken` with `encryptToken` before storage — the plaintext token never reaches DynamoDB.
 5. Calls `analyzeAndPopulateBudget`, which:
    - Creates an empty budget if none exists yet, or overwrites the fields of the existing one.
    - Maps each transaction's Plaid `personal_finance_category.detailed` code to a budget field.
+   - Sums `type: "transfer"` investment transactions with `subtype: "contribution"` or `"deposit"` (negative amounts = inflows) to populate `investments.monthlyContribution`.
    - Appends the new `{ accessToken, itemId, linkedAt }` item (with encrypted token) to `user.plaidItems` using `list_append(if_not_exists(plaidItems, :emptyList), :newItems)` — safe for first-time users who have no `plaidItems` attribute yet.
    - Sets `onboarding.plaidLinked = true` and `onboarding.budgetAnalyzed = true` on the user record.
 6. Returns `{ budget, banksConnected }`.

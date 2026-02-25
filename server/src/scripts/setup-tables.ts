@@ -1,3 +1,5 @@
+/** To run this script: npx tsx src/scripts/setup-tables.ts 2>&1 */
+
 import "dotenv/config";
 import {
   DynamoDBClient,

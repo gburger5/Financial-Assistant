@@ -47,6 +47,7 @@ function makeBudget(overrides = {}) {
       other: { groceries: null, personalCare: null },
     },
     wants: { takeout: null, shopping: null },
+    investments: { monthlyContribution: null },
     ...overrides,
   };
 }
