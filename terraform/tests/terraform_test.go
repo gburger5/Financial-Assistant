@@ -50,9 +50,13 @@ func TestALBIsPublic(t *testing.T) {
 
 	plan := terraform.InitAndPlanAndShowWithStruct(t, planOnly(t, defaultVars()))
 
-	alb := plan.ResourcePlannedValuesMap["aws_lb.agents"]
-	assert.Equal(t, false, alb.AttributeValues["internal"],
-		"ALB must be internet-facing")
+	alb, exists := plan.ResourcePlannedValuesMap["aws_lb.agents"]
+	if !assert.True(t, exists, "aws_lb.agents should be in plan") {
+		return
+	}
+	// internal=false means internet-facing; null also means not internal (default)
+	assert.NotEqual(t, true, alb.AttributeValues["internal"],
+		"ALB must be internet-facing (internal must not be true)")
 }
 
 func TestALBHTTPListenerForwardsWhenNoDomain(t *testing.T) {
