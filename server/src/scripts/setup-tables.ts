@@ -61,6 +61,15 @@ async function main() {
     ],
   });
 
+  await createTable("auth_tokens", {
+    TableName: "auth_tokens",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "tokenId", AttributeType: "S" },
+    ],
+    KeySchema: [{ AttributeName: "tokenId", KeyType: "HASH" }],
+  });
+
   console.log("Done.");
 }
 
