@@ -72,6 +72,12 @@ variable "investments_table" {
   default     = "investments"
 }
 
+variable "auth_tokens_table" {
+  description = "DynamoDB table name for auth tokens"
+  type        = string
+  default     = "auth_tokens"
+}
+
 # Frontend
 variable "frontend_bucket_name" {
   description = "S3 bucket name for the React frontend (must be globally unique)"

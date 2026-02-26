@@ -75,3 +75,19 @@ resource "aws_dynamodb_table" "goals" {
     type = "S"
   }
 }
+
+resource "aws_dynamodb_table" "auth_tokens" {
+  name         = var.auth_tokens_table
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "tokenId"
+
+  attribute {
+    name = "tokenId"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
+}

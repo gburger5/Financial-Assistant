@@ -45,6 +45,7 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
       Resource = [
         aws_dynamodb_table.users.arn,
         "${aws_dynamodb_table.users.arn}/index/email-index",
+        aws_dynamodb_table.auth_tokens.arn,
       ]
     }]
   })
