@@ -3,6 +3,8 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { registerUser, loginUser } from "./services/auth.js";
 import { verifyToken } from "./middleware/auth.js";
+import plaidRoutes from "./routes/plaid.js";
+import budgetRoutes from "./routes/budget.js";
 import { db } from "./lib/db.js";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { LIMITS } from "./validation.js";
@@ -28,6 +30,7 @@ export function buildApp() {
   app.register(cors, {
     origin: allowedOrigin,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
   });
 
   // Rate limiting
@@ -178,11 +181,11 @@ export function buildApp() {
       }
     }, async (req, reply) => {
       const { email, password } = req.body;
-      
+
       if (!email || !password) {
         return reply.status(400).send({ error: "Email and password are required" });
       }
-      
+
       try {
         const result = await loginUser(email, password);
         return result;
@@ -192,6 +195,9 @@ export function buildApp() {
         return reply.status(401).send({ error: message });
       }
     });
+
+  app.register(plaidRoutes);
+  app.register(budgetRoutes);
 
   return app;
 }
