@@ -192,7 +192,8 @@ const defaultProfile: ProfileData = {
   goals: [], debtTypes: [], homeType: '', transport: [],
 }
 
-// ✅ Reads name from sessionStorage (set during sign-up) and clears it immediately
+// ✅ Reads name from sessionStorage (set during sign-up).
+// sessionStorage clears automatically when the tab closes so no manual cleanup needed.
 const getInitialProfile = (): ProfileData => {
   const firstName = sessionStorage.getItem('onboarding_firstName') || ''
   const lastName  = sessionStorage.getItem('onboarding_lastName')  || ''
@@ -1087,6 +1088,39 @@ const BudgetPreviewStep = ({
 /* PLAID MODAL */
 type PlaidStep = 'select' | 'login' | 'verify' | 'mfa' | 'accounts'
 
+// ✅ Declared at module scope — fixes react-hooks/static-components lint error
+type PlaidHeaderProps = {
+  pct: number
+  showBack?: boolean
+  onBack?: () => void
+  onClose: () => void
+}
+
+const PlaidHeader = ({ pct, showBack = false, onBack, onClose }: PlaidHeaderProps) => (
+  <div className="plaid-header">
+    <div style={{ width: 28 }}>
+      {showBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#64748B' }}
+        >←</button>
+      )}
+    </div>
+    <div style={{ textAlign: 'center' }}>
+      <div className="plaid-logo">⊛ PLAID</div>
+      <div className="plaid-progress-track">
+        <div className="plaid-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+    <button
+      type="button"
+      onClick={onClose}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8', width: 28 }}
+    >✕</button>
+  </div>
+)
+
 const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) => {
   const [step, setStep] = useState<PlaidStep>('select')
   const [bank, setBank] = useState<BankOption | null>(null)
@@ -1104,27 +1138,10 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
   const filtered = BANKS.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()))
   const plaidPct = step === 'select' ? 25 : step === 'login' ? 50 : step === 'mfa' || step === 'verify' ? 75 : 100
 
-  const PlaidHeader = ({ showBack = false }: { showBack?: boolean }) => (
-    <div className="plaid-header">
-      <div style={{ width: 28 }}>
-        {showBack && (
-          <button onClick={() => setStep('select')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#64748B' }}>←</button>
-        )}
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div className="plaid-logo">⊛ PLAID</div>
-        <div className="plaid-progress-track">
-          <div className="plaid-progress-fill" style={{ width: `${plaidPct}%` }} />
-        </div>
-      </div>
-      <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#94A3B8', width: 28 }}>✕</button>
-    </div>
-  )
-
   if (step === 'select') return (
     <div className="plaid-overlay">
       <div className="plaid-card">
-        <PlaidHeader />
+        <PlaidHeader pct={plaidPct} onClose={onClose} />
         <Box sx={{ p: '14px 20px 24px' }}>
           <Typography variant="h6" sx={{ fontWeight: 700, color: '#0A2540', textAlign: 'center', mb: 2 }}>Select your institution</Typography>
           <TextField fullWidth placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)}
@@ -1137,6 +1154,9 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
               </Button>
             ))}
           </div>
+          <Typography variant="body2" sx={{ textAlign: 'center', mt: 2, color: '#457B9D', cursor: 'pointer', fontWeight: 600 }}>
+            Why is Plaid involved?
+          </Typography>
         </Box>
       </div>
     </div>
@@ -1145,7 +1165,7 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
   if (step === 'login') return (
     <div className="plaid-overlay">
       <div className="plaid-card">
-        <PlaidHeader showBack />
+        <PlaidHeader pct={plaidPct} showBack onBack={() => setStep('select')} onClose={onClose} />
         <Box sx={{ p: '14px 20px 24px' }}>
           <Box sx={{ background: bank?.bg, borderRadius: 2, p: 1.5, textAlign: 'center', fontWeight: 800, fontSize: 14, color: '#fff', mb: 2, whiteSpace: 'pre-wrap' }}>
             {bank?.label}
@@ -1178,7 +1198,7 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
   if (step === 'verify') return (
     <div className="plaid-overlay">
       <div className="plaid-card">
-        <PlaidHeader showBack />
+        <PlaidHeader pct={plaidPct} showBack onBack={() => setStep('login')} onClose={onClose} />
         <Box sx={{ p: '14px 20px 28px' }}>
           <Typography variant="h6" sx={{ fontWeight: 700, color: '#0A2540', mb: 0.5 }}>Verify your identity</Typography>
           <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>How should we get in touch?</Typography>
@@ -1198,7 +1218,7 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
   if (step === 'mfa') return (
     <div className="plaid-overlay">
       <div className="plaid-card">
-        <PlaidHeader showBack />
+        <PlaidHeader pct={plaidPct} showBack onBack={() => setStep('verify')} onClose={onClose} />
         <Box sx={{ p: '14px 20px 28px' }}>
           <Typography variant="h6" sx={{ fontWeight: 700, color: '#0A2540', mb: 0.5 }}>Enter your code</Typography>
           <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>Enter the 6-digit verification code.</Typography>
@@ -1224,7 +1244,7 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
   if (step === 'accounts') return (
     <div className="plaid-overlay">
       <div className="plaid-card">
-        <PlaidHeader />
+        <PlaidHeader pct={plaidPct} onClose={onClose} />
         <Box sx={{ p: '14px 20px 28px' }}>
           <Typography variant="h6" sx={{ fontWeight: 700, color: '#0A2540', mb: 2 }}>Select account(s) to share</Typography>
           <Box onClick={() => setShareAcct((s) => !s)} sx={{ border: `1.5px solid ${shareAcct ? '#00D4AA' : '#E2E8F0'}`, borderRadius: 2, p: 1.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
