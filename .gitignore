@@ -5,6 +5,13 @@ node_modules/
 dist/
 build/
 coverage/
+*.zip
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/placeholder.zip
 
 # Serverless
 .serverless
