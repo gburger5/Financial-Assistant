@@ -112,7 +112,11 @@ function SignUp() {
         }
 
         localStorage.setItem('token', loginData.token)
-        navigate('/dashboard')
+
+        sessionStorage.setItem('onboarding_firstName', firstName)
+        sessionStorage.setItem('onboarding_lastName', lastName)
+        
+        navigate('/onboarding')
         } catch {
         setError('Unable to connect to server. Please try again.')
         } finally {
