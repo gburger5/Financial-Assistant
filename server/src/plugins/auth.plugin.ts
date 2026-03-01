@@ -31,10 +31,13 @@ interface JWTPayload {
 }
 
 // Augment the Fastify request interface so TypeScript knows about request.user
-// across the entire application without requiring a cast at every call site.
+// and request.rawBody across the entire application without casts at call sites.
+// rawBody is populated by the scoped content-type parser in plaid.route.ts
+// so that the webhook signature verifier gets the exact bytes Plaid signed.
 declare module 'fastify' {
   interface FastifyRequest {
     user?: JWTPayload;
+    rawBody?: string;
   }
 }
 

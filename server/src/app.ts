@@ -3,8 +3,16 @@
  * @description Builds and configures the Fastify application instance.
  * Call buildApp() to get a configured app without starting the server.
  * The server.ts entry-point calls listen() on the result.
+ *
+ * Logging strategy — "consolidate logs at creation time":
+ * Default Fastify request logging is disabled. Instead, the lifecycle hooks
+ * in src/hooks/hooks.ts accumulate context across onRequest → preHandler →
+ * onError and emit a single structured JSON line per request in onResponse.
+ * This makes filtering (url + status, p99 latency, userId) trivial with no
+ * join logic across multiple log records.
  */
 import Fastify, { type FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import helment from '@fastify/helmet';
 import compress from '@fastify/compress';
@@ -12,15 +20,86 @@ import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
 import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
 import authRoutes from './modules/auth/auth.route.js';
+import { createLogger } from './lib/logger.js';
+import { registerHooks } from './hooks/hooks.js';
+
+// ---------------------------------------------------------------------------
+// Fastify request type augmentations
+// ---------------------------------------------------------------------------
+
+/**
+ * Extend FastifyRequest with two properties that our lifecycle hooks write to:
+ *
+ * startTime   — captured in onRequest via process.hrtime.bigint() so we have
+ *               nanosecond-precision timing. BigInt cannot be JSON-serialised,
+ *               which is intentional — it is only read inside onResponse.
+ *
+ * logContext  — plain object accumulator. onRequest seeds it with HTTP fields;
+ *               preHandler appends user.id (when authenticated); onError appends
+ *               error context. onResponse spreads it into the final log line.
+ */
+declare module 'fastify' {
+  interface FastifyRequest {
+    startTime: bigint;
+    logContext: Record<string, unknown>;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// App factory
+// ---------------------------------------------------------------------------
 
 /**
  * Creates and wires up the Fastify application with all plugins and routes.
  * Does not call listen() — that is the responsibility of the server entry-point.
  *
- * @returns A fully configured app instance.
+ * @returns {FastifyInstance} A fully configured app instance, ready to call
+ *   inject() on in tests or listen() on in production.
  */
 export function buildApp(): FastifyInstance {
-  const app = Fastify({ logger: true });
+  const logger = createLogger();
+
+  const app = Fastify({
+    // Pass the custom pino logger — base:null, epoch-ms timestamps, OTel
+    // serializers, and sensitive-field redaction are all pre-configured.
+    logger,
+
+    // Suppress Fastify's automatic "incoming request" / "request completed"
+    // log pairs. Our consolidated onResponse hook replaces both with a single
+    // structured record containing every field we care about.
+    disableRequestLogging: true,
+
+    /**
+     * Generate a UUID v4 for every request instead of auto-incrementing integers.
+     * UUIDs are collision-free across multiple instances — essential in a
+     * distributed / lambda environment where several containers handle traffic.
+     *
+     * If the upstream service or the client sends a W3C Trace Context header
+     * (traceparent) or a simple x-request-id, we propagate it so the same ID
+     * appears in every service's logs for the same user action.
+     *
+     * @param {import('http').IncomingMessage} req - Raw Node.js request object.
+     * @returns {string} The request ID to bind to req.id and req.log.
+     */
+    genReqId(req) {
+      // x-request-id is a widely-used convention for browser → server propagation.
+      const xRequestId = req.headers['x-request-id'];
+      if (typeof xRequestId === 'string' && xRequestId) return xRequestId;
+
+      // traceparent follows the W3C Trace Context spec used by OpenTelemetry.
+      // Format: 00-{traceId}-{spanId}-{flags}. Carry it through as-is so every
+      // service in the call graph logs the same trace root.
+      const traceparent = req.headers['traceparent'];
+      if (typeof traceparent === 'string' && traceparent) return traceparent;
+
+      // No upstream trace ID — generate a fresh UUID v4.
+      return randomUUID();
+    },
+  });
+
+  // Register lifecycle hooks before any routes so they fire for every request
+  // including the /health probe and any future routes added below.
+  registerHooks(app);
 
   // Restrict CORS to the configured frontend origin.
   const allowedOrigin = 'http://localhost:3000';

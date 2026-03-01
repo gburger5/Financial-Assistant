@@ -6,7 +6,8 @@
  * null means "not found" or "error").
  */
 import { QueryCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { db } from '../../lib/db.js';
+import { db } from '../../db/index.js';
+import { Tables, Indexes } from '../../db/tables.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,18 +44,6 @@ export interface UserRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const TABLE_NAME = 'users';
-
-/**
- * Name of the Global Secondary Index on the `email` attribute.
- * Matches the IndexName defined in setup-tables.ts.
- */
-const EMAIL_GSI = 'email-index';
-
-// ---------------------------------------------------------------------------
 // Query functions
 // ---------------------------------------------------------------------------
 
@@ -69,8 +58,8 @@ const EMAIL_GSI = 'email-index';
 export async function findUserByEmail(email: string): Promise<UserRecord | null> {
   const result = await db.send(
     new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: EMAIL_GSI,
+      TableName: Tables.Users,
+      IndexName: Indexes.Users.emailIndex,
       KeyConditionExpression: 'email = :email',
       ExpressionAttributeValues: { ':email': email },
     })
@@ -91,7 +80,7 @@ export async function findUserByEmail(email: string): Promise<UserRecord | null>
 export async function findUserById(userId: string): Promise<UserRecord | null> {
   const result = await db.send(
     new GetCommand({
-      TableName: TABLE_NAME,
+      TableName: Tables.Users,
       Key: { id: userId },
     })
   );
@@ -115,7 +104,7 @@ export async function findUserById(userId: string): Promise<UserRecord | null> {
 export async function createUser(user: UserRecord): Promise<void> {
   await db.send(
     new PutCommand({
-      TableName: TABLE_NAME,
+      TableName: Tables.Users,
       Item: user,
     })
   );
@@ -137,7 +126,7 @@ export async function updateLoginFailure(
 ): Promise<void> {
   await db.send(
     new UpdateCommand({
-      TableName: TABLE_NAME,
+      TableName: Tables.Users,
       Key: { id: userId },
       UpdateExpression:
         'SET failedLoginAttempts = :failedLoginAttempts, accountLockedUntil = :accountLockedUntil, updated_at = :updated_at',
@@ -161,7 +150,7 @@ export async function updateLoginFailure(
 export async function resetLockout(userId: string): Promise<void> {
   await db.send(
     new UpdateCommand({
-      TableName: TABLE_NAME,
+      TableName: Tables.Users,
       Key: { id: userId },
       UpdateExpression:
         'SET failedLoginAttempts = :zero, accountLockedUntil = :null, updated_at = :updated_at',

@@ -31,8 +31,8 @@ async function createTable(name: string, params: object) {
 }
 
 async function main() {
-  await createTable("users", {
-    TableName: "users",
+  await createTable("Users", {
+    TableName: "Users",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
       { AttributeName: "id", AttributeType: "S" },
@@ -68,6 +68,143 @@ async function main() {
       { AttributeName: "tokenId", AttributeType: "S" },
     ],
     KeySchema: [{ AttributeName: "tokenId", KeyType: "HASH" }],
+  });
+
+  await createTable("PlaidItems", {
+    TableName: "PlaidItems",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "itemId", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "itemId", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "itemId-index",
+        KeySchema: [{ AttributeName: "itemId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
+  await createTable("Accounts", {
+    TableName: "Accounts",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "plaidAccountId", AttributeType: "S" },
+      { AttributeName: "itemId", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "plaidAccountId", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "itemId-index",
+        KeySchema: [
+          { AttributeName: "itemId", KeyType: "HASH" },
+          { AttributeName: "plaidAccountId", KeyType: "RANGE" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        IndexName: "plaidAccountId-index",
+        KeySchema: [{ AttributeName: "plaidAccountId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
+  await createTable("Transactions", {
+    TableName: "Transactions",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "dateTransactionId", AttributeType: "S" },
+      { AttributeName: "plaidTransactionId", AttributeType: "S" },
+      { AttributeName: "plaidAccountId", AttributeType: "S" },
+      { AttributeName: "date", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "dateTransactionId", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "plaidTransactionId-index",
+        KeySchema: [{ AttributeName: "plaidTransactionId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        IndexName: "accountId-date-index",
+        KeySchema: [
+          { AttributeName: "plaidAccountId", KeyType: "HASH" },
+          { AttributeName: "date", KeyType: "RANGE" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
+  await createTable("InvestmentTransactions", {
+    TableName: "InvestmentTransactions",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "dateTransactionId", AttributeType: "S" },
+      { AttributeName: "plaidInvestmentTransactionId", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "dateTransactionId", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "plaidInvestmentTransactionId-index",
+        KeySchema: [
+          { AttributeName: "plaidInvestmentTransactionId", KeyType: "HASH" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
+  await createTable("Holdings", {
+    TableName: "Holdings",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "snapshotDateAccountSecurity", AttributeType: "S" },
+      { AttributeName: "plaidAccountId", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "snapshotDateAccountSecurity", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "plaidAccountId-index",
+        KeySchema: [{ AttributeName: "plaidAccountId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
+  await createTable("Liabilities", {
+    TableName: "Liabilities",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "plaidAccountId", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "plaidAccountId", KeyType: "RANGE" },
+    ],
   });
 
   console.log("Done.");
