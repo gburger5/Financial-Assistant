@@ -11,4 +11,10 @@ const client = new DynamoDBClient(
     : {}
 );
 
-export const db = DynamoDBDocumentClient.from(client);
+// removeUndefinedValues: true — Plaid API fields that are absent (undefined) from
+// a response are silently dropped rather than causing a marshalling error. Without
+// this, any optional Plaid field that is missing at runtime throws
+// "Pass options.removeUndefinedValues=true to remove undefined values from map/array/set."
+export const db = DynamoDBDocumentClient.from(client, {
+  marshallOptions: { removeUndefinedValues: true },
+});

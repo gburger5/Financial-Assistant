@@ -1,10 +1,10 @@
-const API = "http://localhost:3000";
+const API = "http://localhost:3000/api";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let token = localStorage.getItem("token") || null;
 let currentBudget = null;
-let banksConnected = 0;
+let connectedBanks = []; // { name: string }[]
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -14,9 +14,8 @@ let banksConnected = 0;
     return;
   }
 
-  // Verify token is still valid
   try {
-    await apiFetch("/verify");
+    await apiFetch("/auth/verify");
   } catch {
     token = null;
     localStorage.removeItem("token");
@@ -24,26 +23,21 @@ let banksConnected = 0;
     return;
   }
 
-  // Resume from wherever the user left off
   const budget = await fetchBudget();
   if (!budget) {
-    goToStep(0);
+    goToStep(1);
     return;
   }
 
   currentBudget = budget;
 
-  if (budget.status === "CONFIRMED") {
-    goToStep(4);
-  } else if (budget.status === "REVIEWED") {
-    renderBudgetForm(budget);
-    goToStep(2);
-  } else if (budget.status === "PENDING" && isBudgetPopulated(budget)) {
-    // At least one bank was already linked — go straight to budget review
-    renderBudgetForm(budget);
-    goToStep(2);
+  // If the user already completed the flow, land directly on the dashboard.
+  if (localStorage.getItem("onboarding_done") === "true") {
+    renderDashboard(budget);
+    goToStep(3);
   } else {
-    goToStep(1);
+    renderBudgetForm(budget);
+    goToStep(2);
   }
 })();
 
@@ -52,17 +46,17 @@ let banksConnected = 0;
 function goToStep(n) {
   document.querySelectorAll(".section").forEach((el) => el.classList.remove("visible"));
 
-  const steps = ["step-auth", "step-plaid", "step-budget", "step-confirm", "step-done"];
+  const steps = ["step-auth", "step-plaid", "step-budget", "step-done"];
   const el = document.getElementById(steps[n]);
   if (el) el.classList.add("visible");
 
-  // Update step dots (steps 1-4 map to dots 0-3)
-  for (let i = 0; i < 4; i++) {
+  // Dots map to steps 1-3 (dot-0 = step 1, dot-1 = step 2, dot-2 = step 3)
+  for (let i = 0; i < 3; i++) {
     const dot = document.getElementById(`dot-${i}`);
     if (!dot) continue;
     dot.classList.remove("active", "done");
-    if (n === 0) continue; // no dots lit on auth screen
-    const dotStep = i + 1; // dot 0 = step 1
+    if (n === 0) continue; // no dots on the auth screen
+    const dotStep = i + 1;
     if (dotStep < n) dot.classList.add("done");
     else if (dotStep === n) dot.classList.add("active");
   }
@@ -91,22 +85,21 @@ async function doLogin() {
   }
 
   try {
-    const data = await apiFetch("/login", { method: "POST", body: { email, password } });
+    const data = await apiFetch("/auth/login", { method: "POST", body: { email, password } });
     token = data.token;
     localStorage.setItem("token", token);
-    // Load budget to decide which step to resume
+
     const budget = await fetchBudget();
     currentBudget = budget;
-    if (budget && budget.status === "CONFIRMED") {
-      goToStep(4);
-    } else if (budget && budget.status === "REVIEWED") {
-      renderBudgetForm(budget);
-      goToStep(2);
-    } else if (budget && budget.status === "PENDING" && isBudgetPopulated(budget)) {
-      renderBudgetForm(budget);
-      goToStep(2);
-    } else {
+
+    if (!budget) {
       goToStep(1);
+    } else if (localStorage.getItem("onboarding_done") === "true") {
+      renderDashboard(budget);
+      goToStep(3);
+    } else {
+      renderBudgetForm(budget);
+      goToStep(2);
     }
   } catch (err) {
     showError("auth-error", err.message);
@@ -127,15 +120,18 @@ async function doRegister() {
   }
 
   try {
-    await apiFetch("/register", {
+    await apiFetch("/auth/register", {
       method: "POST",
       body: { firstName, lastName, email, password, confirmPassword },
     });
-    // Auto-login after register
-    document.getElementById("login-email").value = email;
-    document.getElementById("login-password").value = password;
-    switchTab("login");
-    await doLogin();
+
+    // Register returns a PublicUser, not a token — acquire the token with a
+    // separate login call. New users have no budget yet, so skip fetchBudget
+    // and go directly to the Plaid step.
+    const data = await apiFetch("/auth/login", { method: "POST", body: { email, password } });
+    token = data.token;
+    localStorage.setItem("token", token);
+    goToStep(1);
   } catch (err) {
     showError("auth-error", err.message);
   }
@@ -144,7 +140,10 @@ async function doRegister() {
 function doLogout() {
   token = null;
   localStorage.removeItem("token");
+  localStorage.removeItem("onboarding_done");
   currentBudget = null;
+  connectedBanks = [];
+  renderConnectedBanks(); // reset the bank list UI
   goToStep(0);
 }
 
@@ -157,8 +156,9 @@ async function openPlaidLink() {
 
   let linkToken;
   try {
-    const data = await apiFetch("/plaid/create-link-token", { method: "POST" });
-    linkToken = data.link_token;
+    // Link token is fetched via GET — no body needed
+    const data = await apiFetch("/plaid/link-token");
+    linkToken = data.linkToken;
   } catch (err) {
     showError("plaid-error", err.message);
     setLoading(btn, false);
@@ -167,16 +167,21 @@ async function openPlaidLink() {
 
   const handler = Plaid.create({
     token: linkToken,
-    onSuccess: async (publicToken) => {
+    onSuccess: async (publicToken, metadata) => {
       setLoading(btn, true);
       try {
-        const data = await apiFetch("/plaid/exchange-token", {
+        // Exchange token requires institutionId and institutionName from the
+        // Plaid Link metadata. The initial sync runs fire-and-forget on the server.
+        await apiFetch("/plaid/exchange-token", {
           method: "POST",
-          body: { public_token: publicToken },
+          body: {
+            publicToken,
+            institutionId: metadata.institution.institution_id,
+            institutionName: metadata.institution.name,
+          },
         });
-        currentBudget = data.budget;
-        banksConnected = data.banksConnected;
-        updateBanksUI(banksConnected);
+        connectedBanks.push({ name: metadata.institution.name });
+        renderConnectedBanks();
       } catch (err) {
         showError("plaid-error", err.message);
       } finally {
@@ -191,35 +196,54 @@ async function openPlaidLink() {
   handler.open();
 }
 
-function updateBanksUI(count) {
-  const badge = document.getElementById("banks-badge");
+function renderConnectedBanks() {
+  const list = document.getElementById("banks-list");
   const continueBtn = document.getElementById("btn-continue");
   const linkBtn = document.getElementById("btn-link");
 
-  badge.textContent = `${count} bank${count !== 1 ? "s" : ""} connected`;
-  badge.classList.toggle("empty", count === 0);
+  list.innerHTML = connectedBanks
+    .map(
+      (bank) => `
+        <div class="bank-item">
+          <span class="bank-check">&#10003;</span>
+          <span>${bank.name}</span>
+        </div>
+      `
+    )
+    .join("");
 
+  const count = connectedBanks.length;
   continueBtn.disabled = count === 0;
   continueBtn.style.opacity = count === 0 ? "0.4" : "1";
+  linkBtn.textContent = count > 0 ? "Link another bank" : "Link bank account";
+}
 
-  if (count > 0) {
-    linkBtn.textContent = "Link another bank";
+async function goToBudgetReview() {
+  goToStep(2);
+  showBudgetLoading();
+
+  // POST /budget/initialize generates the budget from the transactions and
+  // liabilities that triggerInitialSync just populated. It is idempotent —
+  // safe to call if a budget already exists (e.g. user linked a second bank).
+  try {
+    const budget = await apiFetch("/budget/initialize", { method: "POST" });
+    currentBudget = budget;
+    renderBudgetForm(budget);
+  } catch (err) {
+    showError("budget-error", err.message);
+  } finally {
+    hideBudgetLoading();
   }
 }
 
-function goToBudgetReview() {
-  if (!currentBudget) return;
-  renderBudgetForm(currentBudget);
-  goToStep(2);
+function showBudgetLoading() {
+  const el = document.getElementById("budget-loading");
+  if (el) el.style.display = "flex";
 }
 
-// Returns true if any budget field has been populated (i.e. a bank was already linked)
-function isBudgetPopulated(budget) {
-  return (
-    budget.income?.monthlyNet !== null ||
-    budget.needs?.housing?.rentOrMortgage !== null ||
-    budget.wants?.takeout !== null
-  );
+function hideBudgetLoading() {
+  const el = document.getElementById("budget-loading");
+  if (el) el.style.display = "none";
 }
 
 // ─── Budget form ──────────────────────────────────────────────────────────────
@@ -228,57 +252,23 @@ function renderBudgetForm(budget) {
   const container = document.getElementById("budget-form");
   container.innerHTML = "";
 
+  // Budget is a flat structure — every category is { amount: number }.
   const sections = [
-    {
-      title: "Income",
-      fields: [{ label: "Monthly", path: "income.monthlyNet" }],
-    },
-    {
-      title: "Housing",
-      fields: [{ label: "Rent", path: "needs.housing.rentOrMortgage" }],
-    },
-    {
-      title: "Utilities",
-      fields: [
-        { label: "Utilities (gas, electric, internet, phone)", path: "needs.utilities.utilities" },
-      ],
-    },
-    {
-      title: "Transportation",
-      fields: [
-        { label: "Car payment", path: "needs.transportation.carPayment" },
-        { label: "Gas", path: "needs.transportation.gasFuel" },
-      ],
-    },
-    {
-      title: "Other needs",
-      fields: [
-        { label: "Groceries", path: "needs.other.groceries" },
-        { label: "Personal care", path: "needs.other.personalCare" },
-      ],
-    },
-    {
-      title: "Wants",
-      fields: [
-        { label: "Takeout", path: "wants.takeout" },
-        { label: "Shopping", path: "wants.shopping" },
-      ],
-    },
-    {
-      title: "Investments",
-      fields: [
-        { label: "Monthly contribution", path: "investments.monthlyContribution" },
-      ],
-    },
-    {
-      title: "Debts",
-      fields: [
-        { label: "Minimum monthly payments", path: "debts.minimumPayments" },
-      ],
-    },
+    { title: "Income",         path: "income.amount",         label: "Monthly net" },
+    { title: "Housing",        path: "housing.amount",        label: "Rent / mortgage" },
+    { title: "Utilities",      path: "utilities.amount",      label: "Gas, electric, internet, phone" },
+    { title: "Transportation", path: "transportation.amount", label: "Car payment, gas, transit" },
+    { title: "Groceries",      path: "groceries.amount",      label: "Groceries" },
+    { title: "Takeout",        path: "takeout.amount",        label: "Restaurants, coffee, delivery" },
+    { title: "Shopping",       path: "shopping.amount",       label: "General merchandise" },
+    { title: "Personal care",  path: "personalCare.amount",   label: "Gym, hair, laundry" },
+    { title: "Investments",    path: "investments.amount",    label: "Monthly contribution" },
+    { title: "Debts",          path: "debts.amount",          label: "Minimum monthly payments" },
   ];
 
   for (const section of sections) {
+    const value = getNestedValue(budget, section.path);
+
     const wrap = document.createElement("div");
     wrap.className = "budget-section";
 
@@ -286,30 +276,15 @@ function renderBudgetForm(budget) {
     heading.textContent = section.title;
     wrap.appendChild(heading);
 
-    for (const field of section.fields) {
-      const value = getNestedValue(budget, field.path);
-
-      if (field.type === "bool") {
-        const row = document.createElement("div");
-        row.className = "toggle-row";
-        row.innerHTML = `
-          <label>${field.label}</label>
-          <input type="checkbox" data-path="${field.path}" ${value ? "checked" : ""} />
-        `;
-        wrap.appendChild(row);
-      } else {
-        const row = document.createElement("div");
-        row.className = "budget-row";
-        row.innerHTML = `
-          <label>${field.label}</label>
-          <input type="number" min="0" step="0.01" data-path="${field.path}"
-            value="${value !== null && value !== undefined ? value : ""}"
-            placeholder="—" />
-        `;
-        wrap.appendChild(row);
-      }
-    }
-
+    const row = document.createElement("div");
+    row.className = "budget-row";
+    row.innerHTML = `
+      <label>${section.label}</label>
+      <input type="number" min="0" step="0.01" data-path="${section.path}"
+        value="${value !== null && value !== undefined ? value : ""}"
+        placeholder="—" />
+    `;
+    wrap.appendChild(row);
     container.appendChild(wrap);
   }
 }
@@ -318,73 +293,96 @@ async function saveBudget() {
   clearError("budget-error");
   if (!currentBudget) return;
 
-  // Collect values from the form
-  const updates = deepClone(currentBudget);
-
+  // Collect values as { category: { amount }, ... } matching BudgetUpdateInput.
+  const updates = {};
   document.querySelectorAll("#budget-form [data-path]").forEach((input) => {
-    const path = input.dataset.path;
-    let value;
-    if (input.type === "checkbox") {
-      value = input.checked;
-    } else {
-      value = input.value === "" ? null : parseFloat(input.value);
+    const [category] = input.dataset.path.split(".");
+    if (input.value !== "") {
+      updates[category] = { amount: parseFloat(input.value) };
     }
-    setNestedValue(updates, path, value);
   });
 
   try {
-    const data = await apiFetch(`/budget/${encodeURIComponent(currentBudget.budgetId)}`, {
-      method: "PUT",
+    const updated = await apiFetch("/budget", {
+      method: "PATCH",
       body: updates,
     });
-    currentBudget = data.budget;
-    renderBudgetSummary(currentBudget);
+    currentBudget = updated;
+    localStorage.setItem("onboarding_done", "true");
+    renderDashboard(updated);
     goToStep(3);
   } catch (err) {
     showError("budget-error", err.message);
   }
 }
 
-// ─── Confirm ──────────────────────────────────────────────────────────────────
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function renderBudgetSummary(budget) {
-  const container = document.getElementById("budget-summary");
-  const lines = [
-    ["Monthly income", budget.income?.monthlyNet],
-    ["Rent", budget.needs?.housing?.rentOrMortgage],
-    ["Utilities", budget.needs?.utilities?.utilities],
-    ["Car payment", budget.needs?.transportation?.carPayment],
-    ["Gas", budget.needs?.transportation?.gasFuel],
-    ["Groceries", budget.needs?.other?.groceries],
-    ["Personal care", budget.needs?.other?.personalCare],
-    ["Takeout", budget.wants?.takeout],
-    ["Shopping", budget.wants?.shopping],
-    ["Investments (monthly)", budget.investments?.monthlyContribution],
-    ["Min. debt payments", budget.debts?.minimumPayments],
+function renderDashboard(budget) {
+  const income    = budget.income?.amount        ?? 0;
+  const housing   = budget.housing?.amount       ?? 0;
+  const utilities = budget.utilities?.amount     ?? 0;
+  const transport = budget.transportation?.amount ?? 0;
+  const groceries = budget.groceries?.amount     ?? 0;
+  const takeout   = budget.takeout?.amount       ?? 0;
+  const shopping  = budget.shopping?.amount      ?? 0;
+  const care      = budget.personalCare?.amount  ?? 0;
+  const investing = budget.investments?.amount   ?? 0;
+  const debts     = budget.debts?.amount         ?? 0;
+
+  const expenses = housing + utilities + transport + groceries + takeout + shopping + care + debts;
+  const surplus  = income - expenses - investing;
+
+  // Summary cards
+  document.getElementById("dash-income").textContent = fmt(income);
+  document.getElementById("dash-expenses").textContent = fmt(expenses);
+  document.getElementById("dash-investing").textContent = fmt(investing);
+
+  const surplusEl = document.getElementById("dash-surplus");
+  surplusEl.textContent = (surplus >= 0 ? "+" : "-") + fmt(Math.abs(surplus));
+  surplusEl.className = "summary-value " + (surplus >= 0 ? "green" : "red");
+
+  // Spending breakdown bars
+  const categories = [
+    { label: "Housing",        amount: housing },
+    { label: "Utilities",      amount: utilities },
+    { label: "Transportation", amount: transport },
+    { label: "Groceries",      amount: groceries },
+    { label: "Takeout",        amount: takeout },
+    { label: "Shopping",       amount: shopping },
+    { label: "Personal care",  amount: care },
+    { label: "Debts (min)",    amount: debts },
   ];
 
-  container.innerHTML = lines
-    .filter(([, v]) => v !== null && v !== undefined)
-    .map(
-      ([label, value]) => `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:0.9rem;">
-        <span style="color:#555">${label}</span>
-        <span style="font-weight:600">$${Number(value).toFixed(2)}</span>
-      </div>`
-    )
+  document.getElementById("dash-breakdown").innerHTML = categories
+    .map((cat) => {
+      const pct = income > 0 ? Math.min((cat.amount / income) * 100, 100) : 0;
+      return `
+        <div class="dash-row">
+          <span class="dash-label">${cat.label}</span>
+          <div class="dash-bar-wrap">
+            <div class="dash-bar" style="width:${pct.toFixed(1)}%"></div>
+          </div>
+          <span class="dash-amount">${fmt(cat.amount)}</span>
+        </div>
+      `;
+    })
     .join("");
+
+  // Placeholder card values
+  document.getElementById("dash-invest-detail").textContent = fmt(investing) + "/mo";
+  document.getElementById("dash-debt-detail").textContent   = fmt(debts) + "/mo";
 }
 
-async function doConfirm() {
-  clearError("confirm-error");
-  if (!currentBudget) return;
-
-  try {
-    await apiFetch(`/budget/${encodeURIComponent(currentBudget.budgetId)}/confirm`, { method: "POST" });
-    goToStep(4);
-  } catch (err) {
-    showError("confirm-error", err.message);
-  }
+// Format a non-negative dollar amount as "$X,XXX". Sign is added by the caller.
+function fmt(n) {
+  return (
+    "$" +
+    Math.abs(Number(n)).toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -401,15 +399,15 @@ async function apiFetch(path, { method = "GET", body } = {}) {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`);
   return data;
 }
 
 async function fetchBudget() {
   if (!token) return null;
   try {
-    const data = await apiFetch("/budget");
-    return data.budget ?? null;
+    // GET /api/budget returns the budget object directly (404 if none exists yet)
+    return await apiFetch("/budget");
   } catch {
     return null;
   }
@@ -442,17 +440,4 @@ function setLoading(btn, loading) {
 
 function getNestedValue(obj, path) {
   return path.split(".").reduce((cur, key) => cur?.[key], obj) ?? null;
-}
-
-function setNestedValue(obj, path, value) {
-  const parts = path.split(".");
-  let cursor = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    cursor = cursor[parts[i]];
-  }
-  cursor[parts[parts.length - 1]] = value;
-}
-
-function deepClone(obj) {
-  return JSON.parse(JSON.stringify(obj));
 }

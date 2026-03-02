@@ -15,8 +15,9 @@
  *   GSI: plaidAccountId-index
  *
  * Reserved-word note:
- *   "name" is a reserved word in DynamoDB's expression syntax and must be
- *   aliased as #name in every UpdateExpression that references it.
+ *   "date", "name", "type", and "subtype" are reserved words in DynamoDB's
+ *   expression syntax and must be aliased via ExpressionAttributeNames in
+ *   every UpdateExpression that references them.
  */
 import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
@@ -45,7 +46,7 @@ export async function upsertInvestmentTransaction(tx: InvestmentTransaction): Pr
     new UpdateCommand({
       TableName: Tables.InvestmentTransactions,
       Key: { userId: tx.userId, dateTransactionId: tx.dateTransactionId },
-      // "name" is a DynamoDB reserved word — alias it via ExpressionAttributeNames.
+      // "date", "name", "type", and "subtype" are DynamoDB reserved words — alias via ExpressionAttributeNames.
       UpdateExpression:
         'SET investmentTransactionId = :investmentTransactionId, ' +
         'plaidAccountId = :plaidAccountId, ' +
@@ -57,7 +58,7 @@ export async function upsertInvestmentTransaction(tx: InvestmentTransaction): Pr
         'price = :price, ' +
         'fees = :fees, ' +
         '#type = :type, ' +
-        'subtype = :subtype, ' +
+        '#subtype = :subtype, ' +
         'isoCurrencyCode = :isoCurrencyCode, ' +
         'unofficialCurrencyCode = :unofficialCurrencyCode, ' +
         'updatedAt = :updatedAt, ' +
@@ -66,6 +67,7 @@ export async function upsertInvestmentTransaction(tx: InvestmentTransaction): Pr
         '#date': 'date',
         '#name': 'name',
         '#type': 'type',
+        '#subtype': 'subtype',
       },
       ExpressionAttributeValues: {
         ':investmentTransactionId': tx.investmentTransactionId,

@@ -38,10 +38,10 @@ export async function upsertAccount(account: Account): Promise<void> {
     new UpdateCommand({
       TableName: Tables.Accounts,
       Key: { userId: account.userId, plaidAccountId: account.plaidAccountId },
-      // 'name' and 'type' are DynamoDB reserved words; reference via ExpressionAttributeNames.
+      // 'name', 'type', and 'subtype' are DynamoDB reserved words; reference via ExpressionAttributeNames.
       UpdateExpression:
         'SET #name = :name, officialName = :officialName, mask = :mask, ' +
-        '#type = :type, subtype = :subtype, itemId = :itemId, ' +
+        '#type = :type, #subtype = :subtype, itemId = :itemId, ' +
         'currentBalance = :currentBalance, availableBalance = :availableBalance, ' +
         'limitBalance = :limitBalance, isoCurrencyCode = :isoCurrencyCode, ' +
         'unofficialCurrencyCode = :unofficialCurrencyCode, updatedAt = :updatedAt, ' +
@@ -49,6 +49,7 @@ export async function upsertAccount(account: Account): Promise<void> {
       ExpressionAttributeNames: {
         '#name': 'name',
         '#type': 'type',
+        '#subtype': 'subtype',
       },
       ExpressionAttributeValues: {
         ':name': account.name,

@@ -157,6 +157,18 @@ export async function registerUser(
   };
 
   await repo.createUser(newUser);
+  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
+  console.log('[TRACE] registerUser result:', JSON.stringify({
+    userId: newUser.id,
+    email: newUser.email,
+    firstName: newUser.firstName,
+    lastName: newUser.lastName,
+    created_at: newUser.created_at,
+    failedLoginAttempts: newUser.failedLoginAttempts,
+    accountLockedUntil: newUser.accountLockedUntil,
+    onboarding: newUser.onboarding,
+    plaidItems: newUser.plaidItems,
+  }, null, 2));
   return toPublicUser(newUser);
 }
 
@@ -238,6 +250,12 @@ export async function loginUser(
     getJwtSecret(),
     { expiresIn: '15m', algorithm: 'HS256' }
   );
+
+  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
+  const [, payloadB64] = token.split('.');
+  const decodedPayload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+  console.log('[TRACE] loginUser JWT payload:', JSON.stringify(decodedPayload, null, 2));
+  console.log('[TRACE] loginUser returning PublicUser:', JSON.stringify(toPublicUser(user), null, 2));
 
   return { user: toPublicUser(user), token };
 }

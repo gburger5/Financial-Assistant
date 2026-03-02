@@ -124,14 +124,14 @@ async function main() {
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
       { AttributeName: "userId", AttributeType: "S" },
-      { AttributeName: "dateTransactionId", AttributeType: "S" },
+      { AttributeName: "sortKey", AttributeType: "S" },
       { AttributeName: "plaidTransactionId", AttributeType: "S" },
       { AttributeName: "plaidAccountId", AttributeType: "S" },
       { AttributeName: "date", AttributeType: "S" },
     ],
     KeySchema: [
       { AttributeName: "userId", KeyType: "HASH" },
-      { AttributeName: "dateTransactionId", KeyType: "RANGE" },
+      { AttributeName: "sortKey", KeyType: "RANGE" },
     ],
     GlobalSecondaryIndexes: [
       {

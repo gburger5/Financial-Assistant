@@ -11,7 +11,7 @@
  * This makes filtering (url + status, p99 latency, userId) trivial with no
  * join logic across multiple log records.
  */
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import helment from '@fastify/helmet';
@@ -20,6 +20,8 @@ import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
 import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
 import authRoutes from './modules/auth/auth.route.js';
+import budgetRoutes from './modules/budget/budget.route.js';
+import plaidRoutes from './modules/plaid/plaid.route.js';
 import { createLogger } from './lib/logger.js';
 import { registerHooks } from './hooks/hooks.js';
 
@@ -60,9 +62,10 @@ export function buildApp(): FastifyInstance {
   const logger = createLogger();
 
   const app = Fastify({
-    // Pass the custom pino logger — base:null, epoch-ms timestamps, OTel
-    // serializers, and sensitive-field redaction are all pre-configured.
-    logger,
+    // Pass the pre-built pino logger instance. Fastify's `logger` option only
+    // accepts a configuration object; `loggerInstance` is the correct option
+    // for a fully constructed logger (e.g. one created by createLogger()).
+    loggerInstance: logger as FastifyBaseLogger,
 
     // Suppress Fastify's automatic "incoming request" / "request completed"
     // log pairs. Our consolidated onResponse hook replaces both with a single
@@ -102,13 +105,17 @@ export function buildApp(): FastifyInstance {
   registerHooks(app);
 
   // Restrict CORS to the configured frontend origin.
-  const allowedOrigin = 'http://localhost:3000';
+  const allowedOrigin = 'http://localhost:5500';
 
   app.register(cors, {
     origin: allowedOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // Graceful shutdown plugin — listens for SIGINT/SIGTERM and calls
+  // app.close() to allow in-flight requests to complete before exit.
+  app.register(gracefulShutdown);
 
   // Global rate limiting — tightened per-route limits are applied in route plugins.
   app.register(rateLimit, {
@@ -127,6 +134,12 @@ export function buildApp(): FastifyInstance {
 
   // Auth routes: register, login, verify.
   app.register(authRoutes, { prefix: '/api/auth' });
+
+  // Budget routes: get, patch, history.
+  app.register(budgetRoutes, { prefix: '/api/budget' });
+
+  // Plaid routes: link-token, exchange-token, webhook.
+  app.register(plaidRoutes, { prefix: '/api/plaid' });
 
   return app;
 }

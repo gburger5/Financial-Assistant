@@ -15,6 +15,7 @@ import { createLogger } from '../../lib/logger.js';
 import { getItemForSync } from '../items/items.service.js';
 import { syncAccounts } from '../accounts/accounts.service.js';
 import { upsertSnapshot, getByUserId } from './liabilities.repository.js';
+import type { PlaidAccountData } from '../accounts/accounts.types.js';
 import type {
   Address,
   Apr,
@@ -207,7 +208,7 @@ export async function updateLiabilities(itemId: string): Promise<LiabilitySyncRe
   });
 
   // Upsert account balance data from the same response — balances live in Accounts.
-  await syncAccounts(userId, itemId, response.data.accounts as unknown[]);
+  await syncAccounts(userId, itemId, response.data.accounts as PlaidAccountData[]);
 
   const liabilities = response.data.liabilities as unknown as {
     credit: PlaidCreditLiability[] | null;
@@ -221,13 +222,21 @@ export async function updateLiabilities(itemId: string): Promise<LiabilitySyncRe
 
   const allLiabilities: Liability[] = [...creditLiabilities, ...studentLiabilities, ...mortgageLiabilities];
 
+  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
+  console.log('[TRACE] updateLiabilities Plaid response counts:', JSON.stringify({
+    credit: creditLiabilities.length,
+    student: studentLiabilities.length,
+    mortgage: mortgageLiabilities.length,
+  }));
+  console.log('[TRACE] updateLiabilities liabilities data:', JSON.stringify(allLiabilities, null, 2));
+
   const results = await Promise.allSettled(allLiabilities.map((l) => upsertSnapshot(l)));
 
   // Log any failures — the next sync will retry since upsertSnapshot is a full overwrite.
   results.forEach((result, i) => {
     if (result.status === 'rejected') {
       logger.error(
-        { error: result.reason, liability: allLiabilities[i] },
+        { err: result.reason, liability: allLiabilities[i] },
         'Failed to upsert liability snapshot — will retry on next sync',
       );
     }

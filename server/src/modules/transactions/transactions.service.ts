@@ -108,6 +108,9 @@ export async function syncTransactions(userId: string, itemId: string): Promise<
   let removedCount = 0;
   let nextCursor = cursor ?? '';
 
+  // TRACE-LOG: temporary instrumentation — remove after run
+  console.log(`[TRACE] syncTransactions starting: itemId=${itemId} cursor=${JSON.stringify(cursor)}`);
+
   let hasMore = true;
   while (hasMore) {
     const response = await plaidClient.transactionsSync({
@@ -118,6 +121,24 @@ export async function syncTransactions(userId: string, itemId: string): Promise<
     });
 
     const page = response.data;
+
+    // TRACE-LOG: temporary instrumentation — remove after run
+    console.log('[TRACE] transactionsSync page:', JSON.stringify({
+      cursor_sent: cursor,
+      added: page.added.length,
+      modified: page.modified.length,
+      removed: page.removed.length,
+      has_more: page.has_more,
+      next_cursor: page.next_cursor,
+      accounts: page.accounts.length,
+      // Sample first transaction to verify shape
+      sample_tx: page.added[0] ? {
+        transaction_id: (page.added[0] as { transaction_id: string }).transaction_id,
+        date: (page.added[0] as { date: string }).date,
+        amount: (page.added[0] as { amount: number }).amount,
+        name: (page.added[0] as { name: string }).name,
+      } : null,
+    }, null, 2));
 
     // Sync account balances on every page — balances may change mid-sync
     // on long multi-page pulls and should be kept fresh throughout.

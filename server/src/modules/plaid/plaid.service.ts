@@ -16,8 +16,10 @@
  *     their Plaid responses. Parallel execution creates three concurrent upserts
  *     to the same account records — last-write-wins is non-deterministic.
  *     Sequential writes are idempotent and deterministic.
- *   - analyzeBudget is stubbed with a TODO; it will be implemented in the
- *     budget module in a future session.
+ *   - investments and liabilities are optional products in createLinkToken. An
+ *     item may not have them enabled (e.g. a checking-only institution). When
+ *     Plaid returns an ITEM_ERROR (e.g. NO_INVESTMENT_ACCOUNTS), triggerInitialSync
+ *     logs the skip and continues rather than propagating the error.
  */
 import type { Products, CountryCode } from 'plaid';
 import { plaidClient } from '../../lib/plaidClient.js';
@@ -46,7 +48,11 @@ const logger = createLogger();
  */
 export async function createLinkToken(userId: string): Promise<{ linkToken: string }> {
   const products = (
-    process.env.PLAID_PRODUCTS?.split(',') ?? ['transactions', 'investments', 'liabilities']
+   ['transactions']
+  ) as Products[];
+
+  const optional_products = (
+    ['investments', 'liabilities']
   ) as Products[];
 
   const countryCodes = (
@@ -55,8 +61,9 @@ export async function createLinkToken(userId: string): Promise<{ linkToken: stri
 
   const response = await plaidClient.linkTokenCreate({
     user: { client_user_id: userId },
-    client_name: process.env.PLAID_CLIENT_NAME ?? 'Financial Assistant',
+    client_name: 'Financial Assistant',
     products,
+    optional_products,
     country_codes: countryCodes,
     language: 'en',
     webhook: process.env.PLAID_WEBHOOK_URL,
@@ -109,6 +116,30 @@ export async function linkBankAccount(
 }
 
 /**
+ * Extracts the Plaid error_type from an unknown thrown value.
+ * Plaid SDK wraps all API errors as Axios errors; the Plaid error payload
+ * is on err.response.data. Returns null for non-Plaid errors.
+ *
+ * @param {unknown} err - The caught error.
+ * @returns {string | null} The Plaid error_type string, or null.
+ */
+function plaidErrorType(err: unknown): string | null {
+  const axiosErr = err as { response?: { data?: { error_type?: string } } };
+  return axiosErr?.response?.data?.error_type ?? null;
+}
+
+/**
+ * Extracts the Plaid error_code from an unknown thrown value.
+ *
+ * @param {unknown} err - The caught error.
+ * @returns {string | null} The Plaid error_code string, or null.
+ */
+function plaidErrorCode(err: unknown): string | null {
+  const axiosErr = err as { response?: { data?: { error_code?: string } } };
+  return axiosErr?.response?.data?.error_code ?? null;
+}
+
+/**
  * Runs a full Plaid data sync for all three product types on a newly linked
  * bank connection: transactions, investments, and liabilities.
  *
@@ -117,15 +148,74 @@ export async function linkBankAccount(
  * so running them in parallel would produce three simultaneous upserts to the
  * same account rows with no defined ordering.
  *
+ * All three products are optional. If an item does not have one enabled, Plaid
+ * returns an ITEM_ERROR (e.g. NO_INVESTMENT_ACCOUNTS). These are not failures —
+ * they mean the product is not supported on this item. The error is logged at
+ * info level and the remaining steps continue. Non-ITEM_ERROR failures (network,
+ * auth, unexpected 5xx) are still propagated.
+ *
+ * transactions may return 0 results when called immediately after link — Plaid
+ * processes history asynchronously. The HISTORICAL_UPDATE webhook (handled in
+ * plaid.webhook.ts) triggers a follow-up sync once data is confirmed ready.
+ *
  * @param {string} userId - UUID of the user who owns the bank connection.
  * @param {string} itemId - Plaid item ID of the newly linked bank connection.
  * @returns {Promise<void>}
  */
 export async function triggerInitialSync(userId: string, itemId: string): Promise<void> {
-  await syncTransactions(userId, itemId);
-  await updateInvestments(userId, itemId);
-  await updateLiabilities(itemId);
+  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
+  console.log(`[TRACE] triggerInitialSync START  userId=${userId} itemId=${itemId}`);
 
-  // TODO: analyzeBudget will be implemented in the budget module.
-  // await analyzeBudget(userId);
+  console.log('[TRACE] triggerInitialSync step 1/3: syncTransactions …');
+  try {
+    const txResult = await syncTransactions(userId, itemId);
+    console.log('[TRACE] triggerInitialSync step 1/3 DONE:', JSON.stringify(txResult));
+  } catch (err) {
+    if (plaidErrorType(err) === 'ITEM_ERROR') {
+      // Product not enabled on this item — not a failure.
+      logger.info(
+        { errorCode: plaidErrorCode(err), userId, itemId },
+        'Transactions product not available on this item — skipping',
+      );
+      console.log(`[TRACE] triggerInitialSync step 1/3 SKIPPED (${plaidErrorCode(err)})`);
+    } else {
+      throw err;
+    }
+  }
+
+  console.log('[TRACE] triggerInitialSync step 2/3: updateInvestments …');
+  try {
+    await updateInvestments(userId, itemId);
+    console.log('[TRACE] triggerInitialSync step 2/3 DONE');
+  } catch (err) {
+    if (plaidErrorType(err) === 'ITEM_ERROR') {
+      // Product not enabled on this item — not a failure.
+      logger.info(
+        { errorCode: plaidErrorCode(err), userId, itemId },
+        'Investments product not available on this item — skipping',
+      );
+      console.log(`[TRACE] triggerInitialSync step 2/3 SKIPPED (${plaidErrorCode(err)})`);
+    } else {
+      throw err;
+    }
+  }
+
+  console.log('[TRACE] triggerInitialSync step 3/3: updateLiabilities …');
+  try {
+    await updateLiabilities(itemId);
+    console.log('[TRACE] triggerInitialSync step 3/3 DONE');
+  } catch (err) {
+    if (plaidErrorType(err) === 'ITEM_ERROR') {
+      // Product not enabled on this item — not a failure.
+      logger.info(
+        { errorCode: plaidErrorCode(err), userId, itemId },
+        'Liabilities product not available on this item — skipping',
+      );
+      console.log(`[TRACE] triggerInitialSync step 3/3 SKIPPED (${plaidErrorCode(err)})`);
+    } else {
+      throw err;
+    }
+  }
+
+  console.log(`[TRACE] triggerInitialSync COMPLETE userId=${userId} itemId=${itemId}`);
 }
