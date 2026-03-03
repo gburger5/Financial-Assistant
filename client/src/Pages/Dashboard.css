@@ -1,5 +1,77 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
+:root {
+  /* surfaces */
+  --bg: #F1F5F9;
+  --surface: #ffffff;
+  --surface-2: #FAFBFC;
+
+  /* text */
+  --text: #0A2540;
+  --muted: #64748B;
+  --muted-2: #94A3B8;
+
+  /* borders */
+  --border: #E2E8F0;
+  --border-2: #F1F5F9;
+
+  /* brand */
+  --brand: #00D4AA;
+  --brand-2: #00A884;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+
+  /* sidebar */
+  --sidebar-bg: #0A2540;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-text: rgba(255,255,255,0.52);
+  --sidebar-text-strong: rgba(255,255,255,0.85);
+  --sidebar-hover: rgba(255,255,255,0.06);
+  --sidebar-active-bg: rgba(0,212,170,0.11);
+
+  /* header */
+  --header-bg: rgba(255,255,255,0.94);
+
+  /* accents */
+  --welcome-grad: linear-gradient(135deg, #0A2540 0%, #0f3460 100%);
+  --avatar-grad: linear-gradient(135deg, #0A2540, #457B9D);
+  --logo-grad: linear-gradient(135deg, #1a3a5c, #00D4AA);
+
+  /* misc */
+  --shadow-1: 0 4px 18px rgba(10,37,64,0.08);
+  --shadow-2: 0 20px 60px rgba(10,37,64,0.14), 0 4px 16px rgba(10,37,64,0.07);
+}
+
+/* Dark theme overrides (toggle this on <html> or <body>) */
+[data-theme="dark"] {
+  --bg: #0B1220;
+  --surface: #0F1A2B;
+  --surface-2: #0C1626;
+
+  --text: #E6EEF8;
+  --muted: #A8B6C8;
+  --muted-2: #7F93AC;
+
+  --border: rgba(230,238,248,0.10);
+  --border-2: rgba(230,238,248,0.06);
+
+  --sidebar-bg: #071225;
+  --sidebar-border: rgba(230,238,248,0.08);
+  --sidebar-text: rgba(230,238,248,0.62);
+  --sidebar-text-strong: rgba(230,238,248,0.90);
+  --sidebar-hover: rgba(230,238,248,0.06);
+  --sidebar-active-bg: rgba(0,212,170,0.14);
+
+  --header-bg: rgba(15,26,43,0.92);
+
+  --welcome-grad: linear-gradient(135deg, #071225 0%, #0F2B4A 100%);
+  --avatar-grad: linear-gradient(135deg, #071225, #2C5B7A);
+  --logo-grad: linear-gradient(135deg, #15314D, #00D4AA);
+
+  --shadow-1: 0 6px 22px rgba(0,0,0,0.35);
+  --shadow-2: 0 24px 70px rgba(0,0,0,0.55), 0 8px 22px rgba(0,0,0,0.35);
+}
+
 /* ── Root ─────────────────────────────────── */
 .dashboard-root {
   display: flex;
