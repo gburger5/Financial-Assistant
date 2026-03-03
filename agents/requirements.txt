@@ -1,5 +1,6 @@
 strands-agents[anthropic]
 strands-agents-tools
+anthropic
 fastapi
 uvicorn
 boto3
