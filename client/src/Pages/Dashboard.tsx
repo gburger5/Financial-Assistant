@@ -1070,22 +1070,22 @@ function Dashboard() {
 
   const unreadCount = notifications.filter(n => n.unread).length
 
-  // useEffect(() => {
-  //   const verifyAuth = async () => {
-  //     const token = getToken()
-  //     if (!token) { navigate('/login'); return }
-  //     try {
-  //       const res = await fetch(`${API_BASE}/verify`, {
-  //         method: 'GET',
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       })
-  //       if (!res.ok) { clearToken(); navigate('/login') }
-  //     } catch {
-  //       navigate('/login')
-  //     }
-  //   }
-  //   verifyAuth()
-  // }, [navigate])
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const token = getToken()
+      if (!token) { navigate('/login'); return }
+      try {
+        const res = await fetch(`${API_BASE}/verify`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) { clearToken(); navigate('/login') }
+      } catch {
+        navigate('/login')
+      }
+    }
+    verifyAuth()
+  }, [navigate])
 
   const handleLogout = () => { clearToken(); navigate('/login') }
   const markAll  = () => setNotifications(n => n.map(x => ({ ...x, unread: false })))
