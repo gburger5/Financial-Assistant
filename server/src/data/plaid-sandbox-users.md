@@ -1,0 +1,183 @@
+# Plaid Sandbox Test Users
+
+Custom users created in the Plaid Sandbox dashboard for end-to-end testing.
+
+For logging in, use anything for the password and MFA prompt:
+- Use Chase Bank to login custom_user_checking
+- Use Charles Schwab to login custom_user_investments
+- Use First Platypus Bank to login custom_user_debts
+
+---
+
+## custom_user_checking
+
+**Description:** Checking account for basic_girl
+
+- **Account:** Primary Checking (Plaid Premier Checking Account)
+- **Type:** depository / checking
+- **Starting Balance:** $4,200.00
+
+### Transactions (January 2026)
+
+| Date | Description | Amount |
+|------|-------------|--------|
+| 01/01 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
+| 01/01 | ONLINE TRANSFER - RIVERSIDE APARTMENTS | $1,500.00 |
+| 01/03 | TOYOTA FINANCIAL SERVICES PAYMENT | $250.00 |
+| 01/04 | SHELL #4821 | $33.81 |
+| 01/05 | CITY POWER & LIGHT - AUTOPAY | $50.00 |
+| 01/05 | WHOLE FOODS MARKET | $110.38 |
+| 01/06 | CHIPOTLE #0293 | $11.00 |
+| 01/08 | GREAT CLIPS | $41.15 |
+| 01/09 | AMAZON.COM*2X3K9 | $102.06 |
+| 01/10 | MCDONALD'S #8821 | $24.87 |
+| 01/11 | CHEVRON #1092 | $39.84 |
+| 01/12 | KROGER #0421 | $125.20 |
+| 01/14 | DOORDASH*THAI ORCHID | $23.79 |
+| 01/15 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
+| 01/17 | CVS PHARMACY #3821 | $47.36 |
+| 01/18 | TARGET #0821 | $127.38 |
+| 01/19 | EXXON #3341 | $32.11 |
+| 01/19 | TRADER JOE'S | $107.17 |
+| 01/20 | UBER EATS*PIZZA PALACE | $26.72 |
+| 01/23 | H&M #3341 | $121.27 |
+| 01/24 | ULTA BEAUTY #0442 | $90.90 |
+| 01/25 | CHICK-FIL-A #0442 | $20.44 |
+| 01/26 | WHOLE FOODS MARKET | $83.96 |
+| 01/27 | SPEEDWAY #8823 | $36.38 |
+
+**Monthly income:** $5,600 (2 biweekly paychecks)
+**Monthly expenses:** ~$3,005 (negative amounts are inflows)
+
+---
+
+## custom_user_investments
+
+**Description:** Investment portfolio of custom user
+
+### Account 1: Roth 401(k) — Acme Corp Roth 401(k) Plan
+
+- **Type:** investment / roth 401k
+- **Starting Balance:** $48,250.00
+
+#### Holdings (as of 2026-01-27)
+
+| Security | Ticker | Qty | Price | Cost Basis | Market Value |
+|----------|--------|-----|-------|------------|-------------|
+| Fidelity 500 Index Fund | FXAIX | 120.50 | $38.92 | $28.50 | $4,690.86 |
+| Fidelity Total Market Index Fund | FSKAX | 85.00 | $124.18 | $95.00 | $10,555.30 |
+| Fidelity Total International Index Fund | FTIHX | 40.00 | $118.45 | $88.00 | $4,738.00 |
+
+#### Investment Transactions (January 2026)
+
+| Date | Description | Type | Qty | Price | Security |
+|------|-------------|------|-----|-------|----------|
+| 01/01 | Employee Contribution - Roth 401(k) | cash | — | — | USD |
+| 01/01 | Employer Match - Acme Corp (50% of 6%) | cash | — | — | USD |
+| 01/01 | Buy FXAIX | buy | 3.96 | $38.20 | FXAIX |
+| 01/01 | Buy FSKAX | buy | 0.83 | $122.10 | FSKAX |
+| 01/15 | Employee Contribution - Roth 401(k) | cash | — | — | USD |
+| 01/15 | Employer Match - Acme Corp (50% of 6%) | cash | — | — | USD |
+| 01/15 | Buy FXAIX | buy | 3.96 | $38.55 | FXAIX |
+| 01/15 | Buy FSKAX | buy | 0.82 | $123.40 | FSKAX |
+
+### Account 2: Roth IRA — Fidelity Roth IRA
+
+- **Type:** investment / roth
+- **Starting Balance:** $18,400.00
+
+#### Holdings (as of 2026-01-27)
+
+| Security | Ticker | Qty | Price | Cost Basis | Market Value |
+|----------|--------|-----|-------|------------|-------------|
+| Vanguard Total Stock Market ETF | VTI | 95.00 | $118.32 | $88.00 | $11,240.40 |
+| Vanguard Total International Stock ETF | VXUS | 45.00 | $72.14 | $55.00 | $3,246.30 |
+| Vanguard Total Bond Market ETF | BND | 20.00 | $84.61 | $72.00 | $1,692.20 |
+
+#### Investment Transactions (January 2026)
+
+| Date | Description | Type | Qty | Price | Security |
+|------|-------------|------|-----|-------|----------|
+| 01/01 | Roth IRA Contribution | cash | — | — | USD |
+| 01/01 | Buy VTI | buy | 1.73 | $117.80 | VTI |
+| 01/01 | Buy VXUS | buy | 1.22 | $71.50 | VXUS |
+| 01/15 | Roth IRA Contribution | cash | — | — | USD |
+| 01/15 | Buy VTI | buy | 1.73 | $118.40 | VTI |
+| 01/15 | Buy VXUS | buy | 1.22 | $71.90 | VXUS |
+| 01/20 | INCOME DIV VTI DIVIDEND | cash | — | — | USD |
+| 01/20 | Dividend Reinvestment VTI | buy | 0.312 | $118.10 | VTI |
+
+---
+
+## custom_user_debts
+
+**Description:** Debts of basic_girl
+
+### Account 1: Chase Sapphire Preferred (credit card)
+
+- **Type:** credit / credit card
+- **Starting Balance:** $1,840.00
+- **Credit Limit:** $5,000
+- **Purchase APR:** 22.99%
+- **Cash APR:** 29.99%
+- **Minimum Payment:** $35.00
+
+#### Transactions (January 2026)
+
+| Date | Description | Amount |
+|------|-------------|--------|
+| 01/06 | CHIPOTLE #0293 | $11.00 |
+| 01/09 | AMAZON.COM | $102.06 |
+| 01/14 | DOORDASH*THAI ORCHID | $23.79 |
+| 01/18 | TARGET #0821 | $127.38 |
+| 01/22 | UBER EATS*PIZZA PALACE | $26.72 |
+| 01/28 | PAYMENT - THANK YOU | -$35.00 |
+
+### Account 2: Apple Card (credit card)
+
+- **Type:** credit / credit card
+- **Starting Balance:** $3,120.00
+- **Credit Limit:** $6,000
+- **Purchase APR:** 19.99%
+- **Cash APR:** 24.99%
+- **Minimum Payment:** $55.00
+
+#### Transactions (January 2026)
+
+| Date | Description | Amount |
+|------|-------------|--------|
+| 01/03 | APPLE ONE SUBSCRIPTION | $14.99 |
+| 01/08 | GREAT CLIPS | $41.15 |
+| 01/10 | MCDONALD'S #8821 | $24.87 |
+| 01/17 | CVS PHARMACY #3821 | $47.36 |
+| 01/23 | H&M #3341 | $121.27 |
+| 01/28 | PAYMENT - THANK YOU | -$55.00 |
+
+### Account 3: Navient Student Loan
+
+- **Type:** loan / student
+- **Starting Balance:** $34,500.00
+- **Original Principal:** $38,000.00
+- **Origination Date:** 2022-08-15
+- **APR:** 5.50%
+- **Minimum Payment:** $412.00
+
+#### Transactions (January 2026)
+
+| Date | Description | Amount |
+|------|-------------|--------|
+| 01/10 | NAVIENT STUDENT LOAN PAYMENT | $412.00 |
+
+---
+
+## Usage
+
+These users are configured in the [Plaid Sandbox dashboard](https://dashboard.plaid.com/developers/sandbox).
+When testing with Plaid Link in Sandbox mode, select "Custom" as the institution and use one of these usernames.
+All three users can be linked under a single Plaid Item or separately to test different account types.
+
+| User | Tests |
+|------|-------|
+| custom_user_checking | Income detection, expense categorization, budget generation |
+| custom_user_investments | Holdings sync, investment transaction history, portfolio display |
+| custom_user_debts | Liability sync, minimum payments, debt-to-income calculations |

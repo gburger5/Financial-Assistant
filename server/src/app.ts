@@ -1,203 +1,143 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import rateLimit from "@fastify/rate-limit";
-import { registerUser, loginUser } from "./services/auth.js";
-import { verifyToken } from "./middleware/auth.js";
-import plaidRoutes from "./routes/plaid.js";
-import budgetRoutes from "./routes/budget.js";
-import { db } from "./lib/db.js";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { LIMITS } from "./validation.js";
+/**
+ * @module app
+ * @description Builds and configures the Fastify application instance.
+ * Call buildApp() to get a configured app without starting the server.
+ * The server.ts entry-point calls listen() on the result.
+ *
+ * Logging strategy — "consolidate logs at creation time":
+ * Default Fastify request logging is disabled. Instead, the lifecycle hooks
+ * in src/hooks/hooks.ts accumulate context across onRequest → preHandler →
+ * onError and emit a single structured JSON line per request in onResponse.
+ * This makes filtering (url + status, p99 latency, userId) trivial with no
+ * join logic across multiple log records.
+ */
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import cors from '@fastify/cors';
+import gracefulShutdown from 'fastify-graceful-shutdown';
+import rateLimit from '@fastify/rate-limit';
+import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
+import authRoutes from './modules/auth/auth.route.js';
+import budgetRoutes from './modules/budget/budget.route.js';
+import plaidRoutes from './modules/plaid/plaid.route.js';
+import { createLogger } from './lib/logger.js';
+import { registerHooks } from './hooks/hooks.js';
 
-interface RegisterBody {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
+// ---------------------------------------------------------------------------
+// Fastify request type augmentations
+// ---------------------------------------------------------------------------
+
+/**
+ * Extend FastifyRequest with two properties that our lifecycle hooks write to:
+ *
+ * startTime   — captured in onRequest via process.hrtime.bigint() so we have
+ *               nanosecond-precision timing. BigInt cannot be JSON-serialised,
+ *               which is intentional — it is only read inside onResponse.
+ *
+ * logContext  — plain object accumulator. onRequest seeds it with HTTP fields;
+ *               preHandler appends user.id (when authenticated); onError appends
+ *               error context. onResponse spreads it into the final log line.
+ */
+declare module 'fastify' {
+  interface FastifyRequest {
+    startTime: bigint;
+    logContext: Record<string, unknown>;
+  }
 }
 
-interface LoginBody {
-  email: string;
-  password: string;
-}
+// ---------------------------------------------------------------------------
+// App factory
+// ---------------------------------------------------------------------------
 
-export function buildApp() {
-  const app = Fastify({ logger: true });
+/**
+ * Creates and wires up the Fastify application with all plugins and routes.
+ * Does not call listen() — that is the responsibility of the server entry-point.
+ *
+ * @returns {FastifyInstance} A fully configured app instance, ready to call
+ *   inject() on in tests or listen() on in production.
+ */
+export function buildApp(): FastifyInstance {
+  const logger = createLogger();
 
-  // Restrict CORS to specific origin
-  const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const app = Fastify({
+    // Pass the pre-built pino logger instance. Fastify's `logger` option only
+    // accepts a configuration object; `loggerInstance` is the correct option
+    // for a fully constructed logger (e.g. one created by createLogger()).
+    loggerInstance: logger as FastifyBaseLogger,
+
+    // Suppress Fastify's automatic "incoming request" / "request completed"
+    // log pairs. Our consolidated onResponse hook replaces both with a single
+    // structured record containing every field we care about.
+    disableRequestLogging: true,
+
+    /**
+     * Generate a UUID v4 for every request instead of auto-incrementing integers.
+     * UUIDs are collision-free across multiple instances — essential in a
+     * distributed / lambda environment where several containers handle traffic.
+     *
+     * If the upstream service or the client sends a W3C Trace Context header
+     * (traceparent) or a simple x-request-id, we propagate it so the same ID
+     * appears in every service's logs for the same user action.
+     *
+     * @param {import('http').IncomingMessage} req - Raw Node.js request object.
+     * @returns {string} The request ID to bind to req.id and req.log.
+     */
+    genReqId(req) {
+      // x-request-id is a widely-used convention for browser → server propagation.
+      const xRequestId = req.headers['x-request-id'];
+      if (typeof xRequestId === 'string' && xRequestId) return xRequestId;
+
+      // traceparent follows the W3C Trace Context spec used by OpenTelemetry.
+      // Format: 00-{traceId}-{spanId}-{flags}. Carry it through as-is so every
+      // service in the call graph logs the same trace root.
+      const traceparent = req.headers['traceparent'];
+      if (typeof traceparent === 'string' && traceparent) return traceparent;
+
+      // No upstream trace ID — generate a fresh UUID v4.
+      return randomUUID();
+    },
+  });
+
+  // Register lifecycle hooks before any routes so they fire for every request
+  // including the /health probe and any future routes added below.
+  registerHooks(app);
+
+  // Restrict CORS to the configured frontend origin.
+  const allowedOrigin = 'http://localhost:5500';
+
   app.register(cors, {
     origin: allowedOrigin,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
-  // Rate limiting
+  // Graceful shutdown plugin — listens for SIGINT/SIGTERM and calls
+  // app.close() to allow in-flight requests to complete before exit.
+  app.register(gracefulShutdown);
+
+  // Global rate limiting — tightened per-route limits are applied in route plugins.
   app.register(rateLimit, {
     max: 100,
     timeWindow: '15 minutes',
     cache: 10000,
   });
 
-  // Health endpoint
-  app.get("/health", async () => {
-    return { status: "ok" };
+  // Global error and not-found handlers. Must be registered before routes.
+  app.register(errorHandlerPlugin);
+
+  // Health probe — no auth required.
+  app.get('/health', async () => {
+    return { status: 'ok' };
   });
 
-  // Verify token endpoint
-  app.get("/verify", { preHandler: verifyToken }, async (req) => {
-    return {
-      valid: true,
-      user: req.user
-    };
-  });
+  // Auth routes: register, login, verify.
+  app.register(authRoutes, { prefix: '/api/auth' });
 
-  // Logout endpoint that revokes current session
-  app.post("/logout", { preHandler: verifyToken }, async (req, reply) => {
-    try {
-      const user = req.user!;
+  // Budget routes: get, patch, history.
+  app.register(budgetRoutes, { prefix: '/api/budget' });
 
-      await db.send(new UpdateCommand({
-        TableName: "auth_tokens",
-        Key: { tokenId: user.jti },
-
-        UpdateExpression: "SET revoked = :true, revokedAt = :now",
-
-        // Only allow update if session actually exists
-        ConditionExpression: "attribute_exists(tokenId)",
-
-        ExpressionAttributeValues: {
-          ":true": true,
-          ":now": new Date().toISOString()
-        }
-      }));
-
-      req.log.info({ userId: user.userId, tokenId: user.jti }, "User logged out");
-
-      return reply.send({ success: true });
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        error.name === "ConditionalCheckFailedException"
-      ) {
-        return reply.send({ success: true });
-      }
-
-      req.log.error({ error }, "Logout failed");
-      return reply.status(500).send({ error: "Logout failed" });
-    }
-  });
-
-  // Register endpoint with rate limit and lockout tracking
-  app.post<{ Body: RegisterBody }>("/register", {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: '15 minutes'
-      }
-    }
-  }, async (req, reply) => {
-    req.log.info({ email: req.body.email }, 'Register request received');
-    
-  const { firstName, lastName, email, password, confirmPassword } = req.body;
-
-  // Required fields
-  if (!firstName || !lastName || !email || !password) {
-    return reply.status(400).send({ error: "All fields are required" });
-  }
-
-  // First name length
-  if (
-    firstName.length < LIMITS.firstName.min ||
-    firstName.length > LIMITS.firstName.max
-  ) {
-    return reply.status(400).send({
-      error: `First name must be between ${LIMITS.firstName.min} and ${LIMITS.firstName.max} characters`
-    });
-  }
-
-  // Last name length
-  if (
-    lastName.length < LIMITS.lastName.min ||
-    lastName.length > LIMITS.lastName.max
-  ) {
-    return reply.status(400).send({
-      error: `Last name must be between ${LIMITS.lastName.min} and ${LIMITS.lastName.max} characters`
-    });
-  }
-
-  // Email max length
-  if (email.length > LIMITS.email.max) {
-    return reply.status(400).send({
-      error: `Email must not exceed ${LIMITS.email.max} characters`
-    });
-  }
-
-  // Password min/max length
-  if (
-    password.length < LIMITS.password.min ||
-    password.length > LIMITS.password.max
-  ) {
-    return reply.status(400).send({
-      error: `Password must be between ${LIMITS.password.min} and ${LIMITS.password.max} characters`
-    });
-  }
-
-  // Password complexity checks
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasNumber = /\d/.test(password);
-
-  if (!hasUpper || !hasLower || !hasNumber) {
-    return reply.status(400).send({
-      error: "Password must contain uppercase, lowercase, and number"
-    });
-  }
-
-  // Confirm password
-  if (password !== confirmPassword) {
-    return reply.status(400).send({ error: "Passwords do not match" });
-  }
-
-  try {
-        const user = await registerUser(firstName, lastName, email, password);
-        req.log.info({ userId: user.id }, 'User registered successfully');
-        return reply.status(200).send({ user });
-      } catch (error) {
-        req.log.error({ error }, 'Registration error');
-        const message = error instanceof Error ? error.message : "Registration failed";
-        return reply.status(400).send({ error: message });
-      }
-  });
-
-  // Login endpoint with strict limit and account lockout
-  app.post<{ Body: LoginBody }>("/login", {
-      config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '15 minutes'
-        }
-      }
-    }, async (req, reply) => {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return reply.status(400).send({ error: "Email and password are required" });
-      }
-
-      try {
-        const result = await loginUser(email, password);
-        return result;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Invalid email or password";
-        req.log.warn({ email }, 'Login attempt failed');
-        return reply.status(401).send({ error: message });
-      }
-    });
-
-  app.register(plaidRoutes);
-  app.register(budgetRoutes);
+  // Plaid routes: link-token, exchange-token, webhook.
+  app.register(plaidRoutes, { prefix: '/api/plaid' });
 
   return app;
 }

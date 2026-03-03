@@ -1,4 +1,4 @@
-PFCv2 Primary,PFCv2 Detailed,,PFCv1 Primary,PFCv1 Detailed
+PFCv2 Primary,PFCv2 Detailed,
 Note: PFCv2 is a superset of PFCv1. All new customers after December 2025 are on PFCv2. Existing customers as of December 2025 are on PFCv1 by default and can opt in to PFCv2 via the personal_finance_category_version parameter.,,,,
 INCOME,INCOME_CHILD_SUPPORT,,,
 INCOME,INCOME_DIVIDENDS,,INCOME,INCOME_DIVIDENDS
