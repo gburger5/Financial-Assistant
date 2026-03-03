@@ -5,6 +5,7 @@ import { registerUser, loginUser } from "./services/auth.js";
 import { verifyToken } from "./middleware/auth.js";
 import plaidRoutes from "./routes/plaid.js";
 import budgetRoutes from "./routes/budget.js";
+import agentRoutes from "./routes/agent.js";
 import { db } from "./lib/db.js";
 import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { LIMITS } from "./validation.js";
@@ -198,6 +199,7 @@ export function buildApp() {
 
   app.register(plaidRoutes);
   app.register(budgetRoutes);
+  app.register(agentRoutes);
 
   return app;
 }

@@ -55,6 +55,7 @@ locals {
     aws_dynamodb_table.proposals.arn,
     aws_dynamodb_table.debts.arn,
     aws_dynamodb_table.investments.arn,
+    aws_dynamodb_table.budgets.arn,
   ]
 }
 
@@ -71,6 +72,7 @@ resource "aws_iam_role_policy" "ecs_task_dynamodb" {
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:Query",
+        "dynamodb:Scan",
       ]
       Resource = local.dynamodb_table_arns
     }]

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -12,8 +12,10 @@ import {
   InputAdornment,
   IconButton,
   Alert,
+  CircularProgress,
 } from '@mui/material'
 import { Close } from '@mui/icons-material'
+import { getToken } from '../utils/auth'
 import './Onboarding.css'
 
 /* TYPES */
@@ -34,6 +36,7 @@ type StepId =
   | 'debts'
   | 'preview'
   | 'plaid'
+  | 'proposal'
 
 interface ProfileData {
   firstName: string
@@ -133,7 +136,7 @@ const BUDGET_STEPS: StepId[] = [
   'wants', 'emergency', 'invest-accts', 'savings-goals', 'debts',
 ]
 
-const ALL_STEPS: StepId[] = [...PROFILE_STEPS, ...BUDGET_STEPS, 'preview', 'plaid']
+const ALL_STEPS: StepId[] = [...PROFILE_STEPS, ...BUDGET_STEPS, 'preview', 'plaid', 'proposal']
 
 const PROFILE_LABELS: Record<string, string> = {
   'profile-name': 'About You',
@@ -1279,6 +1282,257 @@ const PlaidModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
 }
 
 // Step 16 — Connect Bank
+/* Budget interfaces mirroring the TypeScript Budget type */
+interface ProposalBudget {
+  income: { monthlyNet: number | null }
+  needs: {
+    housing: { rentOrMortgage: number | null }
+    utilities: { utilities: number | null }
+    transportation: { carPayment: number | null; gasFuel: number | null }
+    other: { groceries: number | null; personalCare: number | null }
+  }
+  wants: { takeout: number | null; shopping: number | null }
+  investments: { monthlyContribution: number | null }
+  debts: { minimumPayments: number | null }
+}
+
+interface ProposalData {
+  proposalId: string
+  userId: string
+  summary: string
+  rationale: string
+  budget: ProposalBudget
+}
+
+const fmtUsd = (v: number | null | undefined) =>
+  v != null ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const AGENT_BASE = import.meta.env.VITE_AGENT_URL || 'http://localhost:8001'
+
+const ProposalStep = ({ onNext }: { onNext: () => void }) => {
+  const [loading, setLoading] = useState(true)
+  const [proposal, setProposal] = useState<ProposalData | null>(null)
+  const [currentBudget, setCurrentBudget] = useState<ProposalBudget | null>(null)
+  const [error, setError] = useState('')
+  const [revising, setRevising] = useState(false)
+  const [revisionReason, setRevisionReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const token = getToken() ?? ''
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        console.log('[ProposalStep] Fetching current budget...')
+        const budgetRes = await fetch(`${API_BASE}/budget`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!budgetRes.ok) throw new Error('Failed to fetch budget')
+        const { budget } = await budgetRes.json()
+        console.log('[ProposalStep] Budget fetched:', budget)
+        setCurrentBudget(budget)
+
+        console.log('[ProposalStep] Invoking budget agent for userId:', budget.userId)
+        const res = await fetch(`${AGENT_BASE}/agent/budget`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: budget.userId, budget }),
+        })
+        console.log('[ProposalStep] Agent response status:', res.status)
+        if (!res.ok) throw new Error('Failed to get budget proposal')
+        const proposal = await res.json()
+        console.log('[ProposalStep] Proposal received:', proposal)
+        setProposal(proposal)
+      } catch (e) {
+        console.error('[ProposalStep] Error during agent run:', e)
+        setError(e instanceof Error ? e.message : 'Something went wrong')
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
+  }, [])
+
+  const handleAccept = async () => {
+    if (!proposal) return
+    console.log('[ProposalStep] User accepted proposal:', proposal.proposalId)
+    setSubmitting(true)
+    try {
+      console.log('[ProposalStep] Sending approval to Lambda...')
+      const res = await fetch(`${API_BASE}/agent/budget/${proposal.proposalId}/respond`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true }),
+      })
+      console.log('[ProposalStep] Approval response status:', res.status)
+      if (!res.ok) throw new Error('Failed to accept proposal')
+      console.log('[ProposalStep] Approval successful — navigating to dashboard')
+      onNext()
+    } catch (e) {
+      console.error('[ProposalStep] Error accepting proposal:', e)
+      setError(e instanceof Error ? e.message : 'Accept failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleRevise = async () => {
+    if (!proposal || !revisionReason.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await fetch(`${AGENT_BASE}/agent/budget/revise`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: proposal.userId,
+          proposalId: proposal.proposalId,
+          budget: currentBudget,
+          rejectionReason: revisionReason,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to get revision')
+      const revised = await res.json()
+      setProposal(revised)
+      setRevising(false)
+      setRevisionReason('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Revision failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <Typography className="onboarding-section-title">Analyzing your budget</Typography>
+        <Typography className="onboarding-section-sub">
+          Our AI agent is reviewing your spending and building a personalized recommendation...
+        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress sx={{ color: '#00D4AA' }} />
+        </Box>
+      </>
+    )
+  }
+
+  if (error) {
+    return (
+      <>
+        <Typography className="onboarding-section-title">Something went wrong</Typography>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button fullWidth variant="outlined"
+          sx={{ height: 48, fontWeight: 700, textTransform: 'none', borderRadius: '12px' }}
+          onClick={onNext}>
+          Skip for now
+        </Button>
+      </>
+    )
+  }
+
+  if (!proposal) return null
+
+  const rows: Array<{ label: string; current: number | null | undefined; recommended: number | null | undefined }> = [
+    { label: 'Monthly Income',    current: currentBudget?.income.monthlyNet,                   recommended: proposal.budget?.income?.monthlyNet },
+    { label: 'Rent / Mortgage',   current: currentBudget?.needs.housing.rentOrMortgage,         recommended: proposal.budget?.needs?.housing?.rentOrMortgage },
+    { label: 'Utilities',         current: currentBudget?.needs.utilities.utilities,             recommended: proposal.budget?.needs?.utilities?.utilities },
+    { label: 'Car Payment',       current: currentBudget?.needs.transportation.carPayment,       recommended: proposal.budget?.needs?.transportation?.carPayment },
+    { label: 'Gas / Fuel',        current: currentBudget?.needs.transportation.gasFuel,          recommended: proposal.budget?.needs?.transportation?.gasFuel },
+    { label: 'Groceries',         current: currentBudget?.needs.other.groceries,                 recommended: proposal.budget?.needs?.other?.groceries },
+    { label: 'Personal Care',     current: currentBudget?.needs.other.personalCare,              recommended: proposal.budget?.needs?.other?.personalCare },
+    { label: 'Takeout',           current: currentBudget?.wants.takeout,                         recommended: proposal.budget?.wants?.takeout },
+    { label: 'Shopping',          current: currentBudget?.wants.shopping,                        recommended: proposal.budget?.wants?.shopping },
+    { label: 'Investments',       current: currentBudget?.investments.monthlyContribution,       recommended: proposal.budget?.investments?.monthlyContribution },
+    { label: 'Debt Payments',     current: currentBudget?.debts.minimumPayments,                 recommended: proposal.budget?.debts?.minimumPayments },
+  ].filter((r) => r.current != null || r.recommended != null)
+
+  return (
+    <>
+      <Typography className="onboarding-section-title">Your AI Budget Recommendation</Typography>
+      <Typography className="onboarding-section-sub">
+        Our agent analyzed your Plaid-synced spending and built a personalized plan.
+      </Typography>
+
+      {/* Summary */}
+      <Box sx={{ background: 'rgba(0,212,170,0.07)', border: '1px solid rgba(0,212,170,0.25)', borderRadius: 2, p: 2, mb: 2 }}>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#0A2540', lineHeight: 1.6 }}>
+          {proposal.summary}
+        </Typography>
+      </Box>
+
+      {/* Before / After comparison */}
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#334155', mb: 1 }}>
+        Spending Comparison
+      </Typography>
+      <Box sx={{ border: '1px solid #E2E8F0', borderRadius: 2, overflow: 'hidden', mb: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', background: '#F8FAFC', p: 1.5, borderBottom: '1px solid #E2E8F0' }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Category</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B', textTransform: 'uppercase', textAlign: 'right' }}>Current</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#00A884', textTransform: 'uppercase', textAlign: 'right' }}>Recommended</Typography>
+        </Box>
+        {rows.map((row) => {
+          const diff = (row.recommended ?? 0) - (row.current ?? 0)
+          const changed = row.current != null && row.recommended != null && Math.abs(diff) > 0.01
+          return (
+            <Box key={row.label} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', p: 1.5, borderBottom: '1px solid #F1F5F9', '&:last-child': { borderBottom: 'none' } }}>
+              <Typography variant="body2" sx={{ color: '#0A2540' }}>{row.label}</Typography>
+              <Typography variant="body2" sx={{ textAlign: 'right', color: '#64748B' }}>{fmtUsd(row.current)}</Typography>
+              <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: changed ? 700 : 400, color: changed ? (diff < 0 ? '#10B981' : '#EF4444') : '#0A2540' }}>
+                {fmtUsd(row.recommended)}
+              </Typography>
+            </Box>
+          )
+        })}
+      </Box>
+
+      {/* Rationale */}
+      <Box sx={{ background: 'rgba(69,123,157,0.07)', border: '1px solid rgba(69,123,157,0.2)', borderRadius: 2, p: 2, mb: 3 }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, color: '#457B9D', textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', mb: 0.5 }}>
+          Rationale
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#0A2540', lineHeight: 1.6 }}>{proposal.rationale}</Typography>
+      </Box>
+
+      {/* Revision input */}
+      {revising && (
+        <Box sx={{ mb: 2 }}>
+          <TextField fullWidth multiline rows={3} label="What would you like changed?"
+            value={revisionReason} onChange={(e) => setRevisionReason(e.target.value)}
+            placeholder="e.g. I want to invest more and cut takeout less" size="small" sx={{ mb: 1.5 }} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button fullWidth variant="contained" className="onboarding-primary-btn"
+              disabled={!revisionReason.trim() || submitting} onClick={handleRevise}>
+              {submitting ? 'Revising...' : 'Submit Revision'}
+            </Button>
+            <Button fullWidth variant="outlined" disabled={submitting}
+              sx={{ height: 48, fontWeight: 700, textTransform: 'none', borderRadius: '12px', borderColor: '#0A2540', color: '#0A2540' }}
+              onClick={() => { setRevising(false); setRevisionReason('') }}>
+              Cancel
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {!revising && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button fullWidth variant="contained" className="onboarding-primary-btn"
+            disabled={submitting} onClick={handleAccept}>
+            {submitting ? 'Saving...' : 'Accept Budget'}
+          </Button>
+          <Button fullWidth variant="outlined" disabled={submitting}
+            sx={{ height: 48, fontWeight: 700, textTransform: 'none', borderRadius: '12px', borderColor: '#457B9D', color: '#457B9D' }}
+            onClick={() => setRevising(true)}>
+            Revise
+          </Button>
+        </Box>
+      )}
+
+      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+    </>
+  )
+}
+
 const PlaidStep = ({ onNext }: { onNext: () => void }) => {
   const [connected, setConnected] = useState(0)
   const [showPlaid, setShowPlaid] = useState(false)
@@ -1358,10 +1612,10 @@ const Sidebar = ({ currentStep, goTo }: { currentStep: StepId; goTo: (s: StepId)
         {renderGroup('Budget', BUDGET_STEPS, BUDGET_LABELS)}
         <Box>
           <Typography className="sidebar-group-label">Finish</Typography>
-          {(['preview', 'plaid'] as StepId[]).map((step) => {
+          {(['preview', 'plaid', 'proposal'] as StepId[]).map((step) => {
             const idx = ALL_STEPS.indexOf(step)
             const state = idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : 'pending'
-            const label = step === 'preview' ? 'Budget Preview' : 'Connect Bank'
+            const label = step === 'preview' ? 'Budget Preview' : step === 'plaid' ? 'Connect Bank' : 'AI Recommendation'
             return (
               <div key={step} className={`sidebar-item ${state}`} onClick={state === 'done' ? () => goTo(step) : undefined}>
                 <div className={`sidebar-step-dot ${state}`}>{state === 'done' ? '✓' : '✦'}</div>
@@ -1414,7 +1668,8 @@ function Onboarding() {
     'savings-goals': <SavingsGoalsStep  data={budget}  setData={setBudget}  onNext={next} />,
     debts:           <DebtsStep         data={budget}  setData={setBudget}  profile={profile} onNext={next} />,
     preview:         <BudgetPreviewStep profile={profile} budget={budget} onNext={next} />,
-    plaid:           <PlaidStep         onNext={() => navigate('/dashboard')} />,
+    plaid:           <PlaidStep         onNext={next} />,
+    proposal:        <ProposalStep      onNext={() => navigate('/dashboard')} />,
   }
 
   return (
@@ -1433,7 +1688,7 @@ function Onboarding() {
           <div className="onboarding-progress-wrap">
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#00D4AA', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                {PROFILE_STEPS.includes(step) ? 'Profile' : BUDGET_STEPS.includes(step) ? 'Budget' : step === 'preview' ? 'Preview' : 'Connect Bank'}
+                {PROFILE_STEPS.includes(step) ? 'Profile' : BUDGET_STEPS.includes(step) ? 'Budget' : step === 'preview' ? 'Preview' : step === 'plaid' ? 'Connect Bank' : 'AI Recommendation'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#94A3B8' }}>{progress}% complete</Typography>
             </Box>

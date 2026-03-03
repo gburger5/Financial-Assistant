@@ -54,6 +54,7 @@ resource "aws_ecs_task_definition" "agents" {
         { name = "PROPOSALS_TABLE", value = var.proposals_table },
         { name = "DEBTS_TABLE", value = var.debts_table },
         { name = "INVESTMENTS_TABLE", value = var.investments_table },
+        { name = "BUDGETS_TABLE", value = var.budgets_table },
       ]
 
       secrets = [

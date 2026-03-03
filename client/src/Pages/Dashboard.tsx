@@ -39,6 +39,46 @@ interface SettingsState {
 
 type BoolSetting = 'budgetRollover' | 'budgetAlerts' | 'emailNotifs' | 'pushNotifs' | 'goalReminders' | 'weeklyReport' | 'twoFactor' | 'dataSharing'
 
+interface Budget {
+  userId: string
+  budgetId: string
+  name: string
+  status: string
+  income: { monthlyNet: number | null }
+  needs: {
+    housing: { rentOrMortgage: number | null }
+    utilities: { utilities: number | null }
+    transportation: { carPayment: number | null; gasFuel: number | null }
+    other: { groceries: number | null; personalCare: number | null }
+  }
+  wants: { takeout: number | null; shopping: number | null }
+  investments: { monthlyContribution: number | null }
+  debts: { minimumPayments: number | null }
+}
+
+interface BudgetCategory {
+  name: string
+  amount: number
+  color: string
+  icon: string
+}
+
+function budgetToCategories(budget: Budget): BudgetCategory[] {
+  const entries = [
+    { name: 'Housing',       amount: budget.needs.housing.rentOrMortgage,         color: '#457B9D', icon: '🏠' },
+    { name: 'Utilities',     amount: budget.needs.utilities.utilities,             color: '#6B7280', icon: '💡' },
+    { name: 'Car Payment',   amount: budget.needs.transportation.carPayment,       color: '#F59E0B', icon: '🚗' },
+    { name: 'Gas & Fuel',    amount: budget.needs.transportation.gasFuel,          color: '#F59E0B', icon: '⛽' },
+    { name: 'Groceries',     amount: budget.needs.other.groceries,                 color: '#00D4AA', icon: '🛒' },
+    { name: 'Personal Care', amount: budget.needs.other.personalCare,              color: '#EC4899', icon: '💅' },
+    { name: 'Dining Out',    amount: budget.wants.takeout,                         color: '#EF4444', icon: '🍽️' },
+    { name: 'Shopping',      amount: budget.wants.shopping,                        color: '#8B5CF6', icon: '🛍️' },
+    { name: 'Investing',     amount: budget.investments.monthlyContribution,       color: '#10B981', icon: '📈' },
+    { name: 'Debt Payments', amount: budget.debts.minimumPayments,                 color: '#6366F1', icon: '💳' },
+  ]
+  return entries.filter((e): e is BudgetCategory => e.amount != null && e.amount > 0)
+}
+
 // Mock Data
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: 1, icon: '⚠️', iconBg: 'rgba(239,68,68,0.1)',   title: 'Budget Alert',       desc: 'Dining out is at 87% of your monthly budget.',         time: '2m ago',     unread: true,  type: 'alert'  },
@@ -60,14 +100,6 @@ const MOCK_TRANSACTIONS = [
   { id: 8, name: 'Freelance Payment',  category: 'Income',        date: 'Feb 15', amount: 750.00,  icon: '💼', iconBg: 'rgba(0,168,132,0.1)'   },
 ]
 
-const MOCK_BUDGET = [
-  { name: 'Housing',       spent: 1450, budget: 1500, color: '#457B9D', icon: '🏠' },
-  { name: 'Food',          spent: 387,  budget: 500,  color: '#00D4AA', icon: '🛒' },
-  { name: 'Transport',     spent: 220,  budget: 300,  color: '#F59E0B', icon: '🚗' },
-  { name: 'Dining Out',    spent: 174,  budget: 200,  color: '#EF4444', icon: '🍽️' },
-  { name: 'Shopping',      spent: 245,  budget: 300,  color: '#8B5CF6', icon: '🛍️' },
-  { name: 'Subscriptions', spent: 55,   budget: 80,   color: '#64748B', icon: '📱' },
-]
 
 const MOCK_GOALS = [
   { name: 'Emergency Fund',  target: 15000, saved: 7540, icon: '🛡️', color: '#00D4AA', deadline: 'Dec 2025' },
@@ -132,7 +164,7 @@ const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
 )
 
 // Overview Page
-const OverviewPage = ({ goTo }: { goTo: (p: PageId) => void }) => (
+const OverviewPage = ({ goTo, budget }: { goTo: (p: PageId) => void; budget: Budget | null }) => (
   <div>
     <div className="welcome-bar">
       <div>
@@ -217,20 +249,23 @@ const OverviewPage = ({ goTo }: { goTo: (p: PageId) => void }) => (
             <div className="section-card-title">Budget Overview</div>
             <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 12 }} onClick={() => goTo('budget')}>Manage</button>
           </div>
-          {MOCK_BUDGET.slice(0, 4).map(b => (
-            <div key={b.name} className="budget-row">
-              <div className="budget-row-header">
-                <span className="budget-cat-name">{b.icon} {b.name}</span>
-                <span className="budget-cat-amounts">${b.spent} / ${b.budget}</span>
+          {budget
+            ? budgetToCategories(budget).slice(0, 4).map(b => (
+              <div key={b.name} className="budget-row">
+                <div className="budget-row-header">
+                  <span className="budget-cat-name">{b.icon} {b.name}</span>
+                  <span className="budget-cat-amounts">${b.amount.toLocaleString()}/mo</span>
+                </div>
+                <div className="budget-bar-track">
+                  <div className="budget-bar-fill" style={{
+                    width: `${Math.min(100, Math.round((b.amount / (budget.income.monthlyNet ?? b.amount)) * 100))}%`,
+                    background: b.color,
+                  }} />
+                </div>
               </div>
-              <div className="budget-bar-track">
-                <div className="budget-bar-fill" style={{
-                  width: `${Math.min(100, Math.round(b.spent / b.budget * 100))}%`,
-                  background: b.spent / b.budget > 0.9 ? '#EF4444' : b.color,
-                }} />
-              </div>
-            </div>
-          ))}
+            ))
+            : <div style={{ color: '#94A3B8', textAlign: 'center', padding: '20px 0', fontSize: 13 }}>No budget data yet</div>
+          }
         </div>
       </Grid>
 
@@ -329,26 +364,39 @@ const TransactionsPage = () => {
 }
 
 // ── Budget Page ───────────────────────────────────────────
-const BudgetPage = () => {
-  const totalSpent  = MOCK_BUDGET.reduce((a, b) => a + b.spent, 0)
-  const totalBudget = MOCK_BUDGET.reduce((a, b) => a + b.budget, 0)
+const BudgetPage = ({ budget }: { budget: Budget | null }) => {
+  if (!budget) return (
+    <div style={{ color: '#94A3B8', textAlign: 'center', padding: 40 }}>No budget data yet.</div>
+  )
+
+  const categories = budgetToCategories(budget)
+  const income: number = budget.income.monthlyNet ?? 0
+  const totalNeeds = [
+    budget.needs.housing.rentOrMortgage,
+    budget.needs.utilities.utilities,
+    budget.needs.transportation.carPayment,
+    budget.needs.transportation.gasFuel,
+    budget.needs.other.groceries,
+    budget.needs.other.personalCare,
+  ].reduce<number>((a, v) => a + (v ?? 0), 0)
+  const totalWants   = (budget.wants.takeout ?? 0) + (budget.wants.shopping ?? 0)
+  const totalSavings = (budget.investments.monthlyContribution ?? 0) + (budget.debts.minimumPayments ?? 0)
 
   return (
     <div>
       <div className="inner-page-header">
         <div>
           <div className="page-title">Budget</div>
-          <div className="page-subtitle">Monthly spending plan · February 2025</div>
+          <div className="page-subtitle">Agent-recommended monthly plan</div>
         </div>
-        <button className="btn-primary">+ Add Category</button>
       </div>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Budgeted', value: `$${totalBudget.toLocaleString()}`,                          color: '#457B9D' },
-          { label: 'Total Spent',    value: `$${totalSpent.toLocaleString()}`,                           color: '#0A2540' },
-          { label: 'Remaining',      value: `$${(totalBudget - totalSpent).toLocaleString()}`,           color: '#00A884' },
-          { label: 'On Track',       value: `${MOCK_BUDGET.filter(b => b.spent / b.budget < 0.9).length}/${MOCK_BUDGET.length} categories`, color: '#457B9D' },
+          { label: 'Monthly Income',  value: `$${income.toLocaleString()}`,                       color: '#457B9D' },
+          { label: 'Needs',           value: `$${Math.round(totalNeeds).toLocaleString()}`,        color: '#0A2540' },
+          { label: 'Wants',           value: `$${Math.round(totalWants).toLocaleString()}`,        color: '#EF4444' },
+          { label: 'Savings & Debt',  value: `$${Math.round(totalSavings).toLocaleString()}`,      color: '#10B981' },
         ].map(s => (
           <Grid item xs={6} lg={3} key={s.label}>
             <div className="stat-card" style={{ padding: 16 }}>
@@ -360,27 +408,19 @@ const BudgetPage = () => {
       </Grid>
 
       <div className="section-card">
-        {MOCK_BUDGET.map(b => {
-          const pct = Math.round(b.spent / b.budget * 100)
-          const over = pct > 90
+        {categories.map(b => {
+          const pct = income > 0 ? Math.round((b.amount / income) * 100) : 0
           return (
             <div key={b.name} style={{ marginBottom: 22 }}>
               <div className="budget-row-header" style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#0A2540' }}>{b.icon} {b.name}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {over && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 10 }}>
-                      ⚠ Near limit
-                    </span>
-                  )}
-                  <span className="budget-cat-amounts" style={{ fontSize: 13 }}>
-                    ${b.spent} / ${b.budget}{' '}
-                    <span style={{ color: over ? '#EF4444' : '#00A884', fontWeight: 700 }}>({pct}%)</span>
-                  </span>
-                </div>
+                <span className="budget-cat-amounts" style={{ fontSize: 13 }}>
+                  ${b.amount.toLocaleString()}/mo
+                  <span style={{ color: '#94A3B8', fontWeight: 400 }}> · {pct}% of income</span>
+                </span>
               </div>
               <div className="budget-bar-track" style={{ height: 9 }}>
-                <div className="budget-bar-fill" style={{ width: `${Math.min(100, pct)}%`, background: over ? '#EF4444' : b.color }} />
+                <div className="budget-bar-fill" style={{ width: `${Math.min(100, pct)}%`, background: b.color }} />
               </div>
             </div>
           )
@@ -1076,8 +1116,26 @@ function Dashboard() {
   const [collapsed,     setCollapsed]     = useState(false)
   const [notifOpen,     setNotifOpen]     = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS)
+  const [budget, setBudget] = useState<Budget | null>(null)
 
   const unreadCount = notifications.filter(n => n.unread).length
+
+  useEffect(() => {
+    const fetchBudget = async () => {
+      const token = getToken()
+      if (!token) return
+      try {
+        const res = await fetch(`${API_BASE}/budget`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setBudget(data.budget ?? null)
+        }
+      } catch { /* non-critical */ }
+    }
+    fetchBudget()
+  }, [])
 
   useEffect(() => {
     const verifyAuth = async () => {
@@ -1109,9 +1167,9 @@ function Dashboard() {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'overview':      return <OverviewPage goTo={goTo} />
+      case 'overview':      return <OverviewPage goTo={goTo} budget={budget} />
       case 'transactions':  return <TransactionsPage />
-      case 'budget':        return <BudgetPage />
+      case 'budget':        return <BudgetPage budget={budget} />
       case 'investments':   return <InvestmentsPage />
       case 'goals':         return <GoalsPage />
       case 'debts':         return <DebtsPage />
