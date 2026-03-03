@@ -148,7 +148,7 @@ async function onErrorHook(
   req.logContext['error.message'] = error.message;
   // AppError subclasses expose a statusCode; include it when present.
   req.logContext['error.statusCode'] = (
-    error as Record<string, unknown>
+    error as unknown as Record<string, unknown>
   ).statusCode;
 
   // Immediate error log — for cases where the error is interesting on its own
