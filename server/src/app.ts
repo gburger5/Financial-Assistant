@@ -14,8 +14,6 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
-import helment from '@fastify/helmet';
-import compress from '@fastify/compress';
 import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
 import errorHandlerPlugin from './plugins/errorHandler.plugin.js';

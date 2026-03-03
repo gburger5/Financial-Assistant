@@ -60,6 +60,7 @@ async function buildTestApp(
   // This avoids the FastifyInstance<Logger<...>> vs FastifyInstance<FastifyBaseLogger>
   // generics mismatch that occurs when using loggerInstance.
   const app = Fastify({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     logger: { level: 'trace', base: null, stream } as any,
     // Suppress Fastify's automatic "incoming request" / "request completed" logs;
     // our onResponse hook emits the single consolidated log instead.
@@ -122,6 +123,7 @@ describe('preHandler hook', () => {
       // Set req.user in a second onRequest hook (runs after registerHooks' onRequest
       // which seeds logContext) so it is available when the global preHandler fires.
       a.addHook('onRequest', async (req) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (req as any).user = {
           userId: 'user-abc123',
           email: 'alice@example.com',
@@ -195,6 +197,7 @@ describe('onResponse hook', () => {
     let getLines!: () => Record<string, unknown>[];
     ({ app, getLines } = await buildTestApp((a) => {
       a.addHook('onRequest', async (req) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (req as any).user = {
           userId: 'user-xyz',
           email: 'bob@example.com',

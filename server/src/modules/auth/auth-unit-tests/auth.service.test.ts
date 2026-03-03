@@ -180,7 +180,7 @@ describe('loginUser', () => {
 
     try {
       await loginUser('ALICE@EXAMPLE.COM', 'ValidPass1!');
-    } catch {}
+    } catch { /* expected to throw */ }
 
     expect(mockFindByEmail).toHaveBeenCalledWith('alice@example.com');
   });
@@ -198,7 +198,7 @@ describe('loginUser', () => {
 
     try {
       await loginUser('nobody@example.com', 'ValidPass1!');
-    } catch {}
+    } catch { /* expected to throw */ }
 
     expect(mockVerify).toHaveBeenCalled();
   });
@@ -225,7 +225,7 @@ describe('loginUser', () => {
 
     try {
       await loginUser('alice@example.com', 'WrongPass1!');
-    } catch {}
+    } catch { /* expected to throw */ }
 
     expect(mockUpdateFailure).toHaveBeenCalledWith('user-uuid', 3, null);
   });
@@ -240,7 +240,7 @@ describe('loginUser', () => {
 
     try {
       await loginUser('alice@example.com', 'WrongPass1!');
-    } catch {}
+    } catch { /* expected to throw */ }
 
     const [, , lockedUntil] = mockUpdateFailure.mock.calls[0];
     expect(lockedUntil).not.toBeNull();

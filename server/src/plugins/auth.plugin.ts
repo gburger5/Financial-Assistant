@@ -18,7 +18,7 @@
  *   handled by a separate DB lookup elsewhere.
  */
 import jwt from 'jsonwebtoken';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import { UnauthorizedError } from '../lib/errors.js';
 
 /** Shape of the payload stored inside every JWT issued by this service. */
@@ -67,13 +67,11 @@ function getSecret(): string {
  *   "Invalid token"      — bad signature, malformed, wrong algorithm, etc.
  *
  * @param {FastifyRequest} request
- * @param {FastifyReply} _reply - Unused; errors are thrown not replied.
  * @returns {Promise<void>}
  * @throws {UnauthorizedError}
  */
 export async function verifyJWT(
   request: FastifyRequest,
-  _reply: FastifyReply
 ): Promise<void> {
   const authHeader = request.headers.authorization;
 

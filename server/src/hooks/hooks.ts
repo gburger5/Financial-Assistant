@@ -53,11 +53,9 @@ declare module 'fastify' {
  *   - logContext: accumulator for all fields that will appear in the response log
  *
  * @param {FastifyRequest} req
- * @param {FastifyReply} _reply - Unused at this stage.
  */
 async function onRequestHook(
   req: FastifyRequest,
-  _reply: FastifyReply
 ): Promise<void> {
   // Nanosecond-precision start time. process.hrtime.bigint() is monotonic and
   // unaffected by system clock adjustments — safer than Date.now() for durations.
@@ -87,11 +85,9 @@ async function onRequestHook(
  * for tracing "which user triggered this error" without logging PII.
  *
  * @param {FastifyRequest} req
- * @param {FastifyReply} _reply - Unused at this stage.
  */
 async function preHandlerHook(
   req: FastifyRequest,
-  _reply: FastifyReply
 ): Promise<void> {
   if (req.user?.userId) {
     req.logContext['user.id'] = req.user.userId;

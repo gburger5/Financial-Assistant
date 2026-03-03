@@ -24,7 +24,7 @@
  *   - additionalProperties: false on the exchange-token body blocks mass assignment
  *     before the handler even runs.
  */
-import type { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 import {
   createLinkToken,
@@ -39,10 +39,9 @@ import type { ExchangePublicTokenBody } from './plaid.types.js';
  * Call this with app.register(plaidRoutes, { prefix: '/api/plaid' }).
  *
  * @param {FastifyInstance} fastify
- * @param {FastifyPluginOptions} _options
  * @returns {Promise<void>}
  */
-async function plaidRoutes(fastify: FastifyInstance, _options: FastifyPluginOptions): Promise<void> {
+async function plaidRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /link-token
    * Returns a short-lived Plaid Link token for the authenticated user.

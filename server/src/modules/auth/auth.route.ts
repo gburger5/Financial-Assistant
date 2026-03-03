@@ -5,7 +5,7 @@
  * preHandler on protected routes, and delegates to controller functions.
  * Register this plugin in app.ts with prefix: '/api/auth'.
  */
-import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { register, login, verify } from './auth.controller.js';
 import { registerSchema, loginSchema, verifySchema } from './auth.schema.js';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
@@ -21,12 +21,10 @@ import { verifyJWT } from '../../plugins/auth.plugin.js';
  *   GET  /verify   — protected, echoes the decoded JWT payload
  *
  * @param {FastifyInstance} fastify
- * @param {FastifyPluginOptions} _options
  * @returns {Promise<void>}
  */
 export default async function authRoutes(
   fastify: FastifyInstance,
-  _options: FastifyPluginOptions
 ): Promise<void> {
   fastify.post('/register', { schema: registerSchema }, register);
   fastify.post('/login', { schema: loginSchema }, login);

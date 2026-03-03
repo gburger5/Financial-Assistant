@@ -222,13 +222,13 @@ describe('POST /api/auth/register', () => {
 
   // Bug 2: firstName and lastName were absent from publicUserSchema so they were stripped
   it('returns firstName and lastName in registration response', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockRegisterUser.mockResolvedValue({
       userId: 'user-uuid',
       email: 'alice@example.com',
       firstName: 'Alice',
       lastName: 'Smith',
       createdAt: '2024-01-01T00:00:00.000Z',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     app = await buildTestApp();
 
@@ -252,7 +252,6 @@ describe('POST /api/auth/register', () => {
 
   it('strips unlisted fields from response (response schema whitelist)', async () => {
     // Service accidentally returns password_hash — schema must strip it.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockRegisterUser.mockResolvedValue({
       userId: 'user-uuid',
       firstName: 'Alice',
@@ -260,6 +259,7 @@ describe('POST /api/auth/register', () => {
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
       password_hash: '$argon2id$secret', // must be stripped by response schema
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     app = await buildTestApp();
 
@@ -354,7 +354,6 @@ describe('POST /api/auth/login', () => {
 
   // Bug 2: firstName and lastName were absent from publicUserSchema so login response omitted them
   it('returns firstName and lastName in login response user object', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockLoginUser.mockResolvedValue({
       user: {
         userId: 'user-uuid',
@@ -364,6 +363,7 @@ describe('POST /api/auth/login', () => {
         createdAt: '2024-01-01T00:00:00.000Z',
       },
       token: 'jwt-token-here',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     app = await buildTestApp();
 

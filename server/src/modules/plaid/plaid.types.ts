@@ -10,7 +10,7 @@
  * Body for GET /api/plaid/link-token.
  * No fields — the userId comes from the authenticated JWT, not the request body.
  */
-export interface CreateLinkTokenBody {}
+export type CreateLinkTokenBody = Record<string, never>;
 
 /**
  * Body for POST /api/plaid/exchange-token.

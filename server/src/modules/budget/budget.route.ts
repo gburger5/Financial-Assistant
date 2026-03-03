@@ -18,7 +18,7 @@
  *
  * Register this plugin in app.ts with prefix: '/api/budget'.
  */
-import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 import { getBudget, initializeBudget, patchBudget, getHistory } from './budget.controller.js';
 import type { BudgetUpdateInput } from './budget.types.js';
@@ -58,12 +58,10 @@ const budgetResponseSchema = {
  * Call with app.register(budgetRoutes, { prefix: '/api/budget' }).
  *
  * @param {FastifyInstance} fastify
- * @param {FastifyPluginOptions} _options
  * @returns {Promise<void>}
  */
 async function budgetRoutes(
   fastify: FastifyInstance,
-  _options: FastifyPluginOptions,
 ): Promise<void> {
   /**
    * POST /initialize
