@@ -328,7 +328,6 @@ const TransactionsPage = () => {
           <div className="page-subtitle">All account activity · February 2025</div>
         </div>
         <div className="inner-page-actions">
-          <button className="btn-outline">↓ Export</button>
           <button className="btn-primary">+ Add Manual</button>
         </div>
       </div>
