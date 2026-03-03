@@ -222,14 +222,6 @@ export async function updateLiabilities(itemId: string): Promise<LiabilitySyncRe
 
   const allLiabilities: Liability[] = [...creditLiabilities, ...studentLiabilities, ...mortgageLiabilities];
 
-  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
-  console.log('[TRACE] updateLiabilities Plaid response counts:', JSON.stringify({
-    credit: creditLiabilities.length,
-    student: studentLiabilities.length,
-    mortgage: mortgageLiabilities.length,
-  }));
-  console.log('[TRACE] updateLiabilities liabilities data:', JSON.stringify(allLiabilities, null, 2));
-
   const results = await Promise.allSettled(allLiabilities.map((l) => upsertSnapshot(l)));
 
   // Log any failures — the next sync will retry since upsertSnapshot is a full overwrite.

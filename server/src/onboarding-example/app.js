@@ -5,6 +5,7 @@ const API = "http://localhost:3000/api";
 let token = localStorage.getItem("token") || null;
 let currentBudget = null;
 let connectedBanks = []; // { name: string }[]
+let isSyncing = false;
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -181,8 +182,23 @@ async function openPlaidLink() {
           },
         });
         connectedBanks.push({ name: metadata.institution.name });
+
+        // Lock the UI while the server syncs transactions in the background.
+        // The user cannot link another bank or proceed until sync completes.
+        isSyncing = true;
         renderConnectedBanks();
+        setLoading(btn, false);
+        showSyncingStatus();
+
+        await pollSyncStatus();
+
+        isSyncing = false;
+        renderConnectedBanks();
+        hideSyncingStatus();
       } catch (err) {
+        isSyncing = false;
+        renderConnectedBanks();
+        hideSyncingStatus();
         showError("plaid-error", err.message);
       } finally {
         setLoading(btn, false);
@@ -213,18 +229,47 @@ function renderConnectedBanks() {
     .join("");
 
   const count = connectedBanks.length;
-  continueBtn.disabled = count === 0;
-  continueBtn.style.opacity = count === 0 ? "0.4" : "1";
+  const canProceed = count > 0 && !isSyncing;
+
+  continueBtn.disabled = !canProceed;
+  continueBtn.style.opacity = canProceed ? "1" : "0.4";
+
+  linkBtn.disabled = isSyncing;
+  linkBtn.style.opacity = isSyncing ? "0.4" : "1";
   linkBtn.textContent = count > 0 ? "Link another bank" : "Link bank account";
+}
+
+/**
+ * Polls GET /plaid/sync-status until ready === true or a timeout is reached.
+ * Used after linking a bank to wait for the server's fire-and-forget initial
+ * sync to finish. Gives up after 2 minutes (24 x 5 s) so the UI never hangs
+ * indefinitely — the budget will just use whatever data is available.
+ */
+async function pollSyncStatus() {
+  const MAX_POLLS = 24;
+  const POLL_INTERVAL_MS = 5000;
+  for (let i = 0; i < MAX_POLLS; i++) {
+    try {
+      const status = await apiFetch("/plaid/sync-status");
+      if (status.ready) return;
+    } catch {
+      // Ignore transient fetch errors — just keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
 }
 
 async function goToBudgetReview() {
   goToStep(2);
   showBudgetLoading();
 
+  // If sync already completed during the Plaid step polling, this is a no-op.
+  // Otherwise it acts as a safety net (e.g. if the user somehow skipped polling).
+  await pollSyncStatus();
+
   // POST /budget/initialize generates the budget from the transactions and
-  // liabilities that triggerInitialSync just populated. It is idempotent —
-  // safe to call if a budget already exists (e.g. user linked a second bank).
+  // liabilities that syncTransactions + updateLiabilities just populated.
+  // Idempotent — safe to call if a budget already exists (e.g. second bank link).
   try {
     const budget = await apiFetch("/budget/initialize", { method: "POST" });
     currentBudget = budget;
@@ -234,6 +279,16 @@ async function goToBudgetReview() {
   } finally {
     hideBudgetLoading();
   }
+}
+
+function showSyncingStatus() {
+  const el = document.getElementById("sync-status");
+  if (el) el.style.display = "flex";
+}
+
+function hideSyncingStatus() {
+  const el = document.getElementById("sync-status");
+  if (el) el.style.display = "none";
 }
 
 function showBudgetLoading() {

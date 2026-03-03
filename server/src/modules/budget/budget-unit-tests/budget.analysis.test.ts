@@ -6,12 +6,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   round,
-  computeMonthsOfData,
-  computeAverageMonthly,
   computeTotalMinimumPayments,
   generateBudgetFromHistory,
 } from '../budget.analysis.js';
 import type { Transaction } from '../../transactions/transactions.types.js';
+import type { InvestmentTransaction } from '../../investments/investments.types.js';
 import type {
   Liability,
   CreditLiability,
@@ -38,6 +37,30 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     detailedCategory: 'FOOD_AND_DRINK_GROCERIES',
     categoryIconUrl: null,
     pending: false,
+    isoCurrencyCode: 'USD',
+    unofficialCurrencyCode: null,
+    createdAt: '2024-01-15T00:00:00.000Z',
+    updatedAt: '2024-01-15T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+/** Builds a minimal InvestmentTransaction fixture. */
+function makeInvestmentTransaction(overrides: Partial<InvestmentTransaction> = {}): InvestmentTransaction {
+  return {
+    userId: 'user-analysis-1',
+    dateTransactionId: '2024-01-15#inv-tx-001',
+    investmentTransactionId: 'inv-tx-001',
+    plaidAccountId: 'acc-inv-001',
+    securityId: 'sec-001',
+    date: '2024-01-15',
+    name: 'Vanguard S&P 500',
+    quantity: 1,
+    amount: 500,
+    price: 500,
+    fees: 0,
+    type: 'buy',
+    subtype: 'buy',
     isoCurrencyCode: 'USD',
     unofficialCurrencyCode: null,
     createdAt: '2024-01-15T00:00:00.000Z',
@@ -134,164 +157,6 @@ describe('round', () => {
 
   it('handles negative numbers', () => {
     expect(round(-1.005)).toBe(-1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// computeMonthsOfData
-// ---------------------------------------------------------------------------
-
-describe('computeMonthsOfData', () => {
-  it('returns 1 for an empty transaction list (prevents division by zero)', () => {
-    expect(computeMonthsOfData([])).toBe(1);
-  });
-
-  it('returns 1 for a single transaction', () => {
-    const txs = [makeTransaction({ date: '2024-01-15' })];
-    expect(computeMonthsOfData(txs)).toBe(1);
-  });
-
-  it('returns at least 1 for transactions all in the same month', () => {
-    const txs = [
-      makeTransaction({ date: '2024-01-01' }),
-      makeTransaction({ date: '2024-01-31' }),
-    ];
-    expect(computeMonthsOfData(txs)).toBeGreaterThanOrEqual(1);
-  });
-
-  it('returns more than 1 when transactions span multiple months', () => {
-    const txs = [
-      makeTransaction({ date: '2024-01-01' }),
-      makeTransaction({ date: '2024-07-01' }),
-    ];
-    expect(computeMonthsOfData(txs)).toBeGreaterThan(1);
-  });
-
-  it('derives range from actual earliest and latest transaction dates', () => {
-    // 12-month span: Jan 2023 to Jan 2024
-    const txs = [
-      makeTransaction({ date: '2023-01-01' }),
-      makeTransaction({ date: '2023-06-15' }),
-      makeTransaction({ date: '2024-01-01' }),
-    ];
-    const result = computeMonthsOfData(txs);
-    // ~12 months, must be > 1
-    expect(result).toBeGreaterThan(1);
-  });
-
-  it('is not affected by transaction order (uses min/max dates)', () => {
-    const ordered = [
-      makeTransaction({ date: '2024-01-01' }),
-      makeTransaction({ date: '2024-06-01' }),
-    ];
-    const reversed = [
-      makeTransaction({ date: '2024-06-01' }),
-      makeTransaction({ date: '2024-01-01' }),
-    ];
-    expect(computeMonthsOfData(ordered)).toBe(computeMonthsOfData(reversed));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// computeAverageMonthly
-// ---------------------------------------------------------------------------
-
-describe('computeAverageMonthly', () => {
-  it('returns 0 when no transactions match the category list', () => {
-    const txs = [makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 })];
-    expect(computeAverageMonthly(txs, ['TRANSPORTATION_GAS'], false)).toBe(0);
-  });
-
-  it('returns 0 when the transaction list is empty', () => {
-    expect(computeAverageMonthly([], ['FOOD_AND_DRINK_GROCERIES'], false)).toBe(0);
-  });
-
-  it('sums amounts for matching categories and divides by months of data', () => {
-    // Two separate months, $30 each = $60 total over ~1 month window
-    // Single month → months = 1, so result should be close to 60
-    const txs = [
-      makeTransaction({ date: '2024-01-10', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 30 }),
-      makeTransaction({ date: '2024-01-20', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 30 }),
-    ];
-    const result = computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false);
-    expect(result).toBeGreaterThan(0);
-  });
-
-  it('ignores transactions whose detailedCategory is not in the category list', () => {
-    const txs = [
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 }),
-      makeTransaction({ detailedCategory: 'TRANSPORTATION_GAS', amount: 50 }),
-    ];
-    const groceriesOnly = computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false);
-    const both = computeAverageMonthly(
-      txs,
-      ['FOOD_AND_DRINK_GROCERIES', 'TRANSPORTATION_GAS'],
-      false,
-    );
-    // Counting both categories should produce a larger result
-    expect(groceriesOnly).toBeLessThan(both);
-  });
-
-  it('flips the sign when flipSign is true (income = negative in Plaid convention)', () => {
-    const txs = [makeTransaction({ detailedCategory: 'INCOME_SALARY', amount: -3000 })];
-    const flipped = computeAverageMonthly(txs, ['INCOME_SALARY'], true);
-    const notFlipped = computeAverageMonthly(txs, ['INCOME_SALARY'], false);
-    expect(flipped).toBeGreaterThan(0);
-    expect(notFlipped).toBeLessThanOrEqual(0);
-  });
-
-  it('does not flip the sign when flipSign is false', () => {
-    const txs = [makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 })];
-    const result = computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false);
-    expect(result).toBeGreaterThan(0);
-  });
-
-  it('skips transactions with null detailedCategory without throwing', () => {
-    const txs = [
-      makeTransaction({ detailedCategory: null, amount: 999 }),
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 }),
-    ];
-    expect(() =>
-      computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false),
-    ).not.toThrow();
-  });
-
-  it('counts only matching transactions when some have null detailedCategory', () => {
-    const txs = [
-      makeTransaction({ detailedCategory: null, amount: 999 }),
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 }),
-    ];
-    const withNull = computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false);
-    const withoutNull = computeAverageMonthly(
-      [makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 })],
-      ['FOOD_AND_DRINK_GROCERIES'],
-      false,
-    );
-    expect(withNull).toBe(withoutNull);
-  });
-
-  it('returns a value rounded to 2 decimal places', () => {
-    const txs = [
-      makeTransaction({ date: '2024-01-01', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 10 }),
-      makeTransaction({ date: '2024-04-01', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 10 }),
-      makeTransaction({ date: '2024-07-01', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 11 }),
-    ];
-    const result = computeAverageMonthly(txs, ['FOOD_AND_DRINK_GROCERIES'], false);
-    expect(result).toBe(parseFloat(result.toFixed(2)));
-  });
-
-  it('handles multiple categories in the list simultaneously', () => {
-    const txs = [
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_RESTAURANT', amount: 40 }),
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_FAST_FOOD', amount: 20 }),
-      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_COFFEE', amount: 10 }),
-    ];
-    const result = computeAverageMonthly(
-      txs,
-      ['FOOD_AND_DRINK_RESTAURANT', 'FOOD_AND_DRINK_FAST_FOOD', 'FOOD_AND_DRINK_COFFEE'],
-      false,
-    );
-    expect(result).toBeGreaterThan(0);
   });
 });
 
@@ -410,13 +275,13 @@ describe('generateBudgetFromHistory', () => {
   it('computes groceries from FOOD_AND_DRINK_GROCERIES transactions', () => {
     const txs = [makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 120 })];
     const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
-    expect(budget.groceries.amount).toBeGreaterThan(0);
+    expect(budget.groceries.amount).toBe(120);
   });
 
   it('computes income with flipped sign (Plaid income transactions have negative amounts)', () => {
     const txs = [makeTransaction({ detailedCategory: 'INCOME_SALARY', amount: -3000 })];
     const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
-    expect(budget.income.amount).toBeGreaterThan(0);
+    expect(budget.income.amount).toBe(3000);
   });
 
   it('returns BudgetAmount objects for all 10 required categories', () => {
@@ -431,12 +296,11 @@ describe('generateBudgetFromHistory', () => {
     }
   });
 
-  it('routes LOAN_PAYMENTS_CAR_PAYMENT to transportation, not debts', () => {
-    // Car payment is in CATEGORY_MAP.transportation — debts comes from liabilities only
+  it('does not route LOAN_PAYMENTS categories to debts — debts come from liabilities only', () => {
+    // LOAN_PAYMENTS_* categories are absent from CATEGORY_MAP so they have no effect
     const txs = [makeTransaction({ detailedCategory: 'LOAN_PAYMENTS_CAR_PAYMENT', amount: 400 })];
     const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
     expect(budget.debts.amount).toBe(0);
-    expect(budget.transportation.amount).toBeGreaterThan(0);
   });
 
   it('sums all liability types into debts.amount', () => {
@@ -447,5 +311,96 @@ describe('generateBudgetFromHistory', () => {
     ];
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities });
     expect(budget.debts.amount).toBe(1300);
+  });
+
+  it('accumulates totals across multiple transactions in the same category', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-1', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 50 }),
+      makeTransaction({ plaidTransactionId: 'tx-2', detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 75 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.groceries.amount).toBe(125);
+  });
+
+  it('skips transactions with null detailedCategory without throwing', () => {
+    const txs = [
+      makeTransaction({ detailedCategory: null, amount: 999 }),
+      makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: 100 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.groceries.amount).toBe(100);
+  });
+
+  it('ignores expense transactions with negative amounts (credits/refunds)', () => {
+    // Negative expense amounts represent refunds; after amount check (amount <= 0) they are skipped
+    const txs = [makeTransaction({ detailedCategory: 'FOOD_AND_DRINK_GROCERIES', amount: -50 })];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.groceries.amount).toBe(0);
+  });
+
+  it('ignores income transactions with positive amounts (positive = debit in Plaid)', () => {
+    // Plaid income is negative; a positive INCOME_SALARY would be wrong data — skipped
+    const txs = [makeTransaction({ detailedCategory: 'INCOME_SALARY', amount: 100 })];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.income.amount).toBe(0);
+  });
+
+  it('computes investments from cash/transfer contribution investment transactions', () => {
+    const invTxs = [
+      makeInvestmentTransaction({ type: 'cash', subtype: 'contribution', amount: -500 }),
+    ];
+    const budget = generateBudgetFromHistory({
+      userId,
+      transactions: [],
+      liabilities: [],
+      investmentTransactions: invTxs,
+    });
+    expect(budget.investments.amount).toBe(500);
+  });
+
+  it('falls back to buy transactions for investments when no cash contributions exist', () => {
+    const invTxs = [
+      makeInvestmentTransaction({ type: 'buy', subtype: 'buy', amount: 750 }),
+    ];
+    const budget = generateBudgetFromHistory({
+      userId,
+      transactions: [],
+      liabilities: [],
+      investmentTransactions: invTxs,
+    });
+    expect(budget.investments.amount).toBe(750);
+  });
+
+  it('excludes dividend reinvestments from buy-based investment total', () => {
+    const invTxs = [
+      makeInvestmentTransaction({ type: 'buy', subtype: 'dividend reinvestment', amount: 200 }),
+    ];
+    const budget = generateBudgetFromHistory({
+      userId,
+      transactions: [],
+      liabilities: [],
+      investmentTransactions: invTxs,
+    });
+    expect(budget.investments.amount).toBe(0);
+  });
+
+  it('prefers cash contributions over buy transactions for investments', () => {
+    const invTxs = [
+      makeInvestmentTransaction({ type: 'cash', subtype: 'contribution', amount: -500 }),
+      makeInvestmentTransaction({ type: 'buy', subtype: 'buy', amount: 750 }),
+    ];
+    const budget = generateBudgetFromHistory({
+      userId,
+      transactions: [],
+      liabilities: [],
+      investmentTransactions: invTxs,
+    });
+    // Cash contribution total (500) > 0, so buy total (750) is ignored
+    expect(budget.investments.amount).toBe(500);
+  });
+
+  it('sets investments to 0 when no investmentTransactions are provided', () => {
+    const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
+    expect(budget.investments.amount).toBe(0);
   });
 });

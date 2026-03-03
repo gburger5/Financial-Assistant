@@ -18,6 +18,9 @@
  *   - Delete failures abort the loop. If a delete is skipped and the cursor
  *     advances past it, the removed transaction stays in the database permanently
  *     with no retry path, because Plaid never re-delivers "removed" entries.
+ *   - TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION restarts pagination from
+ *     the pre-sync cursor. The intermediate next_cursor values are invalid;
+ *     the restart re-fetches the full delta from the last committed point.
  */
 import { createLogger } from '../../lib/logger.js';
 import { plaidClient } from '../../lib/plaidClient.js';
@@ -94,55 +97,100 @@ export function mapPlaidTransaction(
  * completes successfully. Saving mid-loop would permanently skip any pages
  * whose data was lost to a crash between page saves.
  *
+ * TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION: Plaid may mutate the
+ * transaction set while we are paginating (e.g. a pending transaction posts).
+ * When this happens the in-progress page sequence is invalidated and Plaid
+ * returns this error. Per Plaid docs, the correct recovery is to restart
+ * pagination from the cursor that was committed before this sync began —
+ * NOT from the most recently received next_cursor.
+ *
  * @param {string} userId - UUID of the user who owns the bank connection.
  * @param {string} itemId - Plaid item ID of the bank connection to sync.
+ * @param {object} [options]
+ * @param {boolean} [options.commitCursor=true] - When false the cursor is NOT
+ *   persisted after the sync loop. The caller is responsible for committing it
+ *   via updateCursor(). Used by triggerInitialSync to prevent advancing the
+ *   cursor past historical data that Plaid is still preparing.
  * @returns {Promise<SyncResult>} Counts of Plaid-returned items per operation
  *   (not counts of successful DB writes) plus the committed cursor.
  */
-export async function syncTransactions(userId: string, itemId: string): Promise<SyncResult> {
+export async function syncTransactions(
+  userId: string,
+  itemId: string,
+  options?: { commitCursor?: boolean },
+): Promise<SyncResult> {
   const item = await getItemForSync(itemId);
 
-  let cursor: string | undefined = item.transactionCursor ?? undefined;
+  // Preserve the pre-loop cursor so we can restart from it if Plaid returns
+  // TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION mid-pagination.
+  const preSyncCursor: string | undefined = item.transactionCursor ?? undefined;
+  let cursor: string | undefined = preSyncCursor;
   let addedCount = 0;
   let modifiedCount = 0;
   let removedCount = 0;
   let nextCursor = cursor ?? '';
-
-  // TRACE-LOG: temporary instrumentation — remove after run
-  console.log(`[TRACE] syncTransactions starting: itemId=${itemId} cursor=${JSON.stringify(cursor)}`);
+  // Set to true as soon as any depository or credit account is seen across
+  // any page. Investment-only items have no such accounts and will never
+  // produce transaction data; callers use this flag to skip polling.
+  let hasTransactionCapableAccounts = false;
+  // True when Plaid returns transactions_update_status: NOT_READY — data
+  // has not been processed yet. When set, the cursor must not be committed
+  // (an empty cursor would make getSyncStatus report ready prematurely).
+  let notReady = false;
 
   let hasMore = true;
   while (hasMore) {
-    const response = await plaidClient.transactionsSync({
-      access_token: item.accessToken,
-      // Undefined cursor triggers a full-history sync on first call.
-      cursor,
-      options: { include_personal_finance_category: true },
-    });
+    let response;
+    try {
+      response = await plaidClient.transactionsSync({
+        access_token: item.accessToken,
+        // Undefined cursor triggers a full-history sync on first call.
+        cursor,
+        count: 500,
+        options: { include_personal_finance_category: true },
+      });
+    } catch (err) {
+      const errorCode = (err as { response?: { data?: { error_code?: string } } })
+        ?.response?.data?.error_code;
+
+      if (errorCode === 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION') {
+        // Plaid invalidated the current page sequence due to a mid-pagination
+        // mutation. Restart from the last committed cursor (preSyncCursor) so
+        // we re-process only the delta we haven't yet confirmed — not from the
+        // intermediate next_cursor values that are now invalid.
+        logger.warn({ itemId }, 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION — restarting from pre-sync cursor');
+        cursor = preSyncCursor;
+        addedCount = 0;
+        modifiedCount = 0;
+        removedCount = 0;
+        nextCursor = cursor ?? '';
+        notReady = false;
+        continue;
+      }
+
+      throw err;
+    }
 
     const page = response.data;
 
-    // TRACE-LOG: temporary instrumentation — remove after run
-    console.log('[TRACE] transactionsSync page:', JSON.stringify({
-      cursor_sent: cursor,
-      added: page.added.length,
-      modified: page.modified.length,
-      removed: page.removed.length,
-      has_more: page.has_more,
-      next_cursor: page.next_cursor,
-      accounts: page.accounts.length,
-      // Sample first transaction to verify shape
-      sample_tx: page.added[0] ? {
-        transaction_id: (page.added[0] as { transaction_id: string }).transaction_id,
-        date: (page.added[0] as { date: string }).date,
-        amount: (page.added[0] as { amount: number }).amount,
-        name: (page.added[0] as { name: string }).name,
-      } : null,
-    }, null, 2));
+    // Track whether Plaid has finished processing historical data.
+    // NOT_READY means the accounts and transactions arrays are empty —
+    // committing the cursor now would make getSyncStatus report ready.
+    if (page.transactions_update_status === 'NOT_READY') {
+      notReady = true;
+    }
 
     // Sync account balances on every page — balances may change mid-sync
     // on long multi-page pulls and should be kept fresh throughout.
     await syncAccounts(userId, itemId, page.accounts);
+
+    // Detect transaction-capable accounts (depository/credit). Once true, stays
+    // true for the lifetime of this sync — no need to check subsequent pages.
+    if (!hasTransactionCapableAccounts) {
+      hasTransactionCapableAccounts = page.accounts.some(
+        (a) => a.type === 'depository' || a.type === 'credit',
+      );
+    }
 
     // Upsert added and modified in parallel — both operations are identical writes.
     // Individual failures are logged-and-skipped; Plaid will re-deliver them as
@@ -177,9 +225,15 @@ export async function syncTransactions(userId: string, itemId: string): Promise<
   }
 
   // Commit the cursor only after the full loop — never mid-loop.
-  await updateCursor(itemId, nextCursor);
+  // When commitCursor is false the caller owns the commit (e.g. triggerInitialSync
+  // defers it until polling completes to avoid advancing past unready data).
+  // Skip the commit when Plaid returned NOT_READY — an empty cursor would
+  // cause getSyncStatus to report ready before any data has been processed.
+  if (options?.commitCursor !== false && !notReady) {
+    await updateCursor(itemId, nextCursor);
+  }
 
-  return { addedCount, modifiedCount, removedCount, nextCursor };
+  return { addedCount, modifiedCount, removedCount, nextCursor, hasTransactionCapableAccounts, notReady };
 }
 
 /**

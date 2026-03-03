@@ -11,7 +11,7 @@
  *   - daysAgo: returns a Date n days before now
  *   - mapInvestmentTransaction: pure mapping from Plaid API shape → InvestmentTransaction
  *   - mapHolding: pure mapping from Plaid holding + security → Holding (inlines security metadata)
- *   - syncTransactions: offset-paginated loop, stops when page < PAGE_SIZE, upserts all
+ *   - syncTransactions: offset-paginated loop, stops when page < PAGE_SIZE, deduplicates by content signature, upserts unique
  *   - syncHoldings: single call, builds security Map, upserts all, returns count + snapshotDate
  *   - updateInvestments: calls getItemForSync then runs syncTransactions + syncHoldings in parallel
  *   - read delegates: getLatestHoldings, getHoldingsOnDate, getHoldingsSince,
@@ -566,8 +566,9 @@ describe('syncTransactions', () => {
     expect(arg.options?.offset).toBe(0);
   });
 
-  it('upserts all transactions from a single page', async () => {
-    const tx2: PlaidInvestmentTransaction = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-2' };
+  it('upserts all unique transactions from a single page', async () => {
+    // Give tx2 a different amount so it has a distinct content signature
+    const tx2: PlaidInvestmentTransaction = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-2', amount: 2000.0 };
     mockInvestmentsTransactionsGet.mockResolvedValue(makeTransactionsPage([samplePlaidInvTx, tx2]));
     mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
     await syncTransactions('user-123', 'access-sandbox-token');
@@ -583,10 +584,11 @@ describe('syncTransactions', () => {
   });
 
   it('increments the offset by PAGE_SIZE and loops when the first page is full', async () => {
-    // First page: exactly PAGE_SIZE (500) transactions → loop continues
+    // Each transaction has a unique amount so content signatures are distinct
     const fullPage = Array.from({ length: 500 }, (_, i) => ({
       ...samplePlaidInvTx,
       investment_transaction_id: `inv-txn-${i}`,
+      amount: i + 1,
     }));
     // Second page: 0 transactions → loop ends
     mockInvestmentsTransactionsGet
@@ -601,12 +603,15 @@ describe('syncTransactions', () => {
     expect(secondCallArg.options?.offset).toBe(500);
   });
 
-  it('returns the total count of upserted transactions across all pages', async () => {
+  it('returns the total count of unique upserted transactions across all pages', async () => {
+    // Each transaction has a unique amount so content signatures are distinct
     const fullPage = Array.from({ length: 500 }, (_, i) => ({
       ...samplePlaidInvTx,
       investment_transaction_id: `inv-txn-${i}`,
+      amount: i + 1,
     }));
-    const partialPage = [samplePlaidInvTx];
+    // Partial page has a unique amount not seen in the full page
+    const partialPage = [{ ...samplePlaidInvTx, amount: 9999 }];
     mockInvestmentsTransactionsGet
       .mockResolvedValueOnce(makeTransactionsPage(fullPage))
       .mockResolvedValueOnce(makeTransactionsPage(partialPage));
@@ -621,6 +626,53 @@ describe('syncTransactions', () => {
     mockInvestmentsTransactionsGet.mockResolvedValue(makeTransactionsPage([]));
     const count = await syncTransactions('user-123', 'access-sandbox-token');
     expect(count).toBe(0);
+  });
+
+  it('deduplicates transactions with the same content signature (date|security_id|amount|type|subtype)', async () => {
+    // Two transactions with different IDs but identical content fields
+    const tx1 = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-dup-1' };
+    const tx2 = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-dup-2' };
+    mockInvestmentsTransactionsGet.mockResolvedValue(makeTransactionsPage([tx1, tx2]));
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    const count = await syncTransactions('user-123', 'access-sandbox-token');
+
+    // Only the first should be upserted — the second is a duplicate by content
+    expect(count).toBe(1);
+    expect(mockUpsertInvestmentTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not deduplicate transactions with different amounts', async () => {
+    const tx1 = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-a', amount: 100 };
+    const tx2 = { ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-b', amount: 200 };
+    mockInvestmentsTransactionsGet.mockResolvedValue(makeTransactionsPage([tx1, tx2]));
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    const count = await syncTransactions('user-123', 'access-sandbox-token');
+
+    expect(count).toBe(2);
+    expect(mockUpsertInvestmentTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('deduplicates across pages — a duplicate on page 2 is skipped if seen on page 1', async () => {
+    // Full page with one unique transaction (repeated 500 times for PAGE_SIZE)
+    const fullPage = Array.from({ length: 500 }, (_, i) => ({
+      ...samplePlaidInvTx,
+      investment_transaction_id: `inv-txn-${i}`,
+      // All share the same content signature
+    }));
+    // Partial page with the same content signature
+    const partialPage = [{ ...samplePlaidInvTx, investment_transaction_id: 'inv-txn-extra' }];
+    mockInvestmentsTransactionsGet
+      .mockResolvedValueOnce(makeTransactionsPage(fullPage))
+      .mockResolvedValueOnce(makeTransactionsPage(partialPage));
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    const count = await syncTransactions('user-123', 'access-sandbox-token');
+
+    // All 501 raw transactions share the same signature — only 1 unique
+    expect(count).toBe(1);
+    expect(mockUpsertInvestmentTransaction).toHaveBeenCalledTimes(1);
   });
 });
 

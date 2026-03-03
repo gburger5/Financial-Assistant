@@ -29,6 +29,7 @@ import { verifyJWT } from '../../plugins/auth.plugin.js';
 import {
   createLinkToken,
   exchangePublicToken,
+  getSyncStatus,
   handleWebhook,
 } from './plaid.controller.js';
 import type { ExchangePublicTokenBody } from './plaid.types.js';
@@ -91,6 +92,28 @@ async function plaidRoutes(fastify: FastifyInstance, _options: FastifyPluginOpti
       },
     },
   }, exchangePublicToken);
+
+  /**
+   * GET /sync-status
+   * Returns itemsLinked, itemsSynced, and ready for the authenticated user.
+   * The client polls this after linking a bank account, waiting for ready === true
+   * before calling POST /budget/initialize.
+   */
+  fastify.get('/sync-status', {
+    preHandler: [verifyJWT],
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            itemsLinked: { type: 'integer' },
+            itemsSynced: { type: 'integer' },
+            ready: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  }, getSyncStatus);
 
   /**
    * POST /webhook sub-plugin

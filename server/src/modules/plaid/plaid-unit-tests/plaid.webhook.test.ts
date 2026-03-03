@@ -80,7 +80,7 @@ const fakeItem = {
   updatedAt: '2024-01-01T00:00:00.000Z',
 };
 
-const fakeSyncResult = { addedCount: 0, modifiedCount: 0, removedCount: 0, nextCursor: '' };
+const fakeSyncResult = { addedCount: 0, modifiedCount: 0, removedCount: 0, nextCursor: '', hasTransactionCapableAccounts: true, notReady: false };
 const fakeInvestmentResult = { transactionsUpserted: 0, holdingsUpserted: 0, snapshotDate: '2024-01-01' };
 const fakeLiabilityResult = { creditCount: 0, studentCount: 0, mortgageCount: 0 };
 
@@ -194,13 +194,13 @@ describe('handleTransactionsWebhook', () => {
     expect(mockSyncTransactions).toHaveBeenCalledWith('user-1', 'item-abc');
   });
 
-  it('does NOT call syncTransactions for INITIAL_UPDATE (covered by triggerInitialSync)', async () => {
+  it('does NOT call syncTransactions for INITIAL_UPDATE (legacy code from deprecated /transactions/get API)', async () => {
     await handleTransactionsWebhook('user-1', 'item-abc', 'INITIAL_UPDATE');
 
     expect(mockSyncTransactions).not.toHaveBeenCalled();
   });
 
-  it('does NOT call syncTransactions for HISTORICAL_UPDATE (covered by triggerInitialSync)', async () => {
+  it('does NOT call syncTransactions for HISTORICAL_UPDATE (legacy code from deprecated /transactions/get API)', async () => {
     await handleTransactionsWebhook('user-1', 'item-abc', 'HISTORICAL_UPDATE');
 
     expect(mockSyncTransactions).not.toHaveBeenCalled();

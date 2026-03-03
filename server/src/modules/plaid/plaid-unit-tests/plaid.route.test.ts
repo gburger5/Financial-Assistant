@@ -1,9 +1,10 @@
 /**
  * @module plaid.route.test
  * @description HTTP integration tests for the /api/plaid route plugin.
- * Exercises schema validation, middleware wiring, and end-to-end request flow
- * with the plaid service and webhook module fully mocked so no real Plaid API
- * calls, DynamoDB writes, or signature verification occurs.
+ * Exercises schema validation, middleware wiring (including verifyJWT), and
+ * end-to-end request flow with the plaid service and webhook module fully
+ * mocked so no real Plaid API calls, DynamoDB writes, or signature
+ * verification occurs.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -17,6 +18,7 @@ import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
 vi.mock('../plaid.service.js', () => ({
   createLinkToken: vi.fn(),
   linkBankAccount: vi.fn(),
+  getSyncStatus: vi.fn(),
 }));
 
 vi.mock('../plaid.webhook.js', () => ({
@@ -34,6 +36,7 @@ import * as plaidWebhook from '../plaid.webhook.js';
 const mockCreateLinkToken = vi.mocked(plaidService.createLinkToken);
 const mockLinkBankAccount = vi.mocked(plaidService.linkBankAccount);
 const mockHandleWebhook = vi.mocked(plaidWebhook.handleWebhook);
+const mockGetSyncStatus = vi.mocked(plaidService.getSyncStatus);
 
 // ---------------------------------------------------------------------------
 // Test constants
@@ -322,5 +325,64 @@ describe('POST /api/plaid/webhook', () => {
     });
 
     expect(mockHandleWebhook).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/plaid/sync-status
+// ---------------------------------------------------------------------------
+
+describe('GET /api/plaid/sync-status', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 when no Authorization header is provided', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({ method: 'GET', url: '/api/plaid/sync-status' });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 401 for a token signed with the wrong secret', async () => {
+    app = await buildTestApp();
+    const token = jwt.sign({ userId: 'u-1', email: 'a@b.com' }, 'wrong-secret');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/plaid/sync-status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('passes the authenticated userId to getSyncStatus', async () => {
+    mockGetSyncStatus.mockResolvedValue({ itemsLinked: 1, itemsSynced: 1, ready: true } as never);
+    app = await buildTestApp();
+    const token = signToken(TEST_USER_ID);
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/plaid/sync-status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(mockGetSyncStatus).toHaveBeenCalledWith(TEST_USER_ID);
+  });
+
+  it('returns 200 with the sync status on success', async () => {
+    mockGetSyncStatus.mockResolvedValue({ itemsLinked: 2, itemsSynced: 1, ready: false } as never);
+    app = await buildTestApp();
+    const token = signToken();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/plaid/sync-status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ itemsLinked: 2, itemsSynced: 1, ready: false });
   });
 });

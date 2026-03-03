@@ -69,3 +69,20 @@ export interface LinkBankAccountResult {
   message: string;
   itemId: string;
 }
+
+/**
+ * Response shape for GET /api/plaid/sync-status.
+ * The client polls this after linking a bank account until ready === true,
+ * then calls POST /budget/initialize. ready is true when every active item
+ * has had syncTransactions run at least once (transactionCursor !== null),
+ * including items where the transactions product is not supported (cursor set
+ * to "" in the ITEM_ERROR catch path).
+ */
+export interface SyncStatus {
+  /** Total number of active items linked by the user. */
+  itemsLinked: number;
+  /** Number of active items that have completed their first sync (cursor !== null). */
+  itemsSynced: number;
+  /** True when itemsLinked > 0 and itemsSynced === itemsLinked. */
+  ready: boolean;
+}

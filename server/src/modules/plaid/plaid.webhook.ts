@@ -15,10 +15,11 @@
  *   Separate handler functions per webhook type so each can grow independently
  *   and be unit tested in isolation by calling the handler directly.
  *
- *   INITIAL_UPDATE and HISTORICAL_UPDATE trigger a syncTransactions call.
- *   Plaid processes transaction history asynchronously after link; triggerInitialSync
- *   fires immediately and may get 0 results if Plaid isn't done yet. These webhooks
- *   are the signal that data is now ready — syncing here fills the gap.
+ *   SYNC_UPDATES_AVAILABLE triggers a syncTransactions call. Plaid fires this
+ *   for all update types (initial, historical, ongoing) on sync-based items.
+ *   The body includes initial_update_complete / historical_update_complete flags
+ *   when those milestones are reached. INITIAL_UPDATE and HISTORICAL_UPDATE are
+ *   legacy codes from the deprecated /transactions/get API and are not handled.
  *
  */
 import type { FastifyRequest, FastifyReply } from 'fastify';
@@ -39,12 +40,11 @@ const logger = createLogger();
 /**
  * Handles TRANSACTIONS webhook events.
  *
- * SYNC_UPDATES_AVAILABLE triggers an incremental transaction sync.
- * INITIAL_UPDATE fires when Plaid has loaded ~30 days of history.
- * HISTORICAL_UPDATE fires when Plaid has loaded the full history (up to 24 months).
- * Both trigger a sync — triggerInitialSync runs immediately at link time and may
- * return 0 transactions if Plaid hasn't finished processing yet. These webhooks
- * are the reliable signal that data is ready.
+ * SYNC_UPDATES_AVAILABLE is the only code used by the /transactions/sync API.
+ * Plaid fires it for all update types (initial, historical, ongoing) and includes
+ * initial_update_complete / historical_update_complete flags on the body when
+ * relevant. INITIAL_UPDATE and HISTORICAL_UPDATE are legacy codes from the
+ * deprecated /transactions/get API and are not fired for sync-based items.
  *
  * @param {string} userId - UUID of the user who owns the bank connection.
  * @param {string} itemId - Plaid item ID of the bank connection to sync.
@@ -56,11 +56,7 @@ export async function handleTransactionsWebhook(
   itemId: string,
   webhookCode: string,
 ): Promise<void> {
-  if (
-    webhookCode === 'INITIAL_UPDATE' ||
-    webhookCode === 'HISTORICAL_UPDATE' ||
-    webhookCode === 'SYNC_UPDATES_AVAILABLE'
-  ) {
+  if (webhookCode === 'SYNC_UPDATES_AVAILABLE') {
     await syncTransactions(userId, itemId);
   }
 }

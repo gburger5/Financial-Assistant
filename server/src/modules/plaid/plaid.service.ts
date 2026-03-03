@@ -21,15 +21,15 @@
  *     Plaid returns an ITEM_ERROR (e.g. NO_INVESTMENT_ACCOUNTS), triggerInitialSync
  *     logs the skip and continues rather than propagating the error.
  */
-import type { Products, CountryCode } from 'plaid';
+import { Products, CountryCode } from 'plaid'
 import { plaidClient } from '../../lib/plaidClient.js';
 import { encrypt } from '../../lib/encryption.js';
-import { linkItem } from '../items/items.service.js';
+import { linkItem, getItemsForUser, updateCursor } from '../items/items.service.js';
 import { syncTransactions } from '../transactions/transactions.service.js';
 import { updateInvestments } from '../investments/investments.service.js';
 import { updateLiabilities } from '../liabilities/liabilities.service.js';
 import { createLogger } from '../../lib/logger.js';
-import type { LinkBankAccountResult } from './plaid.types.js';
+import type { LinkBankAccountResult, SyncStatus } from './plaid.types.js';
 
 const logger = createLogger();
 
@@ -47,24 +47,12 @@ const logger = createLogger();
  * @returns {Promise<{ linkToken: string }>} The link token string.
  */
 export async function createLinkToken(userId: string): Promise<{ linkToken: string }> {
-  const products = (
-   ['transactions']
-  ) as Products[];
-
-  const optional_products = (
-    ['investments', 'liabilities']
-  ) as Products[];
-
-  const countryCodes = (
-    process.env.PLAID_COUNTRY_CODES?.split(',') ?? ['US']
-  ) as CountryCode[];
-
   const response = await plaidClient.linkTokenCreate({
     user: { client_user_id: userId },
     client_name: 'Financial Assistant',
-    products,
-    optional_products,
-    country_codes: countryCodes,
+    products: [Products.Transactions],
+    optional_products: [Products.Investments, Products.Liabilities],
+    country_codes: [CountryCode.Us],
     language: 'en',
     webhook: process.env.PLAID_WEBHOOK_URL,
   });
@@ -148,74 +136,118 @@ function plaidErrorCode(err: unknown): string | null {
  * so running them in parallel would produce three simultaneous upserts to the
  * same account rows with no defined ordering.
  *
+ * Transactions use cursor-based sync and are polled up to MAX_POLL_RETRIES
+ * times because Plaid prepares historical data asynchronously after link.
+ * The cursor is NOT committed during polling — committing an empty cursor
+ * between retries would advance past historical data that Plaid hasn't
+ * delivered yet. The cursor is committed exactly once after polling ends.
+ *
+ * Investments use a GET-based API (not cursor-based) — a single call is
+ * sufficient with no polling needed.
+ *
  * All three products are optional. If an item does not have one enabled, Plaid
  * returns an ITEM_ERROR (e.g. NO_INVESTMENT_ACCOUNTS). These are not failures —
  * they mean the product is not supported on this item. The error is logged at
  * info level and the remaining steps continue. Non-ITEM_ERROR failures (network,
  * auth, unexpected 5xx) are still propagated.
  *
- * transactions may return 0 results when called immediately after link — Plaid
- * processes history asynchronously. The HISTORICAL_UPDATE webhook (handled in
- * plaid.webhook.ts) triggers a follow-up sync once data is confirmed ready.
- *
  * @param {string} userId - UUID of the user who owns the bank connection.
  * @param {string} itemId - Plaid item ID of the newly linked bank connection.
  * @returns {Promise<void>}
  */
 export async function triggerInitialSync(userId: string, itemId: string): Promise<void> {
-  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
-  console.log(`[TRACE] triggerInitialSync START  userId=${userId} itemId=${itemId}`);
+  const MAX_POLL_RETRIES = 5;
+  const POLL_DELAY_MS = 2000;
 
-  console.log('[TRACE] triggerInitialSync step 1/3: syncTransactions …');
+  // --- Transactions (cursor-based sync) ---
+  // commitCursor: false prevents syncTransactions from persisting the cursor
+  // between poll attempts. If Plaid returns an empty page because historical
+  // data isn't ready yet, committing the cursor would advance past the window
+  // where that data will be delivered — permanently losing it.
   try {
-    const txResult = await syncTransactions(userId, itemId);
-    console.log('[TRACE] triggerInitialSync step 1/3 DONE:', JSON.stringify(txResult));
+    let txResult = await syncTransactions(userId, itemId, { commitCursor: false });
+
+    for (let attempt = 1; attempt < MAX_POLL_RETRIES && txResult.addedCount === 0; attempt++) {
+      logger.info(
+        { userId, itemId, attempt, maxRetries: MAX_POLL_RETRIES },
+        'No transactions on initial sync — waiting for Plaid to process history',
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, POLL_DELAY_MS));
+      txResult = await syncTransactions(userId, itemId, { commitCursor: false });
+    }
+
+    // Commit cursor exactly once — either data arrived or retries are exhausted.
+    await updateCursor(itemId, txResult.nextCursor);
+
+    if (txResult.addedCount === 0) {
+      logger.warn(
+        { userId, itemId },
+        'No transactions after polling — HISTORICAL_UPDATE webhook will trigger a follow-up sync',
+      );
+    }
   } catch (err) {
     if (plaidErrorType(err) === 'ITEM_ERROR') {
-      // Product not enabled on this item — not a failure.
       logger.info(
         { errorCode: plaidErrorCode(err), userId, itemId },
         'Transactions product not available on this item — skipping',
       );
-      console.log(`[TRACE] triggerInitialSync step 1/3 SKIPPED (${plaidErrorCode(err)})`);
+      // Set cursor to "" so getSyncStatus counts this item as synced.
+      // null means "never attempted"; "" means "attempted but product unsupported".
+      await updateCursor(itemId, '').catch((updateErr) =>
+        logger.warn({ updateErr, itemId }, 'Failed to set empty cursor after ITEM_ERROR skip'),
+      );
     } else {
       throw err;
     }
   }
 
-  console.log('[TRACE] triggerInitialSync step 2/3: updateInvestments …');
+  // --- Investments (GET-based, no cursor — single call, no polling needed) ---
   try {
     await updateInvestments(userId, itemId);
-    console.log('[TRACE] triggerInitialSync step 2/3 DONE');
   } catch (err) {
     if (plaidErrorType(err) === 'ITEM_ERROR') {
-      // Product not enabled on this item — not a failure.
       logger.info(
         { errorCode: plaidErrorCode(err), userId, itemId },
         'Investments product not available on this item — skipping',
       );
-      console.log(`[TRACE] triggerInitialSync step 2/3 SKIPPED (${plaidErrorCode(err)})`);
     } else {
       throw err;
     }
   }
 
-  console.log('[TRACE] triggerInitialSync step 3/3: updateLiabilities …');
+  // --- Liabilities ---
   try {
     await updateLiabilities(itemId);
-    console.log('[TRACE] triggerInitialSync step 3/3 DONE');
   } catch (err) {
     if (plaidErrorType(err) === 'ITEM_ERROR') {
-      // Product not enabled on this item — not a failure.
       logger.info(
         { errorCode: plaidErrorCode(err), userId, itemId },
         'Liabilities product not available on this item — skipping',
       );
-      console.log(`[TRACE] triggerInitialSync step 3/3 SKIPPED (${plaidErrorCode(err)})`);
     } else {
       throw err;
     }
   }
+}
 
-  console.log(`[TRACE] triggerInitialSync COMPLETE userId=${userId} itemId=${itemId}`);
+/**
+ * Returns the transaction sync status for all active items belonging to a user.
+ * Used by the frontend polling loop: the client calls this after linking a bank
+ * and waits until ready === true before calling POST /budget/initialize.
+ *
+ * An item is considered synced once transactionCursor is non-null:
+ *   - null  → syncTransactions has never been attempted for this item
+ *   - ""    → attempted but the transactions product is not supported (ITEM_ERROR)
+ *   - "..." → a real Plaid cursor; at least one sync has completed
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @returns {Promise<SyncStatus>}
+ */
+export async function getSyncStatus(userId: string): Promise<SyncStatus> {
+  const items = await getItemsForUser(userId);
+  const activeItems = items.filter((i) => i.status === 'active');
+  const itemsLinked = activeItems.length;
+  const itemsSynced = activeItems.filter((i) => i.transactionCursor !== null).length;
+  const ready = itemsLinked > 0 && itemsSynced === itemsLinked;
+  return { itemsLinked, itemsSynced, ready };
 }

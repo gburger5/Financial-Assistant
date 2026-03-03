@@ -1,8 +1,8 @@
 /**
  * @module budget.service.test
  * @description Unit tests for budget.service business logic.
- * The repository, transactions service, liabilities service, and analysis module
- * are all mocked so no real DynamoDB calls or computation occurs.
+ * The repository, transactions service, investments service, liabilities service,
+ * and analysis module are all mocked so no real DynamoDB calls or computation occurs.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundError } from '../../../lib/errors.js';
@@ -18,6 +18,10 @@ vi.mock('../budget.repository.js', () => ({
 }));
 
 vi.mock('../../transactions/transactions.service.js', () => ({
+  getTransactionsSince: vi.fn(),
+}));
+
+vi.mock('../../investments/investments.service.js', () => ({
   getTransactionsSince: vi.fn(),
 }));
 
@@ -41,6 +45,7 @@ import {
 } from '../budget.service.js';
 import * as repo from '../budget.repository.js';
 import * as txService from '../../transactions/transactions.service.js';
+import * as investmentsService from '../../investments/investments.service.js';
 import * as liabilitiesService from '../../liabilities/liabilities.service.js';
 import * as analysis from '../budget.analysis.js';
 import type { Budget, BudgetUpdateInput } from '../budget.types.js';
@@ -49,6 +54,7 @@ const mockSaveBudget = vi.mocked(repo.saveBudget);
 const mockGetLatestBudget = vi.mocked(repo.getLatestBudget);
 const mockGetBudgetHistory = vi.mocked(repo.getBudgetHistory);
 const mockGetTransactionsSince = vi.mocked(txService.getTransactionsSince);
+const mockGetInvestmentTransactionsSince = vi.mocked(investmentsService.getTransactionsSince);
 const mockGetLiabilitiesForUser = vi.mocked(liabilitiesService.getLiabilitiesForUser);
 const mockGenerateBudgetFromHistory = vi.mocked(analysis.generateBudgetFromHistory);
 
@@ -75,6 +81,7 @@ const sampleBudget: Budget = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetTransactionsSince.mockResolvedValue([]);
+  mockGetInvestmentTransactionsSince.mockResolvedValue([]);
   mockGetLiabilitiesForUser.mockResolvedValue([]);
   mockSaveBudget.mockResolvedValue(undefined);
 });
@@ -111,6 +118,15 @@ describe('createInitialBudget', () => {
     expect(mockGetTransactionsSince).toHaveBeenCalledWith('user-svc-1', '2000-01-01');
   });
 
+  it('fetches investment transactions since 2000-01-01 when no budget exists', async () => {
+    mockGetLatestBudget.mockResolvedValue(null);
+    mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
+
+    await createInitialBudget('user-svc-1');
+
+    expect(mockGetInvestmentTransactionsSince).toHaveBeenCalledWith('user-svc-1', '2000-01-01');
+  });
+
   it('fetches liabilities for the user when no budget exists', async () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
@@ -120,11 +136,13 @@ describe('createInitialBudget', () => {
     expect(mockGetLiabilitiesForUser).toHaveBeenCalledWith('user-svc-1');
   });
 
-  it('passes userId, transactions, and liabilities to generateBudgetFromHistory', async () => {
+  it('passes userId, transactions, liabilities, and investmentTransactions to generateBudgetFromHistory', async () => {
     mockGetLatestBudget.mockResolvedValue(null);
     const fakeTxs = [{ plaidTransactionId: 'tx-1' }] as never;
+    const fakeInvTxs = [{ investmentTransactionId: 'inv-1' }] as never;
     const fakeLiabilities = [{ liabilityType: 'credit' }] as never;
     mockGetTransactionsSince.mockResolvedValue(fakeTxs);
+    mockGetInvestmentTransactionsSince.mockResolvedValue(fakeInvTxs);
     mockGetLiabilitiesForUser.mockResolvedValue(fakeLiabilities);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
@@ -134,6 +152,7 @@ describe('createInitialBudget', () => {
       userId: 'user-svc-1',
       transactions: fakeTxs,
       liabilities: fakeLiabilities,
+      investmentTransactions: fakeInvTxs,
     });
   });
 

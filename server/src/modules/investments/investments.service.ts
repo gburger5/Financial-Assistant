@@ -232,6 +232,11 @@ export async function syncTransactions(userId: string, accessToken: string): Pro
   let offset = 0;
   let total = 0;
 
+  // Plaid can return the same logical transaction under different account IDs
+  // (and with different investment_transaction_id values). Deduplicate by a
+  // content signature so we only store each unique transaction once.
+  const seen = new Set<string>();
+
   while (true) {
     const response = await plaidClient.investmentsTransactionsGet({
       access_token: accessToken,
@@ -243,14 +248,21 @@ export async function syncTransactions(userId: string, accessToken: string): Pro
     const transactions = response.data
       .investment_transactions as unknown as PlaidInvestmentTransaction[];
 
+    const unique = transactions.filter((plaidTx) => {
+      const sig = `${plaidTx.date}|${plaidTx.security_id}|${plaidTx.amount}|${plaidTx.type}|${plaidTx.subtype}`;
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      return true;
+    });
+
     await Promise.all(
-      transactions.map(async (plaidTx) => {
+      unique.map(async (plaidTx) => {
         const tx = mapInvestmentTransaction(userId, plaidTx);
         await upsertInvestmentTransaction(tx);
       }),
     );
 
-    total += transactions.length;
+    total += unique.length;
     offset += transactions.length;
 
     // Fewer results than PAGE_SIZE means this is the final page.

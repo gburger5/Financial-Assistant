@@ -57,6 +57,25 @@ export async function exchangePublicToken(
 }
 
 /**
+ * GET /api/plaid/sync-status
+ * Returns the transaction sync status for all active items belonging to the
+ * authenticated user. The frontend polls this after linking a bank account,
+ * waiting until ready === true before calling POST /budget/initialize.
+ *
+ * @param {FastifyRequest} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function getSyncStatus(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.userId;
+  const result = await plaidService.getSyncStatus(userId);
+  return reply.send(result);
+}
+
+/**
  * POST /api/plaid/webhook
  * Delegates entirely to the webhook module. That module handles signature
  * verification, fire-and-forget dispatch, and always returning { received: true }.

@@ -39,4 +39,12 @@ export interface SyncResult {
   modifiedCount: number;
   removedCount: number;
   nextCursor: string;
+  /** True if the item has at least one depository or credit account.
+   *  Investment-only institutions (e.g. Vanguard) will never have transaction
+   *  data — callers use this flag to skip polling for transactions. */
+  hasTransactionCapableAccounts: boolean;
+  /** True when Plaid's transactions_update_status is NOT_READY — data has not
+   *  been processed yet. The cursor should not be committed and callers should
+   *  retry after a delay. */
+  notReady: boolean;
 }

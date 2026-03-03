@@ -11,6 +11,7 @@ import { ulid } from 'ulid';
 import * as budgetRepository from './budget.repository.js';
 import { generateBudgetFromHistory } from './budget.analysis.js';
 import { getTransactionsSince } from '../transactions/transactions.service.js';
+import { getTransactionsSince as getInvestmentTransactionsSince } from '../investments/investments.service.js';
 import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
 import { NotFoundError } from '../../lib/errors.js';
 import type { Budget, BudgetUpdateInput } from './budget.types.js';
@@ -36,16 +37,13 @@ export async function createInitialBudget(userId: string): Promise<Budget> {
     return existing;
   }
 
-  const transactions = await getTransactionsSince(userId, '2000-01-01');
-  const liabilities = await getLiabilitiesForUser(userId);
+  const [transactions, investmentTransactions, liabilities] = await Promise.all([
+    getTransactionsSince(userId, '2000-01-01'),
+    getInvestmentTransactionsSince(userId, '2000-01-01'),
+    getLiabilitiesForUser(userId),
+  ]);
 
-  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
-  console.log(`[TRACE] createInitialBudget: fetched ${transactions.length} transactions, ${liabilities.length} liabilities for userId=${userId}`);
-
-  const budget = generateBudgetFromHistory({ userId, transactions, liabilities });
-
-  // TRACE-LOG: temporary instrumentation for onboarding audit — remove after run
-  console.log('[TRACE] createInitialBudget generated budget:', JSON.stringify(budget, null, 2));
+  const budget = generateBudgetFromHistory({ userId, transactions, liabilities, investmentTransactions });
 
   await budgetRepository.saveBudget(budget);
 

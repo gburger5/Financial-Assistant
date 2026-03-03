@@ -15,6 +15,9 @@
  *   - removed are deleted — failure aborts the loop
  *   - upsert failures are logged-and-skipped (the loop advances past them)
  *   - updateCursor is called exactly once, after the full loop completes — never mid-loop
+ *   - TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION restarts from the pre-sync cursor
+ *   - commitCursor: false skips the cursor persist (caller owns the commit)
+ *   - notReady flag prevents cursor commit when Plaid data isn't processed yet
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -121,6 +124,8 @@ function makeSinglePageResponse(overrides: {
   modified?: PlaidTransaction[];
   removed?: { transaction_id: string }[];
   next_cursor?: string;
+  accounts?: { account_id: string; type?: string }[];
+  transactions_update_status?: string;
 }) {
   return {
     data: {
@@ -129,7 +134,8 @@ function makeSinglePageResponse(overrides: {
       removed: overrides.removed ?? [],
       has_more: false,
       next_cursor: overrides.next_cursor ?? 'cursor-final',
-      accounts: [],
+      accounts: overrides.accounts ?? [],
+      transactions_update_status: overrides.transactions_update_status,
     },
   };
 }
@@ -285,6 +291,17 @@ describe('syncTransactions', () => {
 
     const arg = mockTransactionsSync.mock.calls[0][0];
     expect(arg.options?.include_personal_finance_category).toBe(true);
+  });
+
+  it('calls transactionsSync with count: 500', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(makeSinglePageResponse({}));
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    await syncTransactions('user-123', 'item-abc');
+
+    const arg = mockTransactionsSync.mock.calls[0][0];
+    expect(arg.count).toBe(500);
   });
 
   it('calls transactionsSync with the item accessToken', async () => {
@@ -586,6 +603,120 @@ describe('syncTransactions', () => {
     const result = await syncTransactions('user-123', 'item-abc');
 
     expect(result.nextCursor).toBe('cursor-final');
+  });
+
+  it('returns hasTransactionCapableAccounts: true when depository accounts are present', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(
+      makeSinglePageResponse({ accounts: [{ account_id: 'acct-1', type: 'depository' }] }),
+    );
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    const result = await syncTransactions('user-123', 'item-abc');
+
+    expect(result.hasTransactionCapableAccounts).toBe(true);
+  });
+
+  it('returns hasTransactionCapableAccounts: false when only investment accounts are present', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(
+      makeSinglePageResponse({ accounts: [{ account_id: 'acct-1', type: 'investment' }] }),
+    );
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    const result = await syncTransactions('user-123', 'item-abc');
+
+    expect(result.hasTransactionCapableAccounts).toBe(false);
+  });
+
+  it('returns notReady: true when transactions_update_status is NOT_READY', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(
+      makeSinglePageResponse({ transactions_update_status: 'NOT_READY' }),
+    );
+
+    const result = await syncTransactions('user-123', 'item-abc');
+
+    expect(result.notReady).toBe(true);
+  });
+
+  it('does not commit cursor when notReady is true', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(
+      makeSinglePageResponse({ transactions_update_status: 'NOT_READY' }),
+    );
+
+    await syncTransactions('user-123', 'item-abc');
+
+    expect(mockUpdateCursor).not.toHaveBeenCalled();
+  });
+
+  it('does not commit cursor when commitCursor is false', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(makeSinglePageResponse({}));
+
+    await syncTransactions('user-123', 'item-abc', { commitCursor: false });
+
+    expect(mockUpdateCursor).not.toHaveBeenCalled();
+  });
+
+  it('commits cursor when commitCursor is explicitly true', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(makeSinglePageResponse({}));
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    await syncTransactions('user-123', 'item-abc', { commitCursor: true });
+
+    expect(mockUpdateCursor).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits cursor by default when no options are provided', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockTransactionsSync.mockResolvedValue(makeSinglePageResponse({}));
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    await syncTransactions('user-123', 'item-abc');
+
+    expect(mockUpdateCursor).toHaveBeenCalledTimes(1);
+  });
+
+  it('restarts from pre-sync cursor on TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION', async () => {
+    mockGetItemForSync.mockResolvedValue({ ...sampleItem, transactionCursor: 'pre-sync-cursor' });
+    // First call: returns a page
+    mockTransactionsSync.mockResolvedValueOnce({
+      data: {
+        added: [samplePlaidTx],
+        modified: [],
+        removed: [],
+        has_more: true,
+        next_cursor: 'cursor-page-1',
+        accounts: [],
+      },
+    });
+    // Second call: mutation error
+    mockTransactionsSync.mockRejectedValueOnce({
+      response: { data: { error_code: 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION' } },
+    });
+    // Third call (restart): succeeds
+    mockTransactionsSync.mockResolvedValueOnce({
+      data: {
+        added: [samplePlaidTx],
+        modified: [],
+        removed: [],
+        has_more: false,
+        next_cursor: 'cursor-final',
+        accounts: [],
+      },
+    });
+    mockSyncAccounts.mockResolvedValue(undefined);
+    mockUpsertTransaction.mockResolvedValue(undefined);
+    mockUpdateCursor.mockResolvedValue(undefined);
+
+    await syncTransactions('user-123', 'item-abc');
+
+    // After restart, the cursor should be the pre-sync one
+    const thirdCallArg = mockTransactionsSync.mock.calls[2][0];
+    expect(thirdCallArg.cursor).toBe('pre-sync-cursor');
   });
 
   it('skips a failed upsert and continues the sync (log-and-skip)', async () => {
