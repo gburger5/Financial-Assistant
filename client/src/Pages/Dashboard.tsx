@@ -806,14 +806,21 @@ const ProfilePage = () => {
 }
 
 // ── Settings Page ─────────────────────────────────────────
-// Removed: Notifications section, Budget Preferences (except Spending Alerts),
-//          Anonymous Analytics, 2FA, Export Data
 const SettingsPage = () => {
   const [s, setS] = useState<SettingsState>({
     theme: 'light', currency: 'USD', dateFormat: 'MM/DD/YYYY',
     budgetAlerts: true,
     emailNotifs: true, pushNotifs: true, goalReminders: true,
   })
+
+  useEffect(() => {
+    // apply selected theme to root element
+    const root = document.documentElement
+    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    const effective = s.theme === 'system' ? (sysDark ? 'dark' : 'light') : s.theme
+    if (effective === 'dark') root.setAttribute('data-theme', 'dark')
+    else root.removeAttribute('data-theme')
+  }, [s.theme])
 
   const tog = (k: BoolSetting) => setS(p => ({ ...p, [k]: !p[k] }))
 
