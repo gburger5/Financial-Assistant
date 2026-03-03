@@ -813,15 +813,6 @@ const SettingsPage = () => {
     emailNotifs: true, pushNotifs: true, goalReminders: true,
   })
 
-  useEffect(() => {
-    // apply selected theme to root element
-    const root = document.documentElement
-    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const effective = s.theme === 'system' ? (sysDark ? 'dark' : 'light') : s.theme
-    if (effective === 'dark') root.setAttribute('data-theme', 'dark')
-    else root.removeAttribute('data-theme')
-  }, [s.theme])
-
   const tog = (k: BoolSetting) => setS(p => ({ ...p, [k]: !p[k] }))
 
   return (
@@ -1066,6 +1057,17 @@ function Dashboard() {
   const [collapsed,     setCollapsed]     = useState(false)
   const [notifOpen,     setNotifOpen]     = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS)
+  const [theme,         setTheme]         = useState<'light' | 'dark'>('light')
+
+  useEffect(() =>{
+    // apply selected them to root
+    if (theme == 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
+  }, [theme]
+)
 
   const unreadCount = notifications.filter(n => n.unread).length
 
