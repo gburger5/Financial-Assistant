@@ -6,10 +6,10 @@ import './Dashboard.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-// Types 
+// Types
 type PageId =
   | 'overview' | 'transactions' | 'budget' | 'investments'
-  | 'goals' | 'debts' | 'reports' | 'notifications' | 'profile' | 'settings'
+  | 'goals' | 'debts' | 'notifications' | 'profile' | 'settings'
 
 interface Notification {
   id: number
@@ -26,18 +26,13 @@ interface SettingsState {
   theme: 'light' | 'dark' | 'system'
   currency: 'USD' | 'EUR' | 'GBP'
   dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD'
-  budgetPeriod: 'monthly' | 'weekly' | 'biweekly'
-  budgetRollover: boolean
   budgetAlerts: boolean
   emailNotifs: boolean
   pushNotifs: boolean
   goalReminders: boolean
-  weeklyReport: boolean
-  twoFactor: boolean
-  dataSharing: boolean
 }
 
-type BoolSetting = 'budgetRollover' | 'budgetAlerts' | 'emailNotifs' | 'pushNotifs' | 'goalReminders' | 'weeklyReport' | 'twoFactor' | 'dataSharing'
+type BoolSetting = 'budgetAlerts' | 'emailNotifs' | 'pushNotifs' | 'goalReminders'
 
 // Mock Data
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -82,22 +77,23 @@ const MOCK_DEBTS = [
   { name: 'Auto Loan',      balance: 9800,  rate: 7.9,  minimum: 280, type: 'Auto Loan',    icon: '🚗', severity: 'low'  },
 ]
 
-const MOCK_AGENT_ACTIONS = [
-  { title: 'Identified subscription savings', desc: 'Found 3 unused subscriptions totaling $47/mo that could be cancelled.',  time: '2 hours ago', status: 'review',    icon: '🤖', iconBg: 'rgba(0,212,170,0.1)'   },
-  { title: 'Rounded up spare change',         desc: 'Transferred $23.47 in round-ups to your emergency fund.',               time: '1 day ago',   status: 'completed', icon: '🪙', iconBg: 'rgba(69,123,157,0.1)'  },
-  { title: 'Detected irregular charge',       desc: 'Flagged a $12.99 charge from an unknown merchant for your review.',     time: '2 days ago',  status: 'pending',   icon: '🔍', iconBg: 'rgba(239,68,68,0.1)'   },
-  { title: 'Rebalanced budget categories',    desc: 'Shifted $50 from Shopping to Groceries based on spending patterns.',    time: '5 days ago',  status: 'completed', icon: '⚖️', iconBg: 'rgba(245,158,11,0.1)'  },
+// Renamed from MOCK_AGENT_ACTIONS — these are suggestions requiring user confirmation
+const MOCK_SUGGESTIONS = [
+  { title: 'Cancel unused subscriptions',  desc: 'Found 3 subscriptions totaling $47/mo that appear unused. Review before cancelling.',  time: '2 hours ago', status: 'review',    icon: '🤖', iconBg: 'rgba(0,212,170,0.1)'   },
+  { title: 'Round-up spare change',        desc: 'Transfer $23.47 in round-ups to your emergency fund. Approve to proceed.',            time: '1 day ago',   status: 'pending',   icon: '🪙', iconBg: 'rgba(69,123,157,0.1)'  },
+  { title: 'Review irregular charge',      desc: 'A $12.99 charge from an unknown merchant was flagged. Confirm if this is legitimate.', time: '2 days ago',  status: 'pending',   icon: '🔍', iconBg: 'rgba(239,68,68,0.1)'   },
+  { title: 'Rebalance budget categories',  desc: 'Suggest shifting $50 from Shopping to Groceries based on your patterns. Approve?',    time: '5 days ago',  status: 'completed', icon: '⚖️', iconBg: 'rgba(245,158,11,0.1)'  },
 ]
 
-// Sidebar Nav Config 
+// Sidebar Nav Config — Notifications added as its own tab, Reports removed
 const NAV_ITEMS: { id: PageId; label: string; icon: string }[] = [
-  { id: 'overview',     label: 'Overview',     icon: '📊' },
-  { id: 'transactions', label: 'Transactions', icon: '💳' },
-  { id: 'budget',       label: 'Budget',       icon: '📋' },
-  { id: 'investments',  label: 'Investments',  icon: '📈' },
-  { id: 'goals',        label: 'Goals',        icon: '🎯' },
-  { id: 'debts',        label: 'Debts',        icon: '💰' },
-  { id: 'reports',      label: 'Reports',      icon: '📑' },
+  { id: 'overview',       label: 'Overview',       icon: '📊' },
+  { id: 'transactions',   label: 'Transactions',   icon: '💳' },
+  { id: 'budget',         label: 'Budget',         icon: '📋' },
+  { id: 'investments',    label: 'Investments',    icon: '📈' },
+  { id: 'goals',          label: 'Goals',          icon: '🎯' },
+  { id: 'debts',          label: 'Debts',          icon: '💰' },
+  { id: 'notifications',  label: 'Notifications',  icon: '🔔' },
 ]
 
 const PAGE_TITLES: Record<PageId, { title: string; subtitle: string }> = {
@@ -107,7 +103,6 @@ const PAGE_TITLES: Record<PageId, { title: string; subtitle: string }> = {
   investments:   { title: 'Investments',   subtitle: 'Portfolio & accounts'       },
   goals:         { title: 'Goals',         subtitle: 'Savings progress'           },
   debts:         { title: 'Debts',         subtitle: 'Payoff tracking'            },
-  reports:       { title: 'Reports',       subtitle: 'Insights & analytics'       },
   notifications: { title: 'Notifications', subtitle: 'Alerts & updates'           },
   profile:       { title: 'Profile',       subtitle: 'Account & preferences'      },
   settings:      { title: 'Settings',      subtitle: 'App configuration'          },
@@ -131,7 +126,53 @@ const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
   <button className={`toggle-switch ${on ? 'on' : ''}`} onClick={onToggle} />
 )
 
-// Overview Page
+// ── Simple SVG Pie Chart ──────────────────────────────────
+const PieChart = ({ data }: { data: { name: string; value: number; color: string; icon: string }[] }) => {
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+  let cumAngle = -90 // start from top
+
+  const slices = data.map(d => {
+    const angle = (d.value / total) * 360
+    const startAngle = cumAngle
+    cumAngle += angle
+    const endAngle = cumAngle
+    const toRad = (deg: number) => (deg * Math.PI) / 180
+    const cx = 90, cy = 90, r = 80
+    const x1 = cx + r * Math.cos(toRad(startAngle))
+    const y1 = cy + r * Math.sin(toRad(startAngle))
+    const x2 = cx + r * Math.cos(toRad(endAngle - 0.5))
+    const y2 = cy + r * Math.sin(toRad(endAngle - 0.5))
+    const largeArc = angle > 180 ? 1 : 0
+    const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
+    return { ...d, path, angle, pct: Math.round((d.value / total) * 100) }
+  })
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+      <svg width="180" height="180" viewBox="0 0 180 180" style={{ flexShrink: 0 }}>
+        {slices.map((s, i) => (
+          <path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth="2" />
+        ))}
+        <circle cx="90" cy="90" r="44" fill="#fff" />
+        <text x="90" y="86" textAnchor="middle" fontSize="11" fill="#64748B" fontWeight="600">Spent</text>
+        <text x="90" y="102" textAnchor="middle" fontSize="14" fill="#0A2540" fontWeight="800">
+          ${data.reduce((s, d) => s + d.value, 0).toLocaleString()}
+        </text>
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1, minWidth: 140 }}>
+        {slices.map((s, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: '#334155', flex: 1 }}>{s.icon} {s.name}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#0A2540' }}>{s.pct}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Overview Page ─────────────────────────────────────────
 const OverviewPage = ({ goTo }: { goTo: (p: PageId) => void }) => (
   <div>
     <div className="welcome-bar">
@@ -147,28 +188,32 @@ const OverviewPage = ({ goTo }: { goTo: (p: PageId) => void }) => (
       </div>
     </div>
 
+    {/* Savings Rate removed — 3 stat cards remain */}
     <Grid container spacing={2} sx={{ mb: 3 }}>
       {[
-        { label: 'Total Balance',    value: '$24,840', change: '3.2% this month',    positive: true,  icon: '🏦', iconBg: 'rgba(0,212,170,0.1)'  },
-        { label: 'Monthly Income',   value: '$4,000',  change: '$750 freelance',      positive: true,  icon: '💰', iconBg: 'rgba(69,123,157,0.1)' },
-        { label: 'Monthly Expenses', value: '$2,614',  change: '8.1% vs last month',  positive: false, icon: '💸', iconBg: 'rgba(239,68,68,0.1)'  },
-        { label: 'Savings Rate',     value: '34.6%',   change: '2.1% improvement',    positive: true,  icon: '📈', iconBg: 'rgba(245,158,11,0.1)' },
+        { label: 'Total Balance',    value: '$24,840', change: '3.2% this month',   positive: true,  icon: '🏦', iconBg: 'rgba(0,212,170,0.1)'  },
+        { label: 'Monthly Income',   value: '$4,000',  change: '$750 freelance',     positive: true,  icon: '💰', iconBg: 'rgba(69,123,157,0.1)' },
+        { label: 'Monthly Expenses', value: '$2,614',  change: '8.1% vs last month', positive: false, icon: '💸', iconBg: 'rgba(239,68,68,0.1)'  },
       ].map(s => (
-        <Grid item xs={12} sm={6} lg={3} key={s.label}>
+        <Grid item xs={12} sm={4} key={s.label}>
           <StatCard {...s} />
         </Grid>
       ))}
     </Grid>
 
     <Grid container spacing={3}>
-      {/* Agent Actions */}
+      {/* Suggestions (formerly AI Agent Actions) */}
       <Grid item xs={12} lg={8}>
         <div className="section-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="section-card-title">🤖 AI Agent Actions</div>
-            <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 12 }} onClick={() => goTo('reports')}>View All</button>
+            <div>
+              <div className="section-card-title">💡 AI Suggestions</div>
+              <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                Nothing happens until you approve — review each suggestion before acting.
+              </div>
+            </div>
           </div>
-          {MOCK_AGENT_ACTIONS.map((a, i) => (
+          {MOCK_SUGGESTIONS.map((a, i) => (
             <div key={i} className="agent-action-item">
               <div className="agent-action-icon" style={{ background: a.iconBg }}>{a.icon}</div>
               <div style={{ flex: 1 }}>
@@ -177,9 +222,14 @@ const OverviewPage = ({ goTo }: { goTo: (p: PageId) => void }) => (
                 <div className="agent-action-time">{a.time}</div>
               </div>
               <div className="agent-action-status">
-                <span className={`status-badge ${a.status}`}>
-                  {a.status === 'completed' ? '✓ Done' : a.status === 'pending' ? '⏳ Pending' : '👁 Review'}
-                </span>
+                {a.status === 'completed' ? (
+                  <span className="status-badge completed">✓ Done</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <button className="btn-primary" style={{ padding: '4px 10px', fontSize: 11 }}>Approve</button>
+                    <button className="btn-outline" style={{ padding: '4px 10px', fontSize: 11 }}>Dismiss</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -359,33 +409,47 @@ const BudgetPage = () => {
         ))}
       </Grid>
 
-      <div className="section-card">
-        {MOCK_BUDGET.map(b => {
-          const pct = Math.round(b.spent / b.budget * 100)
-          const over = pct > 90
-          return (
-            <div key={b.name} style={{ marginBottom: 22 }}>
-              <div className="budget-row-header" style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#0A2540' }}>{b.icon} {b.name}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {over && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 10 }}>
-                      ⚠ Near limit
-                    </span>
-                  )}
-                  <span className="budget-cat-amounts" style={{ fontSize: 13 }}>
-                    ${b.spent} / ${b.budget}{' '}
-                    <span style={{ color: over ? '#EF4444' : '#00A884', fontWeight: 700 }}>({pct}%)</span>
-                  </span>
+      <Grid container spacing={3}>
+        {/* Pie Chart */}
+        <Grid item xs={12} lg={5}>
+          <div className="section-card">
+            <div className="section-card-title" style={{ marginBottom: 18 }}>Spending Breakdown</div>
+            <PieChart data={MOCK_BUDGET.map(b => ({ name: b.name, value: b.spent, color: b.color, icon: b.icon }))} />
+          </div>
+        </Grid>
+
+        {/* Bar progress breakdown */}
+        <Grid item xs={12} lg={7}>
+          <div className="section-card">
+            <div className="section-card-title" style={{ marginBottom: 18 }}>Category Progress</div>
+            {MOCK_BUDGET.map(b => {
+              const pct = Math.round(b.spent / b.budget * 100)
+              const over = pct > 90
+              return (
+                <div key={b.name} style={{ marginBottom: 18 }}>
+                  <div className="budget-row-header" style={{ marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0A2540' }}>{b.icon} {b.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {over && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', background: 'rgba(239,68,68,0.08)', padding: '2px 8px', borderRadius: 10 }}>
+                          ⚠ Near limit
+                        </span>
+                      )}
+                      <span className="budget-cat-amounts" style={{ fontSize: 12 }}>
+                        ${b.spent} / ${b.budget}{' '}
+                        <span style={{ color: over ? '#EF4444' : '#00A884', fontWeight: 700 }}>({pct}%)</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="budget-bar-track" style={{ height: 8 }}>
+                    <div className="budget-bar-fill" style={{ width: `${Math.min(100, pct)}%`, background: over ? '#EF4444' : b.color }} />
+                  </div>
                 </div>
-              </div>
-              <div className="budget-bar-track" style={{ height: 9 }}>
-                <div className="budget-bar-fill" style={{ width: `${Math.min(100, pct)}%`, background: over ? '#EF4444' : b.color }} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
+              )
+            })}
+          </div>
+        </Grid>
+      </Grid>
     </div>
   )
 }
@@ -421,22 +485,13 @@ const InvestmentsPage = () => (
     <Grid container spacing={3}>
       <Grid item xs={12} lg={5}>
         <div className="section-card">
-          <div className="section-card-title">Asset Allocation</div>
-          <div className="chart-placeholder" style={{ height: 170, marginBottom: 16 }}>📊 Allocation chart coming soon</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {[
-              { label: 'US Stocks',    pct: 55, color: '#0A2540' },
-              { label: 'Intl Stocks',  pct: 20, color: '#457B9D' },
-              { label: 'Bonds',        pct: 15, color: '#00D4AA' },
-              { label: 'Cash',         pct: 10, color: '#94A3B8' },
-            ].map(a => (
-              <div key={a.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: a.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: '#334155', flex: 1 }}>{a.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#0A2540' }}>{a.pct}%</span>
-              </div>
-            ))}
-          </div>
+          <div className="section-card-title" style={{ marginBottom: 18 }}>Asset Allocation</div>
+          <PieChart data={[
+            { name: 'US Stocks',   value: 55, color: '#0A2540', icon: '🇺🇸' },
+            { name: 'Intl Stocks', value: 20, color: '#457B9D', icon: '🌍'  },
+            { name: 'Bonds',       value: 15, color: '#00D4AA', icon: '📄'  },
+            { name: 'Cash',        value: 10, color: '#94A3B8', icon: '💵'  },
+          ]} />
         </div>
       </Grid>
       <Grid item xs={12} lg={7}>
@@ -561,7 +616,7 @@ const DebtsPage = () => {
       </Grid>
 
       <div className="ai-tip-box">
-        💡 <strong>AI Recommendation:</strong> Focus on your Chase Sapphire card first — the avalanche method saves ~$840 in interest compared to the snowball method.
+        💡 <strong>AI Suggestion:</strong> Focus on your Chase Sapphire card first — the avalanche method could save ~$840 in interest vs. the snowball method. <button className="btn-primary" style={{ marginLeft: 10, padding: '4px 12px', fontSize: 12 }}>Apply Strategy</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -590,44 +645,6 @@ const DebtsPage = () => {
     </div>
   )
 }
-
-// ── Reports Page ──────────────────────────────────────────
-const ReportsPage = () => (
-  <div>
-    <div className="inner-page-header">
-      <div>
-        <div className="page-title">Reports</div>
-        <div className="page-subtitle">Financial insights & summaries</div>
-      </div>
-      <div className="inner-page-actions">
-        <button className="btn-outline">↓ Export PDF</button>
-        <button className="btn-primary">📧 Email Report</button>
-      </div>
-    </div>
-
-    <Grid container spacing={3}>
-      {[
-        { title: 'Monthly Spending Trend', sub: '6-month comparison',  h: 200 },
-        { title: 'Income vs. Expenses',    sub: 'Year-to-date',        h: 200 },
-        { title: 'Net Worth Growth',       sub: '12-month history',    h: 160 },
-        { title: 'Category Breakdown',     sub: 'February 2025',       h: 160 },
-      ].map(r => (
-        <Grid item xs={12} lg={6} key={r.title}>
-          <div className="section-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div>
-                <div className="section-card-title" style={{ marginBottom: 2 }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: '#94A3B8' }}>{r.sub}</div>
-              </div>
-              <button className="btn-outline" style={{ padding: '5px 12px', fontSize: 12 }}>View</button>
-            </div>
-            <div className="chart-placeholder" style={{ height: r.h }}>📊 {r.title}</div>
-          </div>
-        </Grid>
-      ))}
-    </Grid>
-  </div>
-)
 
 // ── Notifications Full Page ───────────────────────────────
 const NotificationsPage = ({ notifications, markAll, markOne }: {
@@ -692,7 +709,6 @@ const ProfilePage = () => {
       <div className="page-title" style={{ marginBottom: 3 }}>Profile</div>
       <div className="page-subtitle">Manage your personal information and financial preferences</div>
 
-      {/* Avatar & Name */}
       <div className="profile-avatar-section">
         <div className="profile-avatar-large">
           {info.firstName[0]}{info.lastName[0]}
@@ -704,7 +720,6 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Personal Info */}
       <div className="profile-field-group">
         <div className="profile-field-header">Personal Information</div>
         {([
@@ -735,7 +750,6 @@ const ProfilePage = () => {
         ))}
       </div>
 
-      {/* Household */}
       <div className="profile-field-group">
         <div className="profile-field-header">Household & Lifestyle</div>
         {[
@@ -754,7 +768,6 @@ const ProfilePage = () => {
         ))}
       </div>
 
-      {/* Financial Goals */}
       <div className="profile-field-group">
         <div className="profile-field-header">Financial Goals</div>
         <div style={{ padding: '14px 20px' }}>
@@ -769,7 +782,6 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      {/* Connected Accounts */}
       <div className="profile-field-group">
         <div className="profile-field-header">Connected Accounts</div>
         <div className="profile-field-row">
@@ -794,12 +806,13 @@ const ProfilePage = () => {
 }
 
 // ── Settings Page ─────────────────────────────────────────
+// Removed: Notifications section, Budget Preferences (except Spending Alerts),
+//          Anonymous Analytics, 2FA, Export Data
 const SettingsPage = () => {
   const [s, setS] = useState<SettingsState>({
     theme: 'light', currency: 'USD', dateFormat: 'MM/DD/YYYY',
-    budgetPeriod: 'monthly', budgetRollover: false, budgetAlerts: true,
+    budgetAlerts: true,
     emailNotifs: true, pushNotifs: true, goalReminders: true,
-    weeklyReport: false, twoFactor: false, dataSharing: false,
   })
 
   const tog = (k: BoolSetting) => setS(p => ({ ...p, [k]: !p[k] }))
@@ -829,78 +842,15 @@ const SettingsPage = () => {
         ))}
       </div>
 
-      {/* Budget */}
+      {/* Budget — spending alerts only */}
       <div className="settings-group">
-        <div className="settings-group-header">💰 Budget Preferences</div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div className="settings-row-label">Budget Period</div>
-            <div className="settings-row-desc">How your budget resets each cycle</div>
-          </div>
-          <select className="settings-select" value={s.budgetPeriod} onChange={e => setS(p => ({ ...p, budgetPeriod: e.target.value as SettingsState['budgetPeriod'] }))}>
-            <option value="monthly">Monthly</option>
-            <option value="biweekly">Bi-weekly</option>
-            <option value="weekly">Weekly</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div className="settings-row-label">Budget Rollover</div>
-            <div className="settings-row-desc">Carry unspent amounts to the next period</div>
-          </div>
-          <Toggle on={s.budgetRollover} onToggle={() => tog('budgetRollover')} />
-        </div>
+        <div className="settings-group-header">📋 Budget</div>
         <div className="settings-row">
           <div className="settings-row-info">
             <div className="settings-row-label">Spending Alerts</div>
             <div className="settings-row-desc">Alert when a category hits 80% of its budget</div>
           </div>
           <Toggle on={s.budgetAlerts} onToggle={() => tog('budgetAlerts')} />
-        </div>
-      </div>
-
-      {/* Notifications */}
-      <div className="settings-group">
-        <div className="settings-group-header">🔔 Notifications</div>
-        {([
-          { key: 'emailNotifs',   label: 'Email Notifications',  desc: 'Receive alerts and summaries via email'           },
-          { key: 'pushNotifs',    label: 'Push Notifications',   desc: 'Browser notifications for real-time alerts'       },
-          { key: 'goalReminders', label: 'Goal Reminders',       desc: 'Monthly reminders to contribute to savings goals' },
-          { key: 'weeklyReport',  label: 'Weekly Summary',       desc: 'Get a weekly digest of your finances every Monday' },
-        ] as { key: BoolSetting; label: string; desc: string }[]).map(r => (
-          <div key={r.key} className="settings-row">
-            <div className="settings-row-info">
-              <div className="settings-row-label">{r.label}</div>
-              <div className="settings-row-desc">{r.desc}</div>
-            </div>
-            <Toggle on={s[r.key] as boolean} onToggle={() => tog(r.key)} />
-          </div>
-        ))}
-      </div>
-
-      {/* Security */}
-      <div className="settings-group">
-        <div className="settings-group-header">🔐 Privacy & Security</div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div className="settings-row-label">Two-Factor Authentication</div>
-            <div className="settings-row-desc">Require a code when signing in from a new device</div>
-          </div>
-          <Toggle on={s.twoFactor} onToggle={() => tog('twoFactor')} />
-        </div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div className="settings-row-label">Anonymous Analytics</div>
-            <div className="settings-row-desc">Share usage data to help improve FinanceAI</div>
-          </div>
-          <Toggle on={s.dataSharing} onToggle={() => tog('dataSharing')} />
-        </div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div className="settings-row-label">Change Password</div>
-            <div className="settings-row-desc">Update your account password</div>
-          </div>
-          <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 12 }}>Update →</button>
         </div>
       </div>
 
@@ -928,16 +878,21 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      {/* Data Management */}
+      {/* Security */}
       <div className="settings-group">
-        <div className="settings-group-header">📦 Data Management</div>
+        <div className="settings-group-header">🔐 Security</div>
         <div className="settings-row">
           <div className="settings-row-info">
-            <div className="settings-row-label">Export My Data</div>
-            <div className="settings-row-desc">Download all your financial data as a CSV file</div>
+            <div className="settings-row-label">Change Password</div>
+            <div className="settings-row-desc">Update your account password</div>
           </div>
-          <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 12 }}>↓ Export</button>
+          <button className="btn-outline" style={{ padding: '6px 14px', fontSize: 12 }}>Update →</button>
         </div>
+      </div>
+
+      {/* Data Management — delete only */}
+      <div className="settings-group">
+        <div className="settings-group-header">📦 Data Management</div>
         <div className="settings-row">
           <div className="settings-row-info">
             <div className="settings-row-label" style={{ color: '#EF4444' }}>Delete Account</div>
@@ -1004,22 +959,23 @@ const NotificationsDropdown = ({ notifications, onMarkAll, onMarkOne, onViewAll,
 }
 
 // ── Sidebar Component ─────────────────────────────────────
-const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, onLogout }: {
+const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, onLogout, unreadCount }: {
   activePage: PageId
   setActivePage: (p: PageId) => void
   collapsed: boolean
   setCollapsed: (c: boolean) => void
   onLogout: () => void
+  unreadCount: number
 }) => (
   <div className={`dashboard-sidebar ${collapsed ? 'collapsed' : ''}`}>
     <div className="sidebar-logo">
-      <div className="sidebar-logo-icon" />
+      {/* Collapse/expand burger — always visible, works in both states */}
       {!collapsed && <span className="sidebar-logo-text">FinanceAI</span>}
       <button
         className="sidebar-collapse-btn"
-        style={{ marginLeft: collapsed ? 0 : 'auto' }}
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        style={{ zIndex: 10, flexShrink: 0, marginLeft: collapsed ? 0 : 'auto' }}
       >
         {collapsed ? '›' : '‹'}
       </button>
@@ -1034,8 +990,35 @@ const Sidebar = ({ activePage, setActivePage, collapsed, setCollapsed, onLogout 
           onClick={() => setActivePage(item.id)}
           title={collapsed ? item.label : undefined}
         >
-          <span className="sidebar-nav-icon">{item.icon}</span>
-          {!collapsed && <span className="sidebar-nav-label">{item.label}</span>}
+          <span className="sidebar-nav-icon" style={{ position: 'relative' }}>
+            {item.icon}
+            {/* Badge for notifications tab */}
+            {item.id === 'notifications' && unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -6,
+                background: '#EF4444', color: '#fff',
+                fontSize: 9, fontWeight: 800,
+                width: 14, height: 14, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {unreadCount}
+              </span>
+            )}
+          </span>
+          {!collapsed && (
+            <span className="sidebar-nav-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+              {item.label}
+              {item.id === 'notifications' && unreadCount > 0 && (
+                <span style={{
+                  background: '#EF4444', color: '#fff',
+                  fontSize: 10, fontWeight: 800,
+                  padding: '1px 6px', borderRadius: 10,
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </span>
+          )}
         </div>
       ))}
     </div>
@@ -1079,22 +1062,22 @@ function Dashboard() {
 
   const unreadCount = notifications.filter(n => n.unread).length
 
-  useEffect(() => {
-    const verifyAuth = async () => {
-      const token = getToken()
-      if (!token) { navigate('/login'); return }
-      try {
-        const res = await fetch(`${API_BASE}/verify`, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) { clearToken(); navigate('/login') }
-      } catch {
-        navigate('/login')
-      }
-    }
-    verifyAuth()
-  }, [navigate])
+  // useEffect(() => {
+  //   const verifyAuth = async () => {
+  //     const token = getToken()
+  //     if (!token) { navigate('/login'); return }
+  //     try {
+  //       const res = await fetch(`${API_BASE}/verify`, {
+  //         method: 'GET',
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       })
+  //       if (!res.ok) { clearToken(); navigate('/login') }
+  //     } catch {
+  //       navigate('/login')
+  //     }
+  //   }
+  //   verifyAuth()
+  // }, [navigate])
 
   const handleLogout = () => { clearToken(); navigate('/login') }
   const markAll  = () => setNotifications(n => n.map(x => ({ ...x, unread: false })))
@@ -1115,7 +1098,6 @@ function Dashboard() {
       case 'investments':   return <InvestmentsPage />
       case 'goals':         return <GoalsPage />
       case 'debts':         return <DebtsPage />
-      case 'reports':       return <ReportsPage />
       case 'notifications': return <NotificationsPage notifications={notifications} markAll={markAll} markOne={markOne} />
       case 'profile':       return <ProfilePage />
       case 'settings':      return <SettingsPage />
@@ -1130,6 +1112,7 @@ function Dashboard() {
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         onLogout={handleLogout}
+        unreadCount={unreadCount}
       />
 
       <div className={`dashboard-main ${collapsed ? 'sidebar-collapsed' : ''}`}>
@@ -1164,7 +1147,6 @@ function Dashboard() {
 
             <button className="header-icon-btn" onClick={() => goTo('settings')} title="Settings">⚙️</button>
 
-            {/* Profile Avatar */}
             <div
               className="header-avatar"
               onClick={() => goTo('profile')}

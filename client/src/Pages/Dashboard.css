@@ -82,6 +82,9 @@
   justify-content: center;
   flex-shrink: 0;
   margin-left: auto;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .sidebar-collapse-btn:hover {
@@ -1010,36 +1013,6 @@
 
 .settings-row-desc { font-size: 12px; color: #94A3B8; }
 
-/* Toggle Switch */
-.toggle-switch {
-  width: 42px;
-  height: 23px;
-  border-radius: 12px;
-  background: #E2E8F0;
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-  flex-shrink: 0;
-  border: none;
-}
-
-.toggle-switch.on { background: #00D4AA; }
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 17px;
-  height: 17px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.14);
-}
-
-.toggle-switch.on::after { transform: translateX(19px); }
-
 .settings-select {
   font-size: 13px;
   font-weight: 600;
@@ -1073,4 +1046,216 @@
   .dashboard-main { margin-left: 0 !important; }
   .dashboard-page { padding: 20px 16px; }
   .dashboard-header { padding: 0 16px; }
+}
+
+/* In case the parent .sidebar-logo hides children on non-hover */
+.dashboard-sidebar .sidebar-logo .sidebar-collapse-btn,
+.dashboard-sidebar.collapsed .sidebar-logo .sidebar-collapse-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* When collapsed, center the logo row */
+.dashboard-sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+}
+
+/* ── Mobile overlay sidebar ─────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-root {
+    flex-direction: column;
+  }
+
+  /* Sidebar becomes a fixed overlay on mobile */
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  /* When NOT collapsed on mobile = open/visible */
+  .dashboard-sidebar:not(.collapsed) {
+    transform: translateX(0);
+  }
+
+  /* When collapsed on mobile = hidden off screen */
+  .dashboard-sidebar.collapsed {
+    transform: translateX(-100%);
+  }
+
+  /* Main content always fills full width on mobile */
+  .dashboard-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .dashboard-main.sidebar-collapsed {
+    margin-left: 0 !important;
+  }
+
+  /* Mobile top bar: show hamburger to open sidebar */
+  .dashboard-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  /* Overlay backdrop when sidebar is open on mobile */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 199;
+  }
+  .sidebar-backdrop.visible {
+    display: block;
+  }
+
+  /* Mobile header hamburger button */
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    margin-right: 8px;
+  }
+
+  /* Stats: 1 column on very small screens */
+  .stat-card {
+    min-width: 0;
+  }
+
+  /* Tables: horizontal scroll */
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inner page header stack on mobile */
+  .inner-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .inner-page-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .inner-page-actions button {
+    flex: 1;
+  }
+
+  /* Filter row scrolls horizontally */
+  .filter-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+  }
+
+  /* Welcome bar stacks */
+  .welcome-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .welcome-net-worth {
+    align-self: flex-start;
+  }
+
+  /* Notification dropdown full width on mobile */
+  .notif-dropdown {
+    right: -8px;
+    width: calc(100vw - 16px);
+    max-width: 380px;
+  }
+
+  /* Settings/Profile rows stack on mobile */
+  .settings-row,
+  .profile-field-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .settings-select {
+    width: 100%;
+  }
+
+  /* Pie chart wraps nicely */
+  .budget-pie-row {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* ── Tablet (768px–1024px) tweaks ───────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mobile-menu-btn {
+    display: none;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ── Hide mobile menu button on desktop ─────────────────── */
+@media (min-width: 769px) {
+  .mobile-menu-btn {
+    display: none;
+  }
+
+  .sidebar-backdrop {
+    display: none !important;
+  }
+}
+
+/* ── Toggle switch (ensure styles exist) ───────────────── */
+.toggle-switch {
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  background: #CBD5E1;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch.on {
+  background: #00D4AA;
+}
+.toggle-switch.on::after {
+  transform: translateX(18px);
 }
