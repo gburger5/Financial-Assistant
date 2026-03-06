@@ -6,8 +6,8 @@
  * Register this plugin in app.ts with prefix: '/api/auth'.
  */
 import type { FastifyInstance } from 'fastify';
-import { register, login, verify } from './auth.controller.js';
-import { registerSchema, loginSchema, verifySchema } from './auth.schema.js';
+import { register, login, verify, verifyEmail, resendVerification } from './auth.controller.js';
+import { registerSchema, loginSchema, verifySchema, resendVerificationSchema, verifyEmailSchema } from './auth.schema.js';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 
 /**
@@ -28,5 +28,7 @@ export default async function authRoutes(
 ): Promise<void> {
   fastify.post('/register', { schema: registerSchema }, register);
   fastify.post('/login', { schema: loginSchema }, login);
+  fastify.post('/resend-verification', { schema: resendVerificationSchema, config: { rateLimit: { max: 5, timeWindow: 60000 } } }, resendVerification);
   fastify.get('/verify', { schema: verifySchema, preHandler: verifyJWT }, verify);
+  fastify.get('/verify-email', { schema: verifyEmailSchema }, verifyEmail);
 }

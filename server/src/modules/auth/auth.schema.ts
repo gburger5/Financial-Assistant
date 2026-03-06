@@ -121,3 +121,54 @@ export const verifySchema = {
     },
   },
 } as const;
+
+/**
+ * Schema for GET /verify-email.
+ * No request body. Expects a `token` query parameter. Responds 200 with a
+ * success boolean.
+ */
+export const verifyEmailSchema = {
+  querystring: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export interface ResendVerificationRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/**
+ * Schema for POST /resend-verification.
+ * Body requires email. Responds 200 with a success boolean.
+ */
+export const resendVerificationSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;

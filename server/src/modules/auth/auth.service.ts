@@ -7,7 +7,9 @@
 import jwt from 'jsonwebtoken';
 import { hash, verify } from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import * as repo from './auth.repository.js';
+import { sendVerificationEmail } from '../../lib/email.js';
 import {
   BadRequestError,
   ConflictError,
@@ -130,12 +132,29 @@ export async function registerUser(
 
   const existing = await repo.findUserByEmail(normalizedEmail);
   if (existing) {
-    throw new ConflictError('Email already registered');
+    if (existing.emailVerified) {
+      throw new ConflictError('Email already registered');
+    }
+
+    // regenerate token for unverified user
+    const { rawToken, tokenHash, expires } = generateVerificationToken();
+
+    await repo.updateVerificationToken(
+      existing.id,
+      tokenHash,
+      expires
+    );
+
+    await sendVerificationEmail(existing.email, rawToken);
+
+    return toPublicUser(existing);
   }
 
   validatePasswordComplexity(password);
 
   const password_hash = await hash(password);
+  // Generate verification token
+  const { rawToken, tokenHash, expires: verificationExpiry } = generateVerificationToken();
   const now = new Date().toISOString();
 
   const newUser: repo.UserRecord = {
@@ -144,6 +163,9 @@ export async function registerUser(
     lastName,
     email: normalizedEmail,
     password_hash,
+    emailVerified: false,
+    emailVerificationToken: tokenHash,
+    emailVerificationTokenExpires: verificationExpiry,
     created_at: now,
     updated_at: now,
     failedLoginAttempts: 0,
@@ -157,6 +179,7 @@ export async function registerUser(
   };
 
   await repo.createUser(newUser);
+  await sendVerificationEmail(normalizedEmail, rawToken);
   return toPublicUser(newUser);
 }
 
@@ -196,6 +219,10 @@ export async function loginUser(
       '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$iWh06vD8Fx27wf9NPTi5jv8V4VkY/ZgWcWXKTcnq82o',
       password
     ).catch(() => {});
+    throw new UnauthorizedError('Invalid email or password');
+  }
+
+  if (!user.emailVerified) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
@@ -257,4 +284,86 @@ export async function getUserById(userId: string): Promise<PublicUser> {
     throw new NotFoundError('User not found');
   }
   return toPublicUser(user);
+}
+
+/**
+ * Verifies a user's email address using a verification token.
+ * The token is a random string that was emailed to the user; the hash of the
+ * token is stored in the database. This function hashes the provided token and
+ * looks up the user by the hash. If a user is found and the token is not expired,
+ * their emailVerified flag is set to true.
+ *
+ * @param {string} token - The verification token.
+ * @returns {Promise<void>}
+ * @throws {BadRequestError} If the token is invalid or expired.
+ */
+export async function verifyEmail(token: string): Promise<void> {
+  const tokenHash = crypto
+    .createHash('sha256')
+    .update(token)
+    .digest('hex');
+
+  const user = await repo.findUserByVerificationToken(tokenHash);
+
+  if (!user) {
+    throw new BadRequestError('Invalid verification token');
+  }
+
+  if (
+    !user.emailVerificationTokenExpires ||
+      Math.floor(Date.now() / 1000) > user.emailVerificationTokenExpires  ) {
+    throw new BadRequestError('Verification token expired');
+  }
+
+  await repo.markEmailVerified(user.id);
+}
+
+/**
+ * Generates a random verification token, returns both the raw token and its hash.
+ * The raw token is meant to be sent to the user (e.g. via email), while the hash
+ * is meant to be stored in the database for later verification.
+ *
+ * @returns {{ rawToken: string; tokenHash: string; expires: number }}
+ */
+function generateVerificationToken() {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+
+  const tokenHash = crypto
+    .createHash('sha256')
+    .update(rawToken)
+    .digest('hex');
+
+  const expires =
+    Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+
+  return { rawToken, tokenHash, expires };
+}
+
+/**
+ * Resends the verification email to a user if they exist and are not already verified.
+ * This is used when a user tries to register with an email that already exists but
+ * is not verified — instead of throwing a ConflictError, we generate a new token,
+ * update the database, and resend the email. This allows users who may have lost or
+ * deleted the original verification email to still verify their account.
+ * The email is normalised before lookup. If the user does not exist or is already verified,
+ * this function does nothing to prevent email enumeration.
+ *
+ * @param {string} email - The email address to resend the verification email to.
+ * @returns {Promise<void>}
+ */
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const normalizedEmail = email.toLowerCase();
+
+  const user = await repo.findUserByEmail(normalizedEmail);
+
+  // prevent email enumeration
+  if (!user) return;
+
+  if (user.emailVerified) return;
+
+  const { rawToken, tokenHash, expires } = generateVerificationToken();
+
+  await repo.updateVerificationToken(user.id, tokenHash, expires);
+
+  await sendVerificationEmail(normalizedEmail, rawToken);
 }

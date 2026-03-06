@@ -27,21 +27,20 @@ import {
 // ---------------------------------------------------------------------------
 
 const sampleUser: UserRecord = {
-  id: 'user-abc-123',
+  id: 'user-uuid',
   firstName: 'Alice',
   lastName: 'Smith',
   email: 'alice@example.com',
-  password_hash: '$argon2id$v=19$m=65536,t=3,p=4$hashed',
+  password_hash: '$argon2id$hashed',
+  emailVerified: false,
+  emailVerificationToken: 'hashed-token',
+  emailVerificationTokenExpires: Math.floor(Date.now() / 1000) + 3600,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
   failedLoginAttempts: 0,
   accountLockedUntil: null,
   plaidItems: [],
-  onboarding: {
-    plaidLinked: false,
-    budgetAnalyzed: false,
-    budgetConfirmed: false,
-  },
+  onboarding: { plaidLinked: false, budgetAnalyzed: false, budgetConfirmed: false },
 };
 
 beforeEach(() => {

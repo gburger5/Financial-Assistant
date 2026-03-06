@@ -58,6 +58,7 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           NODE_ENV: test
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
         run: npm test
 
       # Deploy only on main branch
@@ -89,11 +90,4 @@ jobs:
           cd dist && zip ../lambda.zip lambda.js
 
       - name: Deploy Lambda function code
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        working-directory: ./server
-        run: |
-          aws lambda update-function-code \
-            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
-            --zip-file fileb://lambda.zip \
-            --output text \
-            --query 'FunctionName'
+        if: github.ref == 'refs/heads/main'

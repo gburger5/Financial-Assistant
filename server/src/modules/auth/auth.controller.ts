@@ -9,7 +9,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import * as authService from './auth.service.js';
 import { BadRequestError } from '../../lib/errors.js';
-import type { RegisterRouteGeneric, LoginRouteGeneric } from './auth.schema.js';
+import type { RegisterRouteGeneric, LoginRouteGeneric, ResendVerificationRouteGeneric } from './auth.schema.js';
 
 /**
  * Handles POST /register.
@@ -63,4 +63,36 @@ export async function login(
  */
 export async function verify(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   return reply.status(200).send(request.user);
+}
+
+/**
+ * Handles GET /verify-email.
+ * Delegates to the service to verify the email based on the token, then
+ * returns a simple success message. The service will throw if the token is invalid
+ * or expired.
+ *
+ * @param {FastifyRequest<{ Querystring: { token: string } }>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function verifyEmail(
+  request: FastifyRequest<{ Querystring: { token: string } }>,
+  reply: FastifyReply
+) {
+  const { token } = request.query;
+
+  await authService.verifyEmail(token);
+
+  return reply.send({ success: true });
+}
+
+export async function resendVerification(
+  request: FastifyRequest<ResendVerificationRouteGeneric>,
+  reply: FastifyReply
+) {
+  const { email } = request.body;
+
+  await authService.resendVerificationEmail(email);
+
+  return reply.send({ success: true });
 }

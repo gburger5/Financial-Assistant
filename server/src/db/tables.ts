@@ -12,6 +12,7 @@ export const Tables = {
 export const Indexes = {
   Users: {
     emailIndex: "email-index",
+    emailVerificationTokenIndex: 'EmailVerificationTokenIndex',
   },
   PlaidItems: {
     itemIdIndex: "itemId-index",
