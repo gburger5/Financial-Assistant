@@ -172,3 +172,81 @@ export const resendVerificationSchema = {
     },
   },
 } as const;
+
+export interface UpdateNameRouteGeneric {
+  Body: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface UpdatePasswordRouteGeneric {
+  Body: {
+    currentPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+export interface UpdateEmailRouteGeneric {
+  Body: {
+    newEmail: string;
+    currentPassword: string;
+  };
+}
+
+export const updateNameSchema = {
+  body: {
+    type: 'object',
+    required: ['firstName', 'lastName'],
+    additionalProperties: false,
+    properties: {
+      firstName: { type: 'string', minLength: 1 },
+      lastName: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: publicUserSchema,
+  },
+} as const;
+
+export const updatePasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export const updateEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['newEmail', 'currentPassword'],
+    additionalProperties: false,
+    properties: {
+      newEmail: { type: 'string', format: 'email' },
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;

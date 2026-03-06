@@ -30,6 +30,7 @@ export interface UserRecord {
   /** A unique token for email verification. */
   emailVerificationToken: string | null;
   emailVerificationTokenExpires: number | null;
+  pendingEmail?: string | null;
   created_at: string;
   updated_at: string;
   /** Incremented on each failed login attempt; reset on success. */
@@ -245,6 +246,120 @@ export async function updateVerificationToken(
         ':token': tokenHash,
         ':expires': expires,
         ':updated': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's first and last name.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} firstName - New first name.
+ * @param {string} lastName - New last name.
+ * @returns {Promise<void>}
+ */
+export async function updateName(
+  userId: string,
+  firstName: string,
+  lastName: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: 'SET firstName = :firstName, lastName = :lastName, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':firstName': firstName,
+        ':lastName': lastName,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's password hash.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} passwordHash - New argon2id password hash.
+ * @returns {Promise<void>}
+ */
+export async function updatePassword(
+  userId: string,
+  passwordHash: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: 'SET password_hash = :password_hash, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':password_hash': passwordHash,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's pending email and sets a verification token for it.
+ * The email is not changed until verified.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} pendingEmail - New email address awaiting verification.
+ * @param {string} tokenHash - SHA-256 hash of the verification token.
+ * @param {number} expires - Expiry time as a UNIX timestamp.
+ * @returns {Promise<void>}
+ */
+export async function updatePendingEmail(
+  userId: string,
+  pendingEmail: string,
+  tokenHash: string,
+  expires: number
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET pendingEmail = :pendingEmail,
+            emailVerificationToken = :token,
+            emailVerificationTokenExpires = :expires,
+            updated_at = :updated_at
+      `,
+      ExpressionAttributeValues: {
+        ':pendingEmail': pendingEmail,
+        ':token': tokenHash,
+        ':expires': expires,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Applies a pending email change — swaps email with pendingEmail and clears pending state.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @returns {Promise<void>}
+ */
+export async function applyPendingEmail(
+  userId: string,
+  pendingEmail: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET email = :email,
+            updated_at = :updated_at
+        REMOVE pendingEmail, emailVerificationToken, emailVerificationTokenExpires
+      `,
+      ExpressionAttributeValues: {
+        ':email': pendingEmail,
+        ':updated_at': new Date().toISOString(),
       },
     })
   );

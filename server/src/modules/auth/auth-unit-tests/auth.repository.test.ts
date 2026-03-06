@@ -35,6 +35,7 @@ const sampleUser: UserRecord = {
   emailVerified: false,
   emailVerificationToken: 'hashed-token',
   emailVerificationTokenExpires: Math.floor(Date.now() / 1000) + 3600,
+  pendingEmail: null,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
   failedLoginAttempts: 0,

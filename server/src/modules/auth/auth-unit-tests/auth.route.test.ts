@@ -14,6 +14,9 @@ vi.mock('../auth.service.js', () => ({
   registerUser: vi.fn(),
   loginUser: vi.fn(),
   getUserById: vi.fn(),
+  updateName: vi.fn(),
+  updatePassword: vi.fn(),
+  initiateEmailChange: vi.fn(),
 }));
 
 import authRoutes from '../auth.route.js';
@@ -429,5 +432,158 @@ describe('GET /api/auth/verify', () => {
     const body = res.json();
     expect(body.userId).toBe('user-uuid');
     expect(body.email).toBe('alice@example.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile/name
+// ---------------------------------------------------------------------------
+
+describe('PATCH /profile/name', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 when no Authorization header is provided', async () => {
+    app = await buildTestApp();
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/name',
+      payload: { firstName: 'Alice', lastName: 'Smith' },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('returns 400 when firstName is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/name',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { lastName: 'Smith' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('returns 400 when lastName is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/name',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { firstName: 'Alice' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile/password
+// ---------------------------------------------------------------------------
+
+describe('PATCH /profile/password', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 when no Authorization header is provided', async () => {
+    app = await buildTestApp();
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/password',
+      payload: { currentPassword: 'OldPass1!!!', newPassword: 'NewPass1!!!', confirmNewPassword: 'NewPass1!!!' },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('returns 400 when currentPassword is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/password',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { newPassword: 'NewPass1!', confirmNewPassword: 'NewPass1!' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('returns 400 when newPassword is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/password',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { currentPassword: 'OldPass1!', confirmNewPassword: 'NewPass1!' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('returns 400 when confirmNewPassword is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/password',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { currentPassword: 'OldPass1!', newPassword: 'NewPass1!' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile/email
+// ---------------------------------------------------------------------------
+
+describe('PATCH /profile/email', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 when no Authorization header is provided', async () => {
+    app = await buildTestApp();
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/email',
+      payload: { newEmail: 'new@example.com', currentPassword: 'ValidPass1!' },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('returns 400 when newEmail is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/email',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { currentPassword: 'ValidPass1!' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('returns 400 when currentPassword is missing', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/email',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { newEmail: 'new@example.com' },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('returns 400 when newEmail is not a valid email', async () => {
+    app = await buildTestApp();
+    const validToken = jwt.sign({ userId: 'user-uuid', email: 'alice@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile/email',
+      headers: { authorization: `Bearer ${validToken}` },
+      payload: { newEmail: 'not-an-email', currentPassword: 'ValidPass1!' },
+    });
+    expect(response.statusCode).toBe(400);
   });
 });

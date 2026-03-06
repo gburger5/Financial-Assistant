@@ -166,6 +166,7 @@ export async function registerUser(
     emailVerified: false,
     emailVerificationToken: tokenHash,
     emailVerificationTokenExpires: verificationExpiry,
+    pendingEmail: null,
     created_at: now,
     updated_at: now,
     failedLoginAttempts: 0,
@@ -304,18 +305,20 @@ export async function verifyEmail(token: string): Promise<void> {
     .digest('hex');
 
   const user = await repo.findUserByVerificationToken(tokenHash);
-
-  if (!user) {
-    throw new BadRequestError('Invalid verification token');
-  }
+  if (!user) throw new BadRequestError('Invalid verification token');
 
   if (
     !user.emailVerificationTokenExpires ||
-      Math.floor(Date.now() / 1000) > user.emailVerificationTokenExpires  ) {
+    Math.floor(Date.now() / 1000) > user.emailVerificationTokenExpires
+  ) {
     throw new BadRequestError('Verification token expired');
   }
 
-  await repo.markEmailVerified(user.id);
+  if (user.pendingEmail) {
+    await repo.applyPendingEmail(user.id, user.pendingEmail);
+  } else {
+    await repo.markEmailVerified(user.id);
+  }
 }
 
 /**
@@ -365,5 +368,89 @@ export async function resendVerificationEmail(email: string): Promise<void> {
 
   await repo.updateVerificationToken(user.id, tokenHash, expires);
 
+  await sendVerificationEmail(normalizedEmail, rawToken);
+}
+
+/**
+ * Updates a user's first and last name.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @param {string} firstName - New first name.
+ * @param {string} lastName - New last name.
+ * @returns {Promise<PublicUser>}
+ * @throws {NotFoundError} If the user does not exist.
+ */
+export async function updateName(
+  userId: string,
+  firstName: string,
+  lastName: string
+): Promise<PublicUser> {
+  const user = await repo.findUserById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  await repo.updateName(userId, firstName, lastName);
+
+  return toPublicUser({ ...user, firstName, lastName });
+}
+
+/**
+ * Updates a user's password after verifying the current password.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @param {string} currentPassword - Plaintext current password for verification.
+ * @param {string} newPassword - Plaintext new password.
+ * @returns {Promise<void>}
+ * @throws {NotFoundError} If the user does not exist.
+ * @throws {UnauthorizedError} If the current password is incorrect.
+ * @throws {BadRequestError} If the new password fails complexity rules.
+ */
+export async function updatePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const user = await repo.findUserById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const isValid = await verify(user.password_hash, currentPassword);
+  if (!isValid) throw new UnauthorizedError('Current password is incorrect');
+
+  validatePasswordComplexity(newPassword);
+
+  const newHash = await hash(newPassword);
+  await repo.updatePassword(userId, newHash);
+}
+
+/**
+ * Initiates an email change by storing the new email as pending and sending
+ * a verification email to it. The email is not changed until verified.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @param {string} newEmail - New email address to change to.
+ * @param {string} currentPassword - Plaintext current password for identity confirmation.
+ * @returns {Promise<void>}
+ * @throws {NotFoundError} If the user does not exist.
+ * @throws {UnauthorizedError} If the current password is incorrect.
+ * @throws {ConflictError} If the new email is already registered.
+ */
+export async function initiateEmailChange(
+  userId: string,
+  newEmail: string,
+  currentPassword: string
+): Promise<void> {
+  const normalizedEmail = newEmail.toLowerCase();
+
+  const user = await repo.findUserById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const isValid = await verify(user.password_hash, currentPassword);
+  if (!isValid) throw new UnauthorizedError('Current password is incorrect');
+
+  const existing = await repo.findUserByEmail(normalizedEmail);
+  if (existing) throw new ConflictError('Email already registered');
+
+  const { rawToken, tokenHash, expires } = generateVerificationToken();
+
+  await repo.updatePendingEmail(userId, normalizedEmail, tokenHash, expires);
   await sendVerificationEmail(normalizedEmail, rawToken);
 }
