@@ -9,7 +9,9 @@ import { hash, verify } from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import * as repo from './auth.repository.js';
-import { sendVerificationEmail } from '../../lib/email.js';
+import { sendVerificationEmail,} from '../../lib/email.js';
+import * as authTokensRepo from './auth-tokens.repository.js';
+import { sendPasswordResetEmail } from '../../lib/email.js';
 import {
   BadRequestError,
   ConflictError,
@@ -51,6 +53,12 @@ export const LOCKOUT_DURATION_MINUTES = 15;
  */
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)/;
 
+/** Lifetime of a refresh token in days. */
+export const REFRESH_TOKEN_TTL_DAYS = 30;
+
+/** Lifetime of a password-reset token in minutes. */
+export const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -83,6 +91,25 @@ function toPublicUser(user: repo.UserRecord): PublicUser {
     email: user.email,
     createdAt: user.created_at,
   };
+}
+
+/**
+ * Generates a cryptographically-random opaque token and its SHA-256 hash.
+ * Pattern is identical to generateVerificationToken() in auth.service.ts;
+ * extracted here to keep the additions self-contained before merging.
+ *
+ * @param {number} ttlSeconds - Seconds from now until the token expires.
+ * @returns {{ rawToken: string; tokenHash: string; expiresAt: number }}
+ */
+function generateOpaqueToken(ttlSeconds: number): {
+  rawToken: string;
+  tokenHash: string;
+  expiresAt: number;
+} {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  return { rawToken, tokenHash, expiresAt };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +194,8 @@ export async function registerUser(
     emailVerificationToken: tokenHash,
     emailVerificationTokenExpires: verificationExpiry,
     pendingEmail: null,
+    passwordResetToken: null,
+    passwordResetTokenExpires: null,
     created_at: now,
     updated_at: now,
     failedLoginAttempts: 0,
@@ -453,4 +482,231 @@ export async function initiateEmailChange(
 
   await repo.updatePendingEmail(userId, normalizedEmail, tokenHash, expires);
   await sendVerificationEmail(normalizedEmail, rawToken);
+}
+
+/**
+ * Revokes the access token identified by `jti` so subsequent requests
+ * carrying it are rejected by the auth middleware.
+ *
+ * The revocation record is written to DynamoDB with a TTL matching the
+ * token's original `exp`, so no manual cleanup is needed.
+ *
+ * When a `refreshTokenId` is supplied the corresponding refresh token is
+ * also deleted, terminating the session fully. Omitting it revokes only
+ * the current access token (useful for clients that manage refresh tokens
+ * separately).
+ *
+ * @param {string} jti - JWT ID claim from the access token to revoke.
+ * @param {string} userId - Owner of the token.
+ * @param {number} jwtExp - Original JWT `exp` claim (Unix seconds).
+ * @param {string} [refreshTokenId] - Optional refresh token UUID to delete.
+ * @returns {Promise<void>}
+ */
+export async function logoutUser(
+  jti: string,
+  userId: string,
+  jwtExp: number,
+  refreshTokenId?: string
+): Promise<void> {
+  await authTokensRepo.revokeAccessToken(jti, userId, jwtExp);
+
+  if (refreshTokenId) {
+    await authTokensRepo.deleteRefreshToken(refreshTokenId);
+  }
+}
+
+/**
+ * Issues a new access + refresh token pair given a valid refresh token.
+ * Implements refresh token rotation: the incoming refresh token is deleted
+ * and a brand-new one is issued, limiting the blast radius of a stolen token.
+ *
+ * Security properties:
+ * - The raw refresh token is never stored; only its SHA-256 hash is persisted.
+ * - Rotation means each refresh token is single-use.
+ * - Expired tokens are rejected (DynamoDB TTL may lag, so we check `expiresAt`
+ *   explicitly against the current time for defense-in-depth).
+ * - If the user no longer exists the refresh is rejected.
+ *
+ * @param {string} rawRefreshToken - The opaque refresh token sent by the client.
+ *   Format: "<tokenId>.<rawSecret>" where tokenId is the UUID used to look up
+ *   the record and rawSecret is the 32-byte hex value that is hashed for comparison.
+ * @returns {Promise<{ accessToken: string; refreshToken: string }>}
+ * @throws {UnauthorizedError} When the token is invalid, expired, or the user is gone.
+ */
+export async function refreshAccessToken(
+  rawRefreshToken: string
+): Promise<{ accessToken: string; refreshToken: string }> {
+  // The client sends "<tokenId>.<rawSecret>" as a single opaque string.
+  const dotIndex = rawRefreshToken.indexOf('.');
+  if (dotIndex === -1) {
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+
+  const tokenId = rawRefreshToken.slice(0, dotIndex);
+  const rawSecret = rawRefreshToken.slice(dotIndex + 1);
+
+  const record = await authTokensRepo.findRefreshToken(tokenId);
+  if (!record) {
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+
+  // Defense-in-depth: reject explicitly expired tokens even if DynamoDB TTL
+  // has not yet purged the row (TTL deletion can lag by up to 48 hours).
+  if (Math.floor(Date.now() / 1000) > record.expiresAt) {
+    throw new UnauthorizedError('Refresh token expired');
+  }
+
+  // Constant-time comparison to prevent timing attacks on the hash.
+  const incomingHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+  const storedHashBuf = Buffer.from(record.tokenHash, 'hex');
+  const incomingHashBuf = Buffer.from(incomingHash, 'hex');
+
+  if (
+    storedHashBuf.length !== incomingHashBuf.length ||
+    !crypto.timingSafeEqual(storedHashBuf, incomingHashBuf)
+  ) {
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+
+  // Load the user to embed current email in the new access token.
+  const user = await repo.findUserById(record.userId);
+  if (!user) {
+    // User was deleted after this refresh token was issued.
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+
+  // Rotate: delete the consumed token then issue a fresh pair.
+  await authTokensRepo.deleteRefreshToken(tokenId);
+
+  const accessToken = issueAccessToken(user.id, user.email);
+  const newRefreshToken = await issueRefreshToken(user.id);
+
+  return { accessToken, refreshToken: newRefreshToken };
+}
+
+/**
+ * Issues a short-lived (15 min) signed JWT access token containing a `jti`
+ * claim so the token can be individually revoked on logout.
+ *
+ * @param {string} userId - Subject of the token.
+ * @param {string} email - Embedded for convenience (avoids a DB lookup on verify).
+ * @returns {string} Signed JWT.
+ */
+export function issueAccessToken(userId: string, email: string): string {
+  return jwt.sign(
+    { userId, email, jti: uuidv4() },
+    getJwtSecret(),
+    { expiresIn: '15m', algorithm: 'HS256' }
+  );
+}
+
+/**
+ * Creates, persists, and returns an opaque refresh token for a user.
+ * The returned string has the format "<tokenId>.<rawSecret>" — the tokenId
+ * enables lookup while the rawSecret is what is hashed and compared.
+ *
+ * @param {string} userId - Owner of the refresh token.
+ * @returns {Promise<string>} The opaque refresh token to deliver to the client.
+ */
+export async function issueRefreshToken(userId: string): Promise<string> {
+  const tokenId = uuidv4();
+  const ttlSeconds = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60;
+  const { rawToken: rawSecret, tokenHash, expiresAt } = generateOpaqueToken(ttlSeconds);
+
+  await authTokensRepo.createRefreshToken(tokenId, userId, tokenHash, expiresAt);
+
+  // Combine into a single opaque string the client treats as a black box.
+  return `${tokenId}.${rawSecret}`;
+}
+
+/**
+ * Initiates the forgot-password flow for a given email address.
+ * Generates a short-lived reset token, stores its hash against the user record,
+ * and emails the raw token to the supplied address.
+ *
+ * To prevent user enumeration, this function always returns without error
+ * regardless of whether the email is registered. The caller should respond
+ * with an identical 200 in either case.
+ *
+ * @param {string} email - The email address requesting a password reset.
+ * @returns {Promise<void>}
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  const normalizedEmail = email.toLowerCase();
+  const user = await repo.findUserByEmail(normalizedEmail);
+
+  // Return silently — never reveal whether the email is registered.
+  if (!user || !user.emailVerified) return;
+
+  const ttlSeconds = PASSWORD_RESET_TOKEN_TTL_MINUTES * 60;
+  const { rawToken, tokenHash, expiresAt } = generateOpaqueToken(ttlSeconds);
+
+  await repo.updatePasswordResetToken(user.id, tokenHash, expiresAt);
+  await sendPasswordResetEmail(normalizedEmail, rawToken);
+}
+
+/**
+ * Completes the password-reset flow.
+ * Looks up the user by the hashed reset token, validates expiry, enforces
+ * password complexity, hashes the new password, persists it, and clears the
+ * reset token so it cannot be reused.
+ *
+ * @param {string} rawToken - The reset token received from the email link.
+ * @param {string} newPassword - The new plaintext password.
+ * @throws {BadRequestError} When the token is invalid, expired, or the
+ *   new password fails complexity rules.
+ */
+export async function resetPassword(
+  rawToken: string,
+  newPassword: string
+): Promise<void> {
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+  const user = await repo.findUserByPasswordResetToken(tokenHash);
+  if (!user) throw new BadRequestError('Invalid password reset token');
+
+  if (
+    !user.passwordResetTokenExpires ||
+    Math.floor(Date.now() / 1000) > user.passwordResetTokenExpires
+  ) {
+    throw new BadRequestError('Password reset token expired');
+  }
+
+  validatePasswordComplexity(newPassword);
+
+  const newHash = await hash(newPassword);
+
+  // Persist new hash and atomically clear the reset token to prevent reuse.
+  await repo.updatePasswordAndClearResetToken(user.id, newHash);
+}
+
+/**
+ * Permanently deletes a user account after verifying the supplied password.
+ * Also purges all refresh tokens for the user so any active sessions are
+ * immediately invalidated.
+ *
+ * Note: Access tokens already issued are short-lived (15 min) and will
+ * naturally expire; they are not individually revoked here because the user
+ * record will no longer exist, causing auth middleware re-verification to fail.
+ *
+ * @param {string} userId - UUID of the authenticated user requesting deletion.
+ * @param {string} currentPassword - Plaintext password supplied for confirmation.
+ * @returns {Promise<void>}
+ * @throws {NotFoundError} If the user does not exist.
+ * @throws {UnauthorizedError} If the supplied password is incorrect.
+ */
+export async function deleteAccount(
+  userId: string,
+  currentPassword: string
+): Promise<void> {
+  const user = await repo.findUserById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const isValid = await verify(user.password_hash, currentPassword);
+  if (!isValid) throw new UnauthorizedError('Current password is incorrect');
+
+  // Revoke all active sessions before wiping the record.
+  await authTokensRepo.deleteAllRefreshTokensForUser(userId);
+
+  await repo.deleteUser(userId);
 }

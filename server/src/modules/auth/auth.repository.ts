@@ -5,7 +5,7 @@
  * The service layer decides what to do with the results (e.g. whether
  * null means "not found" or "error").
  */
-import { QueryCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables, Indexes } from '../../db/tables.js';
 
@@ -31,6 +31,8 @@ export interface UserRecord {
   emailVerificationToken: string | null;
   emailVerificationTokenExpires: number | null;
   pendingEmail?: string | null;
+  passwordResetToken: string | null;
+  passwordResetTokenExpires: number | null;
   created_at: string;
   updated_at: string;
   /** Incremented on each failed login attempt; reset on success. */
@@ -364,3 +366,255 @@ export async function applyPendingEmail(
     })
   );
 }
+
+/**
+ * Stores a password-reset token hash and its expiry on a user record.
+ * Uses UpdateExpression so no other fields are overwritten during a
+ * concurrent update.
+ *
+ * @param {string} userId - UUID of the user requesting a reset.
+ * @param {string} tokenHash - SHA-256 hash of the raw reset token.
+ * @param {number} expiresAt - Unix timestamp (seconds) when the token expires.
+ * @returns {Promise<void>}
+ */
+export async function updatePasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: number
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET passwordResetToken = :token,
+            passwordResetTokenExpires = :expires,
+            updated_at = :updated_at
+      `,
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+        ':expires': expiresAt,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Looks up a user by their password-reset token hash using a GSI.
+ * Returns null when no matching record is found.
+ *
+ * Requires a GSI on `passwordResetToken` on the Users table.
+ *
+ * @param {string} tokenHash - SHA-256 hash of the reset token to look up.
+ * @returns {Promise<import('./auth.repository.js').UserRecord | null>}
+ */
+export async function findUserByPasswordResetToken(
+  tokenHash: string
+): Promise<UserRecord | null> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Users,
+      IndexName: Indexes.Users.passwordResetTokenIndex,
+      KeyConditionExpression: 'passwordResetToken = :token',
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!result.Items || result.Items.length === 0) return null;
+  return result.Items[0] as UserRecord;
+}
+
+/**
+ * Atomically updates the password hash and removes the reset token in a
+ * single UpdateExpression. This prevents a second use of the same reset
+ * token even if the client retries the request.
+ *
+ * @param {string} userId - UUID of the user whose password is being reset.
+ * @param {string} newPasswordHash - Argon2id hash of the new password.
+ * @returns {Promise<void>}
+ */
+export async function updatePasswordAndClearResetToken(
+  userId: string,
+  newPasswordHash: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET password_hash = :hash,
+            updated_at = :updated_at
+        REMOVE passwordResetToken, passwordResetTokenExpires
+      `,
+      ExpressionAttributeValues: {
+        ':hash': newPasswordHash,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Permanently deletes a user record from the Users table.
+ * Called only by the delete-account flow after all sessions have been revoked
+ * and the caller's password has been verified.
+ *
+ * @param {string} userId - UUID of the user to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteUser(userId: string): Promise<void> {
+  await db.send(
+    new DeleteCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+    })
+  );
+}
+
+/**
+ * Schema for POST /logout.
+ * No request body — the JWT to revoke is read from the Authorization header
+ * by the verifyJWT preHandler. Responds 200 with a success boolean.
+ */
+export const logoutSchema = {
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /refresh. */
+export interface RefreshRouteGeneric {
+  Body: {
+    refreshToken: string;
+  };
+}
+
+/**
+ * Schema for POST /refresh.
+ * Body requires the opaque refreshToken string issued at login.
+ * Responds 200 with a new access token and a rotated refresh token.
+ */
+export const refreshSchema = {
+  body: {
+    type: 'object',
+    required: ['refreshToken'],
+    additionalProperties: false,
+    properties: {
+      refreshToken: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        accessToken: { type: 'string' },
+        refreshToken: { type: 'string' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /forgot-password. */
+export interface ForgotPasswordRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/** Route generics for POST /reset-password. */
+export interface ResetPasswordRouteGeneric {
+  Body: {
+    token: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+/**
+ * Schema for POST /forgot-password.
+ * Accepts an email address and always responds 200 (to prevent enumeration).
+ */
+export const forgotPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    additionalProperties: false,
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/**
+ * Schema for POST /reset-password.
+ * Requires the reset token, the new password, and a confirmation field.
+ * Responds 200 with a success boolean on valid token + matching passwords.
+ */
+export const resetPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['token', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      token: { type: 'string', minLength: 1 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for DELETE /account. */
+export interface DeleteAccountRouteGeneric {
+  Body: {
+    currentPassword: string;
+  };
+}
+
+/**
+ * Schema for DELETE /account.
+ * Requires the user's current password as a confirmation step.
+ * Responds 200 with a success boolean.
+ */
+export const deleteAccountSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;

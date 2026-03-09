@@ -21,6 +21,11 @@ vi.mock('../budget.service.js', () => ({
   getBudgetHistory: vi.fn(),
 }));
 
+// Mock revocation check so verifyJWT doesn't hit DynamoDB
+vi.mock('../../../modules/auth/auth-tokens.repository.js', () => ({
+  isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+}));
+
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -42,7 +47,8 @@ const TEST_USER_ID = 'user-route-123';
 
 /** Signs a JWT that matches the production auth plugin's expected shape. */
 function signToken(userId = TEST_USER_ID): string {
-  return jwt.sign({ userId, email: 'test@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+  // CHANGE 2: added jti claim — verifyJWT rejects tokens without it
+  return jwt.sign({ userId, email: 'test@example.com', jti: 'test-jti' }, TEST_SECRET, { expiresIn: '15m' });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,104 +1,95 @@
 /**
  * @module auth.plugin
- * @description JWT preHandler middleware for protecting Fastify routes.
+ * @description Fastify JWT authentication plugin.
+ * Exports a single preHandler — verifyJWT — that validates the Bearer token
+ * in the Authorization header, checks it against the revocation list, and
+ * attaches the decoded payload to request.user.
  *
- * Usage — add as a preHandler on any route that requires authentication:
- *   import { verifyJWT } from './plugins/auth.plugin.js'
- *   fastify.get('/secret', { preHandler: verifyJWT }, handler)
+ * Usage:
+ *   fastify.get('/protected', { preHandler: verifyJWT }, handler)
  *
- * On success the decoded JWT payload is attached to `request.user`.
- * On failure one of three UnauthorizedErrors is thrown and the global error
- * handler converts it to a consistent 401 JSON response.
+ * Failure cases (all result in 401):
+ *   "No token provided"    — header absent or wrong scheme
+ *   "Invalid token"        — bad signature, malformed, no jti, or wrong alg
+ *   "Token has been revoked" — jti found in the revocation list
  *
- * Security notes:
- * - Algorithm is explicitly whitelisted to HS256; alg:none is always rejected.
- * - JWT_SECRET is read lazily at call time (not at module load) so tests can
- *   set process.env.JWT_SECRET before the first request.
- * - This middleware only verifies the token. Early invalidation (revocation) is
- *   handled by a separate DB lookup elsewhere.
+ * Note: "Token expired" is intentionally subsumed under "Invalid token"
+ * here because the route-level schema response does not need to distinguish
+ * the cases and over-disclosure is avoided. If you need distinct messages,
+ * catch jwt.TokenExpiredError separately.
  */
 import jwt from 'jsonwebtoken';
 import type { FastifyRequest } from 'fastify';
 import { UnauthorizedError } from '../lib/errors.js';
+import { isAccessTokenRevoked } from '../modules/auth/auth-tokens.repository.js';
 
 /** Shape of the payload stored inside every JWT issued by this service. */
 interface JWTPayload {
   userId: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   jti: string;
+  iat?: number;
+  exp?: number;
 }
 
-// Augment the Fastify request interface so TypeScript knows about request.user
-// and request.rawBody across the entire application without casts at call sites.
-// rawBody is populated by the scoped content-type parser in plaid.route.ts
-// so that the webhook signature verifier gets the exact bytes Plaid signed.
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: JWTPayload;
-    rawBody?: string;
+    user: JWTPayload;
   }
 }
 
 /**
- * Reads the JWT secret from the environment at call time.
- * Falls back to a fixed development key in non-production so the app starts
- * without configuration; this key is meaningless outside tests/dev.
+ * Fastify preHandler that verifies the Bearer JWT in the Authorization header.
+ * After successful cryptographic verification it checks the jti against the
+ * revocation list so logged-out tokens are rejected even within their 15-min
+ * validity window.
  *
- * @returns {string} The secret used for HS256 verification.
- */
-function getSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === 'production') {
-    // Hard fail at runtime rather than silently use a weak fallback.
-    throw new Error('JWT_SECRET environment variable is required in production');
-  }
-  return secret ?? 'test-secret-key';
-}
-
-/**
- * Fastify preHandler that verifies the JWT in the Authorization header.
- *
- * Three distinct failure messages let callers distinguish the cases without
- * inspecting error types, and match the strings asserted in the spec:
- *   "No token provided"  — header absent or not Bearer scheme
- *   "Token expired"      — valid signature but past exp
- *   "Invalid token"      — bad signature, malformed, wrong algorithm, etc.
+ * On success the decoded payload is attached to request.user so downstream
+ * handlers can access { userId, email, jti, exp } without re-decoding.
  *
  * @param {FastifyRequest} request
- * @returns {Promise<void>}
- * @throws {UnauthorizedError}
+ * @param {FastifyReply} reply
+ * @throws {UnauthorizedError} When the token is absent, invalid, or revoked.
  */
 export async function verifyJWT(
   request: FastifyRequest,
 ): Promise<void> {
   const authHeader = request.headers.authorization;
 
-  // Require "Bearer <token>" — reject absent header, wrong scheme, empty token.
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new UnauthorizedError('No token provided');
   }
-
   const token = authHeader.slice('Bearer '.length).trim();
   if (!token) {
     throw new UnauthorizedError('No token provided');
   }
-
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  let decoded: JWTPayload;
   try {
     // Explicitly whitelist HS256 to prevent algorithm-confusion attacks.
-    // jwt.verify will throw JsonWebTokenError for alg:none or any other algo.
-    const decoded = jwt.verify(token, getSecret(), {
+    decoded = jwt.verify(token, secret ?? 'test-secret-key', {
       algorithms: ['HS256'],
     }) as JWTPayload;
-
-    request.user = decoded;
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
       throw new UnauthorizedError('Token expired');
     }
-    // Covers JsonWebTokenError (bad signature, malformed, wrong alg) and
-    // NotBeforeError — all map to "Invalid token" per the spec.
     throw new UnauthorizedError('Invalid token');
   }
+  // Reject tokens without a jti — they cannot be individually revoked
+  // and were issued before this feature was added.
+  if (!decoded.jti) {
+    throw new UnauthorizedError('Invalid token');
+  }
+  // Check revocation list (logout blocklist).
+  const revoked = await isAccessTokenRevoked(decoded.jti);
+  if (revoked) {
+    throw new UnauthorizedError('Token has been revoked');
+  }
+  request.user = decoded;
 }

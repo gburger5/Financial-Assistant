@@ -7,12 +7,14 @@ export const Tables = {
   InvestmentTransactions: "InvestmentTransactions",
   Holdings: "Holdings",
   Liabilities: "Liabilities",
+  AuthTokens: "AuthTokens",
 } as const;
 
 export const Indexes = {
   Users: {
     emailIndex: "email-index",
-    emailVerificationTokenIndex: 'EmailVerificationTokenIndex',
+    emailVerificationTokenIndex: "EmailVerificationTokenIndex",
+    passwordResetTokenIndex: "passwordResetToken-index",
   },
   PlaidItems: {
     itemIdIndex: "itemId-index",
@@ -30,5 +32,8 @@ export const Indexes = {
   },
   Holdings: {
     plaidAccountIdIndex: "plaidAccountId-index",
+  },
+  AuthTokens: {
+    userIdIndex: "userId-index",
   },
 } as const;

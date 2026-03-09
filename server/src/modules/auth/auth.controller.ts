@@ -9,7 +9,18 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import * as authService from './auth.service.js';
 import { BadRequestError } from '../../lib/errors.js';
-import type { RegisterRouteGeneric, LoginRouteGeneric, ResendVerificationRouteGeneric, UpdateNameRouteGeneric, UpdatePasswordRouteGeneric, UpdateEmailRouteGeneric } from './auth.schema.js';
+import type {
+  RegisterRouteGeneric,
+  LoginRouteGeneric,
+  ResendVerificationRouteGeneric,
+  UpdateNameRouteGeneric,
+  UpdatePasswordRouteGeneric,
+  UpdateEmailRouteGeneric,
+  RefreshRouteGeneric,
+  ForgotPasswordRouteGeneric,
+  ResetPasswordRouteGeneric,
+  DeleteAccountRouteGeneric,
+} from './auth.schema.js';
 
 /**
  * Handles POST /register.
@@ -80,30 +91,24 @@ export async function verifyEmail(
   reply: FastifyReply
 ) {
   const { token } = request.query;
-
   await authService.verifyEmail(token);
-
   return reply.send({ success: true });
 }
 
 /**
  * Handles POST /resend-verification.
- * Delegates to the service to resend the verification email. The service will
- * throw if the email is not found or if the email is already verified, but we do not
- * need to distinguish these cases in the response, so we return success regardless.
+ * Delegates to the service to resend the verification email.
  *
  * @param {FastifyRequest<ResendVerificationRouteGeneric>} request
  * @param {FastifyReply} reply
- * @return {Promise<void>}
+ * @returns {Promise<void>}
  */
 export async function resendVerification(
   request: FastifyRequest<ResendVerificationRouteGeneric>,
   reply: FastifyReply
 ) {
   const { email } = request.body;
-
   await authService.resendVerificationEmail(email);
-
   return reply.send({ success: true });
 }
 
@@ -121,7 +126,6 @@ export async function updateName(
 ): Promise<void> {
   const { userId } = request.user as { userId: string };
   const { firstName, lastName } = request.body;
-
   const user = await authService.updateName(userId, firstName, lastName);
   return reply.status(200).send(user);
 }
@@ -154,7 +158,6 @@ export async function updatePassword(
 /**
  * Handles PATCH /profile/email.
  * Initiates an email change by sending a verification email to the new address.
- * The email is not changed until the user verifies the new address.
  *
  * @param {FastifyRequest<UpdateEmailRouteGeneric>} request
  * @param {FastifyReply} reply
@@ -166,7 +169,97 @@ export async function updateEmail(
 ): Promise<void> {
   const { userId } = request.user as { userId: string };
   const { newEmail, currentPassword } = request.body;
-
   await authService.initiateEmailChange(userId, newEmail, currentPassword);
+  return reply.status(200).send({ success: true });
+}
+
+/**
+ * Handles POST /logout.
+ * Reads the `jti` and `exp` from the verified JWT payload, revokes the access
+ * token, and optionally deletes the refresh token if its id is in the body.
+ *
+ * @param {FastifyRequest} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function logout(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { userId, jti, exp } = request.user as { userId: string; jti: string; exp: number };
+  const body = (request.body ?? {}) as { refreshTokenId?: string };
+  await authService.logoutUser(jti, userId, exp, body.refreshTokenId);
+  return reply.status(200).send({ success: true });
+}
+
+/**
+ * Handles POST /refresh.
+ * Exchanges a valid refresh token for a new access + refresh token pair.
+ *
+ * @param {FastifyRequest<RefreshRouteGeneric>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function refresh(
+  request: FastifyRequest<RefreshRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const { refreshToken } = request.body;
+  const result = await authService.refreshAccessToken(refreshToken);
+  return reply.status(200).send(result);
+}
+
+/**
+ * Handles POST /forgot-password.
+ * Always responds 200 to prevent user enumeration.
+ *
+ * @param {FastifyRequest<ForgotPasswordRouteGeneric>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function forgotPasswordHandler(
+  request: FastifyRequest<ForgotPasswordRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const { email } = request.body;
+  await authService.forgotPassword(email);
+  return reply.status(200).send({ success: true });
+}
+
+/**
+ * Handles POST /reset-password.
+ * Validates passwords match then delegates to the service.
+ *
+ * @param {FastifyRequest<ResetPasswordRouteGeneric>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ * @throws {BadRequestError} When passwords do not match.
+ */
+export async function resetPasswordHandler(
+  request: FastifyRequest<ResetPasswordRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const { token, newPassword, confirmNewPassword } = request.body;
+
+  if (newPassword !== confirmNewPassword) {
+    throw new BadRequestError('Passwords do not match');
+  }
+
+  await authService.resetPassword(token, newPassword);
+  return reply.status(200).send({ success: true });
+}
+
+/**
+ * Handles DELETE /account.
+ * Verifies current password, revokes all sessions, deletes the account.
+ *
+ * @param {FastifyRequest<DeleteAccountRouteGeneric>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function deleteAccountHandler(
+  request: FastifyRequest<DeleteAccountRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const { userId } = request.user as { userId: string };
+  const { currentPassword } = request.body;
+  await authService.deleteAccount(userId, currentPassword);
   return reply.status(200).send({ success: true });
 }

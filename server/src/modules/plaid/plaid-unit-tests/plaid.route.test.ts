@@ -25,6 +25,12 @@ vi.mock('../plaid.webhook.js', () => ({
   handleWebhook: vi.fn(),
 }));
 
+// The auth plugin checks token revocation on every protected request.
+// We mock it here so tests don't need a real DynamoDB connection.
+vi.mock('../../../modules/auth/auth-tokens.repository.js', () => ({
+  isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+}));
+
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -47,7 +53,7 @@ const TEST_USER_ID = 'user-uuid-123';
 
 /** Signs a JWT that matches the production auth plugin's expected shape. */
 function signToken(userId = TEST_USER_ID): string {
-  return jwt.sign({ userId, email: 'test@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId, email: 'test@example.com', jti: 'test-jti' }, TEST_SECRET, { expiresIn: '15m' });
 }
 
 // ---------------------------------------------------------------------------
