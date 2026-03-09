@@ -121,3 +121,132 @@ export const verifySchema = {
     },
   },
 } as const;
+
+/**
+ * Schema for GET /verify-email.
+ * No request body. Expects a `token` query parameter. Responds 200 with a
+ * success boolean.
+ */
+export const verifyEmailSchema = {
+  querystring: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export interface ResendVerificationRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/**
+ * Schema for POST /resend-verification.
+ * Body requires email. Responds 200 with a success boolean.
+ */
+export const resendVerificationSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export interface UpdateNameRouteGeneric {
+  Body: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface UpdatePasswordRouteGeneric {
+  Body: {
+    currentPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+export interface UpdateEmailRouteGeneric {
+  Body: {
+    newEmail: string;
+    currentPassword: string;
+  };
+}
+
+export const updateNameSchema = {
+  body: {
+    type: 'object',
+    required: ['firstName', 'lastName'],
+    additionalProperties: false,
+    properties: {
+      firstName: { type: 'string', minLength: 1 },
+      lastName: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: publicUserSchema,
+  },
+} as const;
+
+export const updatePasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export const updateEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['newEmail', 'currentPassword'],
+    additionalProperties: false,
+    properties: {
+      newEmail: { type: 'string', format: 'email' },
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;

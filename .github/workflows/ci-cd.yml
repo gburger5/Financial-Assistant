@@ -58,6 +58,7 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           NODE_ENV: test
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
         run: npm test
 
       # Deploy only on main branch
