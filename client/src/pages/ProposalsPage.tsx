@@ -12,7 +12,7 @@ const TYPE_OPTIONS = ['All', 'Budget', 'Debt', 'Investing']
 const STATUS_OPTIONS = ['All', 'Pending', 'Executed', 'Rejected']
 
 export default function ProposalsPage() {
-  const { proposals, loading, error, respond, remove } = useProposals()
+  const { proposals, loading, respond, remove } = useProposals()
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
 

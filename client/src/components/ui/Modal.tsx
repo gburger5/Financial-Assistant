@@ -31,7 +31,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
   return (
     <div className="modal-backdrop" onClick={onClose} aria-modal="true" role="dialog">
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        {(title || true) && (
+        {(
           <div className="modal__header">
             {title && <h3 className="modal__title">{title}</h3>}
             <button className="modal__close" onClick={onClose} aria-label="Close modal">

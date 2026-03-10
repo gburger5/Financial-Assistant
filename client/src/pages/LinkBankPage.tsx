@@ -8,7 +8,6 @@ import Spinner from '../components/ui/Spinner'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Input from '../components/ui/Input'
-import BudgetCategoryBar from '../components/features/BudgetCategoryBar'
 import type { Budget } from '../types/budget'
 import type { Proposal } from '../types/proposal'
 import './LinkBankPage.css'
@@ -50,21 +49,6 @@ const BUDGET_CATEGORIES = [
 ] as const
 
 type BudgetKey = (typeof BUDGET_CATEGORIES)[number]['key']
-
-// ─── Category colours (consistent with BudgetPage) ───────────────────────────
-
-const CATEGORY_COLORS: Record<string, string> = {
-  income: 'var(--color-chart-3)',
-  housing: 'var(--color-chart-1)',
-  utilities: 'var(--color-chart-2)',
-  transportation: 'var(--color-chart-3)',
-  groceries: 'var(--color-chart-4)',
-  takeout: 'var(--color-chart-5)',
-  shopping: 'var(--color-chart-6)',
-  personalCare: 'var(--color-chart-7)',
-  debts: '#F97316',
-  investments: '#14B8A6',
-}
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 

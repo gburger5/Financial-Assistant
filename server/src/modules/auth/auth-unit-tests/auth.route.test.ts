@@ -420,7 +420,7 @@ describe('GET /api/auth/verify', () => {
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
       agentBudgetApproved: false,
-    } as any);
+    });
     app = await buildTestApp();
     const token = jwt.sign(
       { userId: 'user-uuid', email: 'alice@example.com' },

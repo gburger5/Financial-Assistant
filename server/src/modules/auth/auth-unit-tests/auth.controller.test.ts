@@ -160,7 +160,7 @@ describe('verify controller', () => {
       createdAt: '2024-01-01T00:00:00.000Z',
       agentBudgetApproved: false,
     };
-    mockGetUserById.mockResolvedValue(dbUser as any);
+    mockGetUserById.mockResolvedValue(dbUser);
 
     // Build a one-off app that pre-populates request.user before calling verify,
     // simulating what auth.plugin does in production.

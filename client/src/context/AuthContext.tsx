@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { api, ApiError } from '../services/api'
+import { createContext, useEffect, useState, ReactNode } from 'react'
+import { api } from '../services/api'
 import type { PublicUser, LoginResponse } from '../types/user'
 
 interface AuthContextValue {
@@ -19,14 +19,12 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<PublicUser | null>(null)
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
-  const [ready, setReady] = useState(false)
+  // Initialize as ready when there is no stored token — no async work needed.
+  const [ready, setReady] = useState(() => !localStorage.getItem('token'))
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token')
-    if (!storedToken) {
-      setReady(true)
-      return
-    }
+    if (!storedToken) return
 
     api
       .get<PublicUser>('/api/auth/verify')

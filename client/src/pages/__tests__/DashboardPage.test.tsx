@@ -98,6 +98,6 @@ describe('DashboardPage', () => {
       refetch: vi.fn(),
     })
     renderDashboard()
-    expect(screen.getByText('Transactions coming soon')).toBeInTheDocument()
+    expect(screen.getByText('No transactions yet')).toBeInTheDocument()
   })
 })
