@@ -1,3 +1,21 @@
+/**
+ * The four supported financial goals a user can select.
+ * Stored as an array on the Budget so users can prioritize multiple goals.
+ */
+export type BudgetGoal =
+  | 'pay down debt'
+  | 'maximize investments'
+  | 'save for goals'
+  | 'build up emergency fund';
+
+/** All valid BudgetGoal values, used for runtime validation. */
+export const BUDGET_GOALS: BudgetGoal[] = [
+  'pay down debt',
+  'maximize investments',
+  'save for goals',
+  'build up emergency fund',
+];
+
 export interface Budget {
   userId: string;
   budgetId: string;       // ULID — latest budget = highest ULID
@@ -12,6 +30,7 @@ export interface Budget {
   personalCare: BudgetAmount;
   debts: BudgetAmount;
   investments: BudgetAmount;
+  goals: BudgetGoal[];
 }
 
 export interface BudgetAmount {
@@ -29,6 +48,7 @@ export type BudgetUpdateInput = Partial<{
   personalCare: BudgetAmount;
   debts: BudgetAmount;
   investments: BudgetAmount;
+  goals: BudgetGoal[];
 }>;
 
 /**

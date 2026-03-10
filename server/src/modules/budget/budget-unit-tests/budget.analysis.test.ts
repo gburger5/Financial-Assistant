@@ -403,4 +403,9 @@ describe('generateBudgetFromHistory', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     expect(budget.investments.amount).toBe(0);
   });
+
+  it('initializes goals as an empty array', () => {
+    const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
+    expect(budget.goals).toEqual([]);
+  });
 });
