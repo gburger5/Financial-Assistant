@@ -601,7 +601,7 @@ export default async function agentRoutes(app: FastifyInstance) {
         }
 
         // Money leaves checking to fund debt payments — deduct the total.
-        const debtTotal = payments.reduce(
+        const debtTotal = payments.reduce<number>(
           (sum, p) => sum + Number((p as Record<string, unknown>).amount),
           0
         );
@@ -701,7 +701,7 @@ export default async function agentRoutes(app: FastifyInstance) {
         }
 
         // Money leaves checking to fund investment contributions — deduct the total.
-        const investTotal = contributions.reduce(
+        const investTotal = contributions.reduce<number>(
           (sum, c) => sum + Number((c as Record<string, unknown>).amount),
           0
         );

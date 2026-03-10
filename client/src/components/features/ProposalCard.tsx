@@ -17,7 +17,7 @@ interface ProposalCardProps {
   proposal: Proposal
   onApprove: (id: string) => void
   onReject: (id: string) => void
-  onDelete: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
 const TYPE_VARIANT: Record<Proposal['type'], 'info' | 'warning' | 'success'> = {
@@ -48,7 +48,7 @@ export default function ProposalCard({ proposal, onApprove, onReject, onDelete }
             <span className="proposal-card__delete-confirm-label">Delete?</span>
             <button
               className="proposal-card__delete-confirm-yes"
-              onClick={() => onDelete(proposal.proposalId)}
+              onClick={() => onDelete?.(proposal.proposalId)}
             >
               Yes
             </button>

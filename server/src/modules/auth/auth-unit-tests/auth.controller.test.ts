@@ -90,6 +90,7 @@ describe('register controller', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     };
     mockRegisterUser.mockResolvedValue(publicUser);
     app = await buildTestApp();
@@ -128,6 +129,7 @@ describe('login controller', () => {
         lastName: 'Smith',
         email: 'alice@example.com',
         createdAt: '2024-01-01',
+        agentBudgetApproved: false,
       },
       token: 'some-jwt',
     };

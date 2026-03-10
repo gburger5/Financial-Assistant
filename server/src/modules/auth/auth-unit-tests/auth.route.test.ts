@@ -132,6 +132,7 @@ describe('POST /api/auth/register', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     });
     app = await buildTestApp();
 
@@ -199,6 +200,7 @@ describe('POST /api/auth/register', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     });
     app = await buildTestApp();
 
@@ -334,7 +336,8 @@ describe('POST /api/auth/login', () => {
       user: {
         userId: 'user-uuid', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z',
         firstName: '',
-        lastName: ''
+        lastName: '',
+        agentBudgetApproved: false,
       },
       token: 'jwt-token-here',
     });
