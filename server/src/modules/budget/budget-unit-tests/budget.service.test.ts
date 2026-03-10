@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundError } from '../../../lib/errors.js';
+import type { BudgetGoal } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -284,7 +285,7 @@ describe('updateBudget', () => {
   });
 
   it('preserves existing goals when updating only categories', async () => {
-    const budgetWithGoals = { ...sampleBudget, goals: ['maximize investments'] as const };
+    const budgetWithGoals = { ...sampleBudget, goals: ['maximize investments'] as BudgetGoal[] };
     mockGetLatestBudget.mockResolvedValue(budgetWithGoals);
 
     await updateBudget('user-svc-1', { groceries: { amount: 999 } });

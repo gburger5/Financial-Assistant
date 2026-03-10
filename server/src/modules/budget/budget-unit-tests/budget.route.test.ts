@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
 import { NotFoundError } from '../../../lib/errors.js';
+import type { BudgetGoal } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -362,7 +363,7 @@ describe('PATCH /api/budget', () => {
   });
 
   it('accepts valid goals in the request body', async () => {
-    const updated = { ...sampleBudget, goals: ['pay down debt', 'save for goals'] };
+    const updated = { ...sampleBudget, goals: ['pay down debt', 'save for goals'] as BudgetGoal[] };
     mockUpdateBudget.mockResolvedValue(updated);
     app = await buildTestApp();
 

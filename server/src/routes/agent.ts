@@ -98,6 +98,7 @@ function flattenAgentBudget(agentBudget: Budget): Omit<Budget, 'userId' | 'budge
     shopping:       { amount: num(b.wants?.shopping) },
     investments:    { amount: num(b.investments?.monthlyContribution) },
     debts:          { amount: num(b.debts?.minimumPayments) },
+    goals:          [],
   };
 }
 
