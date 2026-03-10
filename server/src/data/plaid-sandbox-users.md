@@ -4,7 +4,7 @@ Custom users created in the Plaid Sandbox dashboard for end-to-end testing.
 
 For logging in, use anything for the password and MFA prompt:
 - Use Chase Bank to login custom_user_checking
-- Use Wells Farfo to login custom_user_savings
+- Use Chase Bank to login custom_user_savings
 - Use Charles Schwab to login custom_user_investments
 - Use First Platypus Bank to login custom_user_debts
 
@@ -52,25 +52,45 @@ For logging in, use anything for the password and MFA prompt:
 
 ---
 
-## custom_user_hysa
+## custom_user_savings
 
-**Description:** High-yield savings account for basic_girl's savings goals
+**Description:** High-yield savings accounts for basic_girl's savings goals
 
-- **Account:** High-Yield Savings (Chase High Yield Savings Account)
+### Account 1: High-Yield Savings — Emergency Fund
+
+- **Account:** High-Yield Savings - Emergency Fund (Chase High Yield Savings Account)
 - **Type:** depository / savings
-- **Starting Balance:** $8,750.00
+- **Starting Balance:** $5,200.00
 - **APY:** ~5.00%
 
-### Transactions (January 2026)
+#### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
-| 01/01 | ONLINE TRANSFER FROM CHECKING - SAVINGS GOAL | $300.00 |
-| 01/15 | ONLINE TRANSFER FROM CHECKING - SAVINGS GOAL | $300.00 |
-| 01/31 | INTEREST PAYMENT | -$36.45 |
+| 01/01 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | $200.00 |
+| 01/15 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | $200.00 |
+| 01/31 | INTEREST PAYMENT | -$21.65 |
 
-**Monthly contributions:** $600 (2 transfers aligned with paydays)
-**Monthly interest:** ~$36.45 (negative = inflow)
+**Monthly contributions:** $400 (2 transfers aligned with paydays)
+**Monthly interest:** ~$21.65 (negative = inflow)
+
+### Account 2: High-Yield Savings — Vacation Fund
+
+- **Account:** High-Yield Savings - Vacation Fund (Chase High Yield Savings Account)
+- **Type:** depository / savings
+- **Starting Balance:** $3,550.00
+- **APY:** ~5.00%
+
+#### Transactions (January 2026)
+
+| Date | Description | Amount |
+|------|-------------|--------|
+| 01/01 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | $100.00 |
+| 01/15 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | $100.00 |
+| 01/31 | INTEREST PAYMENT | -$14.80 |
+
+**Monthly contributions:** $200 (2 transfers aligned with paydays)
+**Monthly interest:** ~$14.80 (negative = inflow)
 
 ---
 
