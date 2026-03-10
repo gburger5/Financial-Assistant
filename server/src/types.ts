@@ -38,24 +38,20 @@ export interface InvestingAgentInput {
   userAge: number | null;
 }
 
-export interface PlaidDebtTransaction {
-  type: "payment";
-  account_id: string;
+/** Debt payment scheduled by the agent, written to Transactions on approval. */
+export interface ScheduledPayment {
+  plaid_account_id: string;
   amount: number;
-  institution_name: string | null;
   debt_name: string;
   payment_type: "minimum" | "extra" | "payoff";
-  scheduled_date: string;
 }
 
-export interface PlaidInvestTransaction {
-  type: "contribution";
-  account_id: string;
+/** Investment contribution scheduled by the agent, written to Transactions on approval. */
+export interface ScheduledContribution {
+  plaid_account_id: string;
   amount: number;
-  institution_name: string | null;
   account_name: string;
+  contribution_type: "401k" | "roth_ira" | "traditional_ira" | "brokerage";
   fund_ticker: string | null;
   fund_name: string | null;
-  contribution_type: "401k" | "roth_ira" | "traditional_ira" | "brokerage";
-  scheduled_date: string;
 }

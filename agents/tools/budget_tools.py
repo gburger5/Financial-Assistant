@@ -9,7 +9,24 @@ from strands import tool
 
 logger = logging.getLogger(__name__)
 
-dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+
+def floats_to_decimal(obj):
+    """Recursively convert all float values in a nested structure to Decimal.
+    DynamoDB's boto3 resource API rejects Python floats — Decimal is required
+    for all numeric types stored in DynamoDB.
+    """
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: floats_to_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [floats_to_decimal(v) for v in obj]
+    return obj
+
+dynamodb_kwargs = {"region_name": os.environ.get("AWS_DEFAULT_REGION", "us-east-1")}
+if os.environ.get("DYNAMODB_ENDPOINT"):
+    dynamodb_kwargs["endpoint_url"] = os.environ["DYNAMODB_ENDPOINT"]
+dynamodb = boto3.resource("dynamodb", **dynamodb_kwargs)
 proposals_table = dynamodb.Table(os.environ.get("PROPOSALS_TABLE", "proposals"))
 
 
@@ -118,7 +135,7 @@ def submit_budget_proposal(
     }
 
     try:
-        proposals_table.put_item(Item=item)
+        proposals_table.put_item(Item=floats_to_decimal(item))
         logger.info("Proposal %s written to DynamoDB for user %s", proposal_id, user_id)
     except Exception as e:
         logger.error("Failed to write proposal to DynamoDB: %s", e, exc_info=True)

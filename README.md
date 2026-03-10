@@ -8,14 +8,20 @@ financial-assistant/
 │   ├── src/
 │   ├── public/
 │   └── package.json
-└── server/          # Backend (Fastify + TypeScript)
-    ├── src/
-    └── package.json
+├── server/          # Backend (Fastify + TypeScript)
+│   ├── src/
+│   └── package.json
+└── agents/          # Python AI agents (FastAPI + Strands)
+    ├── agents/      # Agent definitions (budget, debt, investing)
+    ├── tools/       # DynamoDB tool implementations
+    └── main.py      # FastAPI entry point
 ```
 
 ### Requirements
 * Node.js 20+ - https://nodejs.org/en/download
 * npm 10+
+* Python 3.11+
+* Docker Desktop (for DynamoDB Local) - https://www.docker.com/products/docker-desktop
 * AWS CLI - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions
 
 ### Setup
@@ -60,7 +66,14 @@ aws sts get-caller-identity
 You should see a JSON response with your UserId, Account, and Arn.
 
 ### Development
-1. Start frontend and backend:
+
+#### 1. Start DynamoDB Local
+Docker Desktop must be running first.
+```sh
+docker compose up -d dynamodb-local
+```
+
+#### 2. Start frontend and backend
 ```sh
 npm run dev
 ```
@@ -68,8 +81,42 @@ npm run dev
 * Frontend: http://localhost:5173
 * Backend: http://localhost:3000
 
+#### 3. Start the agents container (optional — required for AI proposals)
+
+The agents service runs the budget, debt, and investing AI agents. It requires an `ANTHROPIC_API_KEY`.
+
+```sh
+cd agents
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Create `agents/.env`:
+```sh
+ANTHROPIC_API_KEY=your_key_here
+DYNAMODB_ENDPOINT=http://localhost:8000
+AWS_DEFAULT_REGION=us-east-1
+PROPOSALS_TABLE=proposals
+USERS_TABLE=Users
+GOALS_TABLE=goals
+DEBTS_TABLE=debts
+```
+
+Start the agents server:
+```sh
+cd agents
+uvicorn main:app --port 8001 --reload
+```
+
+* Agents API: http://localhost:8001
+* Health check: http://localhost:8001/health
+
+> The Node.js server proxies agent requests to `http://localhost:8001` (configurable via `AGENT_SERVICE_URL` in `server/.env`). If the agents service is not running, proposal endpoints return a 502 error.
+
 #### Stop servers:
-* Ctrl + C
+* Ctrl + C (server/client)
+* `docker compose stop dynamodb-local` (DynamoDB)
 
 ### Scripts
 Start the client and server in development mode.

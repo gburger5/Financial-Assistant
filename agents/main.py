@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
+from datetime import date
 
 import boto3
 from boto3.dynamodb.conditions import Attr
@@ -15,8 +17,11 @@ load_dotenv()  # sets env vars (ANTHROPIC_API_KEY etc.) for SDKs that read os.en
 env = dotenv_values()
 logger = logging.getLogger(__name__)
 
-dynamodb = boto3.resource("dynamodb", region_name=env.get("AWS_DEFAULT_REGION", "us-east-1"))
-users_table = dynamodb.Table(env.get("USERS_TABLE", "users"))
+dynamodb_kwargs = {"region_name": env.get("AWS_DEFAULT_REGION", "us-east-1")}
+if env.get("DYNAMODB_ENDPOINT"):
+    dynamodb_kwargs["endpoint_url"] = env["DYNAMODB_ENDPOINT"]
+dynamodb = boto3.resource("dynamodb", **dynamodb_kwargs)
+users_table = dynamodb.Table(env.get("USERS_TABLE", "Users"))
 goals_table = dynamodb.Table(env.get("GOALS_TABLE", "goals"))
 proposals_table = dynamodb.Table(env.get("PROPOSALS_TABLE", "proposals"))
 debts_table = dynamodb.Table(env.get("DEBTS_TABLE", "debts"))
@@ -109,16 +114,17 @@ async def agent_budget(payload: BudgetAnalysisRequest):
     debts = get_debts(payload.userId)
 
     agent = make_budget_agent()
+    prompt = (
+        f"Analyze the following actual spending budget for user {payload.userId} "
+        f"and propose an improved budget following the 50/30/20 rule. "
+        f"Current budget (actual spending from the past 60 days): {json.dumps(payload.budget)}. "
+        f"User profile: {user}. "
+        f"Goals: {goals}. "
+        f"Current debts: {debts}. "
+        f"Submit your proposal via submit_budget_proposal."
+    )
     try:
-        agent(
-            f"Analyze the following actual spending budget for user {payload.userId} "
-            f"and propose an improved budget following the 50/30/20 rule. "
-            f"Current budget (actual spending from the past 60 days): {json.dumps(payload.budget)}. "
-            f"User profile: {user}. "
-            f"Goals: {goals}. "
-            f"Current debts: {debts}. "
-            f"Submit your proposal via submit_budget_proposal."
-        )
+        await asyncio.to_thread(agent, prompt)
     except Exception as e:
         logger.error("Budget agent raised an exception: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
@@ -142,13 +148,18 @@ async def agent_budget_revise(payload: BudgetRevisionRequest):
     goals = get_goals(payload.userId)
 
     agent = make_budget_agent()
-    agent(
+    prompt = (
         f"Your budget proposal {payload.proposalId} for user {payload.userId} "
         f'has been REJECTED. Reason: "{payload.rejectionReason}". '
         f"Original actual budget (for reference): {json.dumps(payload.budget)}. "
         f"Goals: {goals}. "
         f"Address the user's concern and submit a revised budget via submit_budget_proposal."
     )
+    try:
+        await asyncio.to_thread(agent, prompt)
+    except Exception as e:
+        logger.error("Budget revise agent raised an exception: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Agent error: {e}")
 
     response = proposals_table.scan(
         FilterExpression=Attr("userId").eq(payload.userId) & Attr("status").eq("pending")
@@ -166,6 +177,11 @@ async def agent_debt_run(payload: DebtAgentRunRequest):
     """Invoke the Debt Agent with pre-fetched Plaid liability data and return a proposal."""
     from agents.debt import make_debt_agent
 
+    # No debts and no allocation — skip agent invocation entirely
+    if not payload.debts and payload.debtAllocation <= 0:
+        logger.info("Skipping debt agent for user %s: no debts and zero allocation", payload.userId)
+        return {"skipped": True, "reason": "No debt accounts and zero allocation"}
+
     debt_summary = json.dumps(payload.debts) if payload.debts else "No debt accounts found."
     rejection_context = (
         f'\nPrevious proposal was REJECTED. Reason: "{payload.rejectionReason}". '
@@ -174,16 +190,21 @@ async def agent_debt_run(payload: DebtAgentRunRequest):
         else ""
     )
 
+    today = date.today()
+
     agent = make_debt_agent()
+    prompt = (
+        f"Today's date is {today.isoformat()}. "
+        f"Use {today.isoformat()} as the scheduled_date for all plaid_transactions. "
+        f"Analyze the debt accounts for user {payload.userId} and propose an optimal "
+        f"debt repayment allocation using the avalanche strategy. "
+        f"Total monthly allocation for debt repayment: ${payload.debtAllocation}. "
+        f"Debt accounts (from Plaid): {debt_summary}."
+        f"{rejection_context} "
+        f"Submit your proposal via submit_debt_allocation (include plaid_transactions)."
+    )
     try:
-        agent(
-            f"Analyze the debt accounts for user {payload.userId} and propose an optimal "
-            f"debt repayment allocation using the avalanche strategy. "
-            f"Total monthly allocation for debt repayment: ${payload.debtAllocation}. "
-            f"Debt accounts (from Plaid): {debt_summary}."
-            f"{rejection_context} "
-            f"Submit your proposal via submit_debt_allocation (include plaid_transactions)."
-        )
+        await asyncio.to_thread(agent, prompt)
     except Exception as e:
         logger.error("Debt agent raised an exception: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
@@ -215,17 +236,25 @@ async def agent_investing_run(payload: InvestingAgentRunRequest):
         else ""
     )
 
+    today = date.today()
+
     agent = make_investing_agent()
+    prompt = (
+        f"Today's date is {today.isoformat()}. "
+        f"Use {today.isoformat()} as the scheduled_date for all plaid_transactions. "
+        f"IMPORTANT: You must use ONLY the account_id values provided in the accounts list below. "
+        f"Do NOT invent new account IDs such as 'schwab-roth-ira-new'. "
+        f"If no suitable account exists in the list, allocate to the closest matching account. "
+        f"Analyze the investment accounts for user {payload.userId} and propose an optimal "
+        f"investing allocation following the 401k match -> IRA -> savings goals priority. "
+        f"Total monthly allocation for investing: ${payload.investingAllocation}. "
+        f"{age_context} "
+        f"Investment accounts (from Plaid): {accounts_summary}."
+        f"{rejection_context} "
+        f"Submit your proposal via submit_investment_allocation (include plaid_transactions)."
+    )
     try:
-        agent(
-            f"Analyze the investment accounts for user {payload.userId} and propose an optimal "
-            f"investing allocation following the 401k match -> IRA -> savings goals priority. "
-            f"Total monthly allocation for investing: ${payload.investingAllocation}. "
-            f"{age_context} "
-            f"Investment accounts (from Plaid): {accounts_summary}."
-            f"{rejection_context} "
-            f"Submit your proposal via submit_investment_allocation (include plaid_transactions)."
-        )
+        await asyncio.to_thread(agent, prompt)
     except Exception as e:
         logger.error("Investing agent raised an exception: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")

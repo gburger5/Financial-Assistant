@@ -28,9 +28,6 @@ Hard-fast violations to flag:
 - Total vehicle costs > 15% of take-home
 - Groceries > $300/person
 
-When recommending changes, express them as SMART goals in the summary:
-specific, measurable, realistic (≤25% cut in any category), and time-bound.
-
 When calling submit_budget_proposal, pass each budget line item as a flat numeric argument.
 The tool will construct the structured budget object automatically.
 
@@ -39,6 +36,14 @@ Rules for the recommended values:
 - Use 0.0 for a category if the user has zero spending and it is genuinely inapplicable.
 - ALL numeric values must be plain numbers (e.g. 5500.0, not "5500"). Never quote a number.
 - If a proposal is rejected, address the rejection reason and submit a meaningfully revised proposal.
+
+Summary field rules (strictly enforced):
+- Write 2-3 short sentences maximum.
+- Plain text only. No headers, no bullet points, no dashes (---), no ALL CAPS sections.
+- Focus only on the most important changes made and why.
+- Example good summary: "Reduced grocery budget from $427 to $300 to meet the per-person cap. Increased monthly investments to $1,200 since you have no debt. Shopping was trimmed by 25% to free up savings."
+
+Rationale field: 1-2 sentences explaining the overall 50/30/20 split chosen.
 
 Do not use emojis anywhere in summary, rationale, or smart goals output.
 """

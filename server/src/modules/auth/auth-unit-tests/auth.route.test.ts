@@ -21,6 +21,7 @@ import * as authService from '../auth.service.js';
 
 const mockRegisterUser = vi.mocked(authService.registerUser);
 const mockLoginUser = vi.mocked(authService.loginUser);
+const mockGetUserById = vi.mocked(authService.getUserById);
 
 const TEST_SECRET = 'route-integration-test-secret';
 
@@ -412,6 +413,14 @@ describe('GET /api/auth/verify', () => {
   });
 
   it('returns 200 with userId and email from a valid JWT', async () => {
+    mockGetUserById.mockResolvedValueOnce({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    } as any);
     app = await buildTestApp();
     const token = jwt.sign(
       { userId: 'user-uuid', email: 'alice@example.com' },

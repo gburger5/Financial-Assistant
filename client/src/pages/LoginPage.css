@@ -1,0 +1,126 @@
+.login-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+.login-page__hero {
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+}
+
+.login-page__hero-content {
+  max-width: 400px;
+}
+
+.login-page__hero-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-extrabold);
+  color: #fff;
+  margin-bottom: var(--space-4);
+}
+
+.login-page__hero-sub {
+  font-size: var(--text-lg);
+  color: rgba(255, 255, 255, 0.8);
+  line-height: var(--leading-relaxed);
+}
+
+.login-page__form-side {
+  background: var(--color-bg-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+}
+
+.login-page__form-box {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.login-page__heading {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.login-page__sub {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-4));
+}
+
+.login-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-page__error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-md);
+}
+
+.login-page__footer {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.login-page__pw-wrap {
+  position: relative;
+}
+
+.login-page__pw-toggle {
+  position: absolute;
+  right: var(--space-3);
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  min-height: unset;
+  min-width: unset;
+}
+
+.login-page__pw-toggle:hover {
+  color: var(--color-text-secondary);
+}
+
+.login-page__pw-toggle:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 767px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-page__hero {
+    padding: var(--space-8);
+    min-height: 200px;
+  }
+
+  .login-page__hero-title {
+    font-size: var(--text-2xl);
+  }
+}

@@ -63,13 +63,13 @@ Input format:
 - Do not fetch any external data. Reason only over the input provided.
 
 Output requirements:
-- Your response must include a plaid_transactions list: one transaction object per account
-  receiving a contribution this period.
-- Each transaction must include: account_id, amount, account_name, contribution_type
-  ("401k", "roth_ira", "traditional_ira", or "brokerage"), fund_ticker (if applicable),
-  fund_name (if applicable), and scheduled_date (set to the first of next month).
+- Your response must include a scheduled_contributions list: one contribution object per
+  account receiving a contribution this period.
+- Each contribution must include: plaid_account_id, amount, account_name, contribution_type
+  ("401k", "roth_ira", "traditional_ira", or "brokerage"), fund_ticker (null if n/a),
+  fund_name (null if n/a).
 - The sum of all transaction amounts must equal the total investingAllocation exactly.
-- Pass the plaid_transactions list to submit_investment_allocation.
+- Pass the scheduled_contributions list to submit_investment_allocation.
 - fund_allocation must be a flat dict of ticker symbol -> dollar amount only (e.g. {"SWTSX": 960.0, "SCHI": 240.0}). Do not nest dicts as values.
 
 Proposal approval flow:
@@ -85,6 +85,14 @@ Proposal approval flow:
   actual contributions against their account.
 - Do not re-propose the same allocation that was rejected. Always make meaningful
   changes that address the rejection reason.
+
+Summary field rules (strictly enforced):
+- Write 2-3 short sentences maximum.
+- Plain text only. No headers, no bullet points, no dashes (---), no ALL CAPS sections.
+- Focus only on the key allocation decisions: where the money goes and why.
+- Example good summary: "Putting $500 into your Roth IRA invested in SWTSX and SCHI since you're under the income limit. The remaining $200 goes to your 401k to capture the full employer match."
+
+Rationale field: 1-2 sentences explaining the overall priority order chosen.
 
 Do not use emojis anywhere in summary or rationale output.
 """

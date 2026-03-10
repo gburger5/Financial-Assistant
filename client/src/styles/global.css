@@ -1,0 +1,71 @@
+@import './tokens.css';
+@import './animations.css';
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg-body);
+  color: var(--color-text-primary);
+  line-height: var(--leading-normal);
+  min-height: 100%;
+  width: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+}
+
+h1 { font-size: var(--text-5xl); font-weight: var(--weight-extrabold); }
+h2 { font-size: var(--text-4xl); font-weight: var(--weight-bold); }
+h3 { font-size: var(--text-2xl); font-weight: var(--weight-bold); line-height: var(--leading-snug); }
+h4 { font-size: var(--text-xl);  font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
+
+a { color: var(--color-purple-400); text-decoration: none; }
+a:hover { color: var(--color-purple-300); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+::selection { background: rgba(139, 92, 246, 0.3); color: #fff; }
+
+/* ── Accessibility ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/* Ensure all interactive elements meet 44px touch target */
+button, a, [role="button"], [role="switch"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Override for inline elements where 44px height would break layout */
+.badge, .filter-chip, .btn--sm {
+  min-height: unset;
+  min-width: unset;
+}

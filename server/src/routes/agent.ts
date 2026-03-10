@@ -1,17 +1,23 @@
 import type { FastifyInstance, FastifyBaseLogger } from "fastify";
-import { verifyToken } from "../middleware/auth.js";
-import { getBudget, type Budget } from "../services/budget.js";
-import { db } from "../lib/db.js";
+import { verifyJWT } from "../plugins/auth.plugin.js";
+import { getLatestBudget } from "../modules/budget/budget.service.js";
+import type { Budget } from "../modules/budget/budget.types.js";
+import { db } from "../db/index.js";
 import {
+  DeleteCommand,
   GetCommand,
   PutCommand,
   UpdateCommand,
   ScanCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { ulid } from "ulid";
-import { plaidClient } from "../lib/plaid.js";
-import { decryptToken } from "../lib/encryption.js";
-import { getUserById } from "../services/auth.js";
+import { findUserById } from "../modules/auth/auth.repository.js";
+import { getLiabilitiesForUser } from "../modules/liabilities/liabilities.service.js";
+import { getLatestHoldings } from "../modules/investments/investments.service.js";
+import { getAccountsForUser } from "../modules/accounts/accounts.service.js";
+import { upsertTransaction } from "../modules/transactions/transactions.repository.js";
+import { adjustBalance } from "../modules/accounts/accounts.repository.js";
+import type { Transaction } from "../modules/transactions/transactions.types.js";
 import type {
   DebtAccount,
   DebtAgentInput,
@@ -21,7 +27,7 @@ import type {
 
 const PROPOSALS_TABLE = "proposals";
 const BUDGETS_TABLE = "Budgets";
-const USERS_TABLE = "users";
+const USERS_TABLE = "Users";
 const AGENT_SERVICE_URL =
   process.env.AGENT_SERVICE_URL || "http://localhost:8001";
 
@@ -35,95 +41,126 @@ interface Proposal {
   payload: Record<string, unknown>;
   budget: Budget;
   totalAllocation: string;
-  plaidTransactions?: unknown[];
+  scheduledPayments?: unknown[];
+  scheduledContributions?: unknown[];
   createdAt: string;
   updatedAt: string;
 }
 
 // ---- Helpers ----
 
-async function getLatestAccessToken(userId: string): Promise<string | null> {
-  const user = await getUserById(userId);
-  const items: Array<{ accessToken: string; linkedAt: string }> =
-    user?.plaidItems ?? [];
-  if (items.length === 0) return null;
-  const sorted = [...items].sort(
-    (a, b) =>
-      new Date(b.linkedAt).getTime() - new Date(a.linkedAt).getTime()
+/**
+ * Finds the user's primary checking account — the depository/checking account
+ * with the highest current balance.  Returns undefined if none exists.
+ *
+ * Money sent to debt or investment accounts originates from checking, so the
+ * caller must deduct the total from whichever checking account holds the most
+ * funds.
+ */
+async function findPrimaryChecking(userId: string) {
+  const accounts = await getAccountsForUser(userId);
+  const checking = accounts.filter(
+    (a) => a.type === 'depository' && a.subtype === 'checking'
   );
-  return decryptToken(sorted[0].accessToken);
+  if (checking.length === 0) return undefined;
+  // Pick the account with the highest balance as the primary source.
+  return checking.reduce((best, a) =>
+    (a.currentBalance ?? 0) >= (best.currentBalance ?? 0) ? a : best
+  );
 }
 
+/**
+ * Converts the agent's nested budget structure (from budget_tools.py) into the
+ * flat { category: { amount } } shape that the server's Budget type expects.
+ *
+ * Agent structure:
+ *   income.monthlyNet, needs.housing.rentOrMortgage, needs.utilities.utilities,
+ *   needs.transportation.{carPayment,gasFuel}, needs.other.{groceries,personalCare},
+ *   wants.{takeout,shopping}, investments.monthlyContribution, debts.minimumPayments
+ *
+ * Server Budget structure:
+ *   income.amount, housing.amount, utilities.amount, transportation.amount,
+ *   groceries.amount, personalCare.amount, takeout.amount, shopping.amount,
+ *   investments.amount, debts.amount
+ */
+function flattenAgentBudget(agentBudget: Budget): Omit<Budget, 'userId' | 'budgetId' | 'createdAt'> {
+  const b = agentBudget as unknown as Record<string, Record<string, Record<string, number>>>;
+  const num = (v: unknown): number => (v != null ? Number(v) : 0);
+
+  return {
+    income:         { amount: num(b.income?.monthlyNet) },
+    housing:        { amount: num(b.needs?.housing?.rentOrMortgage) },
+    utilities:      { amount: num(b.needs?.utilities?.utilities) },
+    transportation: { amount: num(b.needs?.transportation?.carPayment) + num(b.needs?.transportation?.gasFuel) },
+    groceries:      { amount: num(b.needs?.other?.groceries) },
+    personalCare:   { amount: num(b.needs?.other?.personalCare) },
+    takeout:        { amount: num(b.wants?.takeout) },
+    shopping:       { amount: num(b.wants?.shopping) },
+    investments:    { amount: num(b.investments?.monthlyContribution) },
+    debts:          { amount: num(b.debts?.minimumPayments) },
+  };
+}
+
+/**
+ * Builds a DebtAccount array for the debt agent by reading liabilities and
+ * account balances from DynamoDB — no live Plaid call needed since initial
+ * sync has already stored this data.
+ *
+ * currentBalance is sourced from the Accounts table (joined on plaidAccountId)
+ * because Plaid's liabilities endpoint does not return balances on liability
+ * objects; they are stored separately during syncAccounts.
+ */
 async function triggerDebtAgent(
   userId: string,
   debtAllocation: number,
-  log: FastifyBaseLogger,
+  _log: FastifyBaseLogger,
   rejectionReason?: string
 ): Promise<unknown> {
-  const accessToken = await getLatestAccessToken(userId);
+  const [liabilities, accounts] = await Promise.all([
+    getLiabilitiesForUser(userId),
+    getAccountsForUser(userId),
+  ]);
 
+  const accountMap = new Map(accounts.map((a) => [a.plaidAccountId, a]));
   const debts: DebtAccount[] = [];
-  if (accessToken) {
-    try {
-      const response = await plaidClient.liabilitiesGet({
-        access_token: accessToken,
+
+  for (const liability of liabilities) {
+    const account = accountMap.get(liability.plaidAccountId);
+
+    if (liability.liabilityType === "credit") {
+      debts.push({
+        account_id: liability.plaidAccountId,
+        name: account?.name ?? "Credit Card",
+        institution_name: null,
+        type: "credit_card",
+        current_balance: account?.currentBalance ?? 0,
+        // Use the purchase APR (first entry) as the representative rate
+        interest_rate: liability.details.aprs[0]?.aprPercentage ?? null,
+        minimum_payment: liability.details.minimumPaymentAmount,
+        next_payment_due_date: liability.details.nextPaymentDueDate,
       });
-      const { liabilities, accounts } = response.data;
-      const accountMap = new Map(accounts.map((a) => [a.account_id, a]));
-
-      for (const card of liabilities.credit ?? []) {
-        if (!card.account_id) continue;
-        const account = accountMap.get(card.account_id);
-        debts.push({
-          account_id: card.account_id,
-          name: account?.name ?? "Credit Card",
-          institution_name: null,
-          type: "credit_card",
-          current_balance: account?.balances.current ?? 0,
-          interest_rate: card.aprs?.[0]?.apr_percentage ?? null,
-          minimum_payment: card.minimum_payment_amount ?? null,
-          next_payment_due_date: card.next_payment_due_date ?? null,
-        });
-      }
-
-      for (const loan of liabilities.student ?? []) {
-        if (!loan.account_id) continue;
-        const account = accountMap.get(loan.account_id);
-        debts.push({
-          account_id: loan.account_id,
-          name: account?.name ?? "Student Loan",
-          institution_name: null,
-          type: "student_loan",
-          current_balance: account?.balances.current ?? 0,
-          interest_rate: loan.interest_rate_percentage ?? null,
-          minimum_payment: loan.minimum_payment_amount ?? null,
-          next_payment_due_date: loan.next_payment_due_date ?? null,
-        });
-      }
-
-      for (const mort of liabilities.mortgage ?? []) {
-        const account = accountMap.get(mort.account_id);
-        debts.push({
-          account_id: mort.account_id,
-          name: account?.name ?? "Mortgage",
-          institution_name: null,
-          type: "mortgage",
-          current_balance: account?.balances.current ?? 0,
-          interest_rate: mort.interest_rate?.percentage ?? null,
-          minimum_payment: mort.next_monthly_payment ?? null,
-          next_payment_due_date: mort.next_payment_due_date ?? null,
-        });
-      }
-    } catch (e: unknown) {
-      const code = (
-        e as { response?: { data?: { error_code?: string } } }
-      )?.response?.data?.error_code;
-      if (
-        code !== "PRODUCTS_NOT_SUPPORTED" &&
-        code !== "NO_LIABILITY_ACCOUNTS"
-      ) {
-        log.warn({ err: e }, "[triggerDebtAgent] liabilitiesGet failed");
-      }
+    } else if (liability.liabilityType === "student") {
+      debts.push({
+        account_id: liability.plaidAccountId,
+        name: account?.name ?? "Student Loan",
+        institution_name: null,
+        type: "student_loan",
+        current_balance: account?.currentBalance ?? 0,
+        interest_rate: liability.details.interestRatePercentage,
+        minimum_payment: liability.details.minimumPaymentAmount,
+        next_payment_due_date: null,
+      });
+    } else if (liability.liabilityType === "mortgage") {
+      debts.push({
+        account_id: liability.plaidAccountId,
+        name: account?.name ?? "Mortgage",
+        institution_name: null,
+        type: "mortgage",
+        current_balance: account?.currentBalance ?? 0,
+        interest_rate: liability.details.interestRatePercentage,
+        minimum_payment: liability.details.nextMonthlyPayment,
+        next_payment_due_date: null,
+      });
     }
   }
 
@@ -148,74 +185,65 @@ async function triggerDebtAgent(
   return agentRes.json();
 }
 
+/**
+ * Builds an InvestmentAccount array for the investing agent by reading holdings
+ * and account balances from DynamoDB — no live Plaid call needed since initial
+ * sync has already stored this data.
+ *
+ * Holdings are grouped by plaidAccountId and joined with the Accounts table for
+ * balance and subtype data. Only accounts of type 'investment' or accounts that
+ * have at least one holding are included.
+ */
 async function triggerInvestingAgent(
   userId: string,
   investingAllocation: number,
-  log: FastifyBaseLogger,
+  _log: FastifyBaseLogger,
   rejectionReason?: string
 ): Promise<unknown> {
-  const [user, accessToken] = await Promise.all([
-    getUserById(userId),
-    getLatestAccessToken(userId),
+  const [user, holdings, accountsList] = await Promise.all([
+    findUserById(userId),
+    getLatestHoldings(userId),
+    getAccountsForUser(userId),
   ]);
 
-  const dob = user?.dateOfBirth as string | undefined;
+  const dob = (user as unknown as Record<string, unknown>)?.dateOfBirth as string | undefined;
   const userAge: number | null = dob
     ? new Date().getFullYear() - new Date(dob).getFullYear()
     : null;
 
-  const accounts: InvestmentAccount[] = [];
-  if (accessToken) {
-    try {
-      const response = await plaidClient.investmentsHoldingsGet({
-        access_token: accessToken,
-      });
-      const { accounts: plaidAccounts, holdings, securities } = response.data;
-      const securityMap = new Map(securities.map((s) => [s.security_id, s]));
-
-      for (const acct of plaidAccounts) {
-        const acctHoldings = holdings
-          .filter((h) => h.account_id === acct.account_id)
-          .map((h) => {
-            const sec = securityMap.get(h.security_id);
-            return {
-              security_name: sec?.name ?? h.security_id,
-              ticker_symbol: sec?.ticker_symbol ?? null,
-              quantity: h.quantity,
-              current_value: h.institution_value,
-            };
-          });
-
-        let acctType: InvestmentAccount["type"] = "other";
-        const subtype = acct.subtype?.toLowerCase() ?? "";
-        if (subtype.includes("401k")) acctType = "401k";
-        else if (subtype.includes("ira")) acctType = "ira";
-        else if (subtype === "brokerage") acctType = "brokerage";
-
-        accounts.push({
-          account_id: acct.account_id,
-          name: acct.name,
-          institution_name: null,
-          type: acctType,
-          current_balance: acct.balances.current ?? 0,
-          holdings: acctHoldings,
-        });
-      }
-    } catch (e: unknown) {
-      const code = (
-        e as { response?: { data?: { error_code?: string } } }
-      )?.response?.data?.error_code;
-      if (
-        code !== "PRODUCTS_NOT_SUPPORTED" &&
-        code !== "NO_INVESTMENT_ACCOUNTS"
-      ) {
-        log.warn(
-          { err: e },
-          "[triggerInvestingAgent] investmentsHoldingsGet failed"
-        );
-      }
-    }
+  // Index holdings by account for O(1) lookup when mapping accounts below
+  const holdingsByAccount = new Map<string, typeof holdings>();
+  for (const h of holdings) {
+    const bucket = holdingsByAccount.get(h.plaidAccountId) ?? [];
+    bucket.push(h);
+    holdingsByAccount.set(h.plaidAccountId, bucket);
   }
+
+  const accounts: InvestmentAccount[] = accountsList
+    .filter((a) => a.type === "investment" || holdingsByAccount.has(a.plaidAccountId))
+    .map((acct) => {
+      const acctHoldings = (holdingsByAccount.get(acct.plaidAccountId) ?? []).map((h) => ({
+        security_name: h.securityName ?? h.securityId,
+        ticker_symbol: h.tickerSymbol,
+        quantity: Number(h.quantity),
+        current_value: Number(h.institutionValue),
+      }));
+
+      let acctType: InvestmentAccount["type"] = "other";
+      const subtype = (acct.subtype ?? "").toLowerCase();
+      if (subtype.includes("401k")) acctType = "401k";
+      else if (subtype.includes("ira")) acctType = "ira";
+      else if (subtype === "brokerage") acctType = "brokerage";
+
+      return {
+        account_id: acct.plaidAccountId,
+        name: acct.name,
+        institution_name: null,
+        type: acctType,
+        current_balance: acct.currentBalance ?? 0,
+        holdings: acctHoldings,
+      };
+    });
 
   const input: InvestingAgentInput & { rejectionReason?: string } = {
     userId,
@@ -239,17 +267,129 @@ async function triggerInvestingAgent(
   return agentRes.json();
 }
 
+// ---- Transaction writers ----
+
+/**
+ * Maps an agent-generated debt payment to a Transaction record.
+ * Amount is kept positive (Plaid convention: positive = money out).
+ * Uses today's date as the approval date — guards against stale agent dates.
+ *
+ * @param {string} userId - UUID of the user who owns this transaction.
+ * @param {Record<string, unknown>} rawTx - Scheduled payment from the approved proposal.
+ * @returns {Transaction}
+ */
+function mapScheduledPayment(userId: string, rawTx: Record<string, unknown>): Transaction {
+  const now = new Date().toISOString();
+  const txId = `agent-debt-${ulid()}`;
+  const date = now.slice(0, 10);
+
+  return {
+    userId,
+    sortKey: `${date}#${txId}`,
+    plaidTransactionId: txId,
+    plaidAccountId: String(rawTx.plaid_account_id),
+    amount: Number(rawTx.amount),
+    date,
+    name: String(rawTx.debt_name),
+    merchantName: String(rawTx.debt_name),
+    category: "LOAN_PAYMENTS",
+    detailedCategory: "LOAN_PAYMENTS_DEBT_PAYMENT",
+    categoryIconUrl: null,
+    // User explicitly approved this transaction — mark as confirmed, not pending.
+    // Plaid's pending=true means "unsettled at the bank"; that concept does not
+    // apply to agent-generated records that the user has already accepted.
+    pending: false,
+    isoCurrencyCode: "USD",
+    unofficialCurrencyCode: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Maps an agent-generated investment contribution to a Transaction record.
+ * Amount is kept positive (Plaid convention: positive = money out / transfer out).
+ * Uses today's date as the approval date — guards against stale agent dates.
+ *
+ * @param {string} userId - UUID of the user who owns this transaction.
+ * @param {Record<string, unknown>} rawTx - Scheduled contribution from the approved proposal.
+ * @returns {Transaction}
+ */
+function mapScheduledContribution(userId: string, rawTx: Record<string, unknown>): Transaction {
+  const now = new Date().toISOString();
+  const txId = `agent-invest-${ulid()}`;
+  // Include fund name in description when available so the user knows exactly
+  // where the contribution is going (e.g. "Roth IRA: Schwab Total Stock Market")
+  const name = rawTx.fund_name
+    ? `${rawTx.account_name}: ${rawTx.fund_name}`
+    : String(rawTx.account_name);
+
+  const date = now.slice(0, 10);
+
+  return {
+    userId,
+    sortKey: `${date}#${txId}`,
+    plaidTransactionId: txId,
+    plaidAccountId: String(rawTx.plaid_account_id),
+    amount: Number(rawTx.amount),
+    date,
+    name,
+    merchantName: String(rawTx.account_name),
+    category: "TRANSFER_OUT",
+    detailedCategory: "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS",
+    categoryIconUrl: null,
+    // User explicitly approved this transaction — mark as confirmed, not pending.
+    pending: false,
+    isoCurrencyCode: "USD",
+    unofficialCurrencyCode: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Writes agent-generated transactions to the Transactions table so they appear
+ * in the user's transaction feed immediately after proposal approval.
+ * Failures are logged individually and do not abort the batch — a partial write
+ * is acceptable since the proposal is already marked executed.
+ *
+ * @param {string} userId - UUID of the user who owns these transactions.
+ * @param {unknown[]} rawTxns - Raw scheduledPayments or scheduledContributions from the proposal.
+ * @param {"debt" | "investing"} type - Determines which mapping function to apply.
+ * @param {FastifyBaseLogger} log - Logger for per-item failure tracking.
+ */
+async function writeProposalTransactions(
+  userId: string,
+  rawTxns: unknown[],
+  type: "debt" | "investing",
+  log: FastifyBaseLogger,
+): Promise<void> {
+  await Promise.allSettled(
+    rawTxns.map(async (raw) => {
+      try {
+        const tx =
+          type === "debt"
+            ? mapScheduledPayment(userId, raw as Record<string, unknown>)
+            : mapScheduledContribution(userId, raw as Record<string, unknown>);
+        await upsertTransaction(tx);
+      } catch (err) {
+        log.error({ err, raw }, "[writeProposalTransactions] failed to write transaction");
+      }
+    }),
+  );
+}
+
 // ---- Routes ----
 
 export default async function agentRoutes(app: FastifyInstance) {
   // POST /agent/budget — invoke Budget Agent with the user's current Plaid-synced budget
   app.post(
-    "/agent/budget",
-    { preHandler: verifyToken },
+    "/budget",
+    { preHandler: verifyJWT },
     async (req, reply) => {
       const userId = req.user!.userId;
 
-      const budget = await getBudget(userId);
+      const budget = await getLatestBudget(userId);
       if (!budget) {
         return reply
           .status(404)
@@ -284,8 +424,8 @@ export default async function agentRoutes(app: FastifyInstance) {
     Params: { proposalId: string };
     Body: { approved: boolean; rejectionReason?: string };
   }>(
-    "/agent/budget/:proposalId/respond",
-    { preHandler: verifyToken },
+    "/budget/:proposalId/respond",
+    { preHandler: verifyJWT },
     async (req, reply) => {
       const userId = req.user!.userId;
       const { proposalId } = req.params;
@@ -317,16 +457,16 @@ export default async function agentRoutes(app: FastifyInstance) {
         );
 
         // Write the agent-recommended budget into the Budgets table as a confirmed record.
+        // flattenAgentBudget converts the agent's nested structure to the flat
+        // { category: { amount } } shape the server's Budget type expects.
         await db.send(
           new PutCommand({
             TableName: BUDGETS_TABLE,
             Item: {
-              ...proposal.budget,
+              ...flattenAgentBudget(proposal.budget),
               userId,
               budgetId: `budget#${ulid()}`,
-              status: "CONFIRMED",
               createdAt: now,
-              updatedAt: now,
             },
           })
         );
@@ -380,7 +520,7 @@ export default async function agentRoutes(app: FastifyInstance) {
         );
 
         // Re-fetch the user's current budget to pass to the agent
-        const budget = await getBudget(userId);
+        const budget = await getLatestBudget(userId);
 
         let agentRes: Response;
         try {
@@ -416,8 +556,8 @@ export default async function agentRoutes(app: FastifyInstance) {
     Params: { proposalId: string };
     Body: { approved: boolean; rejectionReason?: string };
   }>(
-    "/agent/debt/:proposalId/respond",
-    { preHandler: verifyToken },
+    "/debt/:proposalId/respond",
+    { preHandler: verifyJWT },
     async (req, reply) => {
       const userId = req.user!.userId;
       const { proposalId } = req.params;
@@ -437,17 +577,39 @@ export default async function agentRoutes(app: FastifyInstance) {
           new UpdateCommand({
             TableName: PROPOSALS_TABLE,
             Key: { proposalId },
-            UpdateExpression:
-              "SET #s = :executed, pendingTransactions = :txns, txnStatus = :queued, updatedAt = :now",
+            UpdateExpression: "SET #s = :executed, updatedAt = :now",
             ExpressionAttributeNames: { "#s": "status" },
             ExpressionAttributeValues: {
               ":executed": "executed",
-              ":txns": proposal.plaidTransactions ?? [],
-              ":queued": "queued",
               ":now": now,
             },
           })
         );
+
+        const payments = proposal.scheduledPayments ?? [];
+
+        // Write to our Transactions table so the payment appears in the feed
+        // on the correct debt account with LOAN_PAYMENTS category.
+        // Agent-generated IDs (agent-debt-*) are never returned by Plaid sync,
+        // so these records persist without being overwritten.
+        await writeProposalTransactions(userId, payments, "debt", req.log);
+
+        // Paying off debt reduces what you owe — balance goes down.
+        for (const payment of payments) {
+          const p = payment as Record<string, unknown>;
+          await adjustBalance(userId, String(p.plaid_account_id), -Number(p.amount));
+        }
+
+        // Money leaves checking to fund debt payments — deduct the total.
+        const debtTotal = payments.reduce(
+          (sum, p) => sum + Number((p as Record<string, unknown>).amount),
+          0
+        );
+        const checkingForDebt = await findPrimaryChecking(userId);
+        if (checkingForDebt && debtTotal > 0) {
+          await adjustBalance(userId, checkingForDebt.plaidAccountId, -debtTotal);
+        }
+
         return { success: true };
       } else {
         await db.send(
@@ -494,8 +656,8 @@ export default async function agentRoutes(app: FastifyInstance) {
     Params: { proposalId: string };
     Body: { approved: boolean; rejectionReason?: string };
   }>(
-    "/agent/investing/:proposalId/respond",
-    { preHandler: verifyToken },
+    "/investing/:proposalId/respond",
+    { preHandler: verifyJWT },
     async (req, reply) => {
       const userId = req.user!.userId;
       const { proposalId } = req.params;
@@ -515,17 +677,39 @@ export default async function agentRoutes(app: FastifyInstance) {
           new UpdateCommand({
             TableName: PROPOSALS_TABLE,
             Key: { proposalId },
-            UpdateExpression:
-              "SET #s = :executed, pendingTransactions = :txns, txnStatus = :queued, updatedAt = :now",
+            UpdateExpression: "SET #s = :executed, updatedAt = :now",
             ExpressionAttributeNames: { "#s": "status" },
             ExpressionAttributeValues: {
               ":executed": "executed",
-              ":txns": proposal.plaidTransactions ?? [],
-              ":queued": "queued",
               ":now": now,
             },
           })
         );
+
+        const contributions = proposal.scheduledContributions ?? [];
+
+        // Write to our Transactions table so the contribution appears in the feed
+        // on the correct investment account with TRANSFER_OUT category.
+        // Agent-generated IDs (agent-invest-*) are never returned by Plaid sync,
+        // so these records persist without being overwritten.
+        await writeProposalTransactions(userId, contributions, "investing", req.log);
+
+        // Contributions increase the investment account balance.
+        for (const contrib of contributions) {
+          const c = contrib as Record<string, unknown>;
+          await adjustBalance(userId, String(c.plaid_account_id), Number(c.amount));
+        }
+
+        // Money leaves checking to fund investment contributions — deduct the total.
+        const investTotal = contributions.reduce(
+          (sum, c) => sum + Number((c as Record<string, unknown>).amount),
+          0
+        );
+        const checkingForInvest = await findPrimaryChecking(userId);
+        if (checkingForInvest && investTotal > 0) {
+          await adjustBalance(userId, checkingForInvest.plaidAccountId, -investTotal);
+        }
+
         return { success: true };
       } else {
         await db.send(
@@ -572,7 +756,7 @@ export default async function agentRoutes(app: FastifyInstance) {
     Querystring: { type?: string; status?: string };
   }>(
     "/proposals",
-    { preHandler: verifyToken },
+    { preHandler: verifyJWT },
     async (req) => {
       const userId = req.user!.userId;
       const { type, status } = req.query;
@@ -611,6 +795,32 @@ export default async function agentRoutes(app: FastifyInstance) {
       );
 
       return { proposals: items };
+    }
+  );
+
+  // DELETE /proposals/:proposalId — permanently remove a proposal
+  app.delete<{ Params: { proposalId: string } }>(
+    "/proposals/:proposalId",
+    { preHandler: verifyJWT },
+    async (req, reply) => {
+      const userId = req.user!.userId;
+      const { proposalId } = req.params;
+
+      // Verify ownership before deleting — return 404 instead of 403
+      // to avoid revealing whether the proposal exists for another user.
+      const existing = await db.send(
+        new GetCommand({ TableName: PROPOSALS_TABLE, Key: { proposalId } })
+      );
+      const proposal = existing.Item as Proposal | undefined;
+      if (!proposal || proposal.userId !== userId) {
+        return reply.status(404).send({ error: "Proposal not found" });
+      }
+
+      await db.send(
+        new DeleteCommand({ TableName: PROPOSALS_TABLE, Key: { proposalId } })
+      );
+
+      return reply.status(204).send();
     }
   );
 }

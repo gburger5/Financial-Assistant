@@ -51,6 +51,7 @@ export const publicUserSchema = {
     lastName: { type: 'string' },
     email: { type: 'string' },
     createdAt: { type: 'string' },
+    agentBudgetApproved: { type: 'boolean' },
   },
 } as const;
 
@@ -112,12 +113,6 @@ export const loginSchema = {
  */
 export const verifySchema = {
   response: {
-    200: {
-      type: 'object',
-      properties: {
-        userId: { type: 'string' },
-        email: { type: 'string' },
-      },
-    },
+    200: publicUserSchema,
   },
 } as const;

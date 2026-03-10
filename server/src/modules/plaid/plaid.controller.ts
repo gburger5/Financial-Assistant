@@ -76,6 +76,29 @@ export async function getSyncStatus(
 }
 
 /**
+ * POST /api/plaid/sync
+ * Runs a transaction sync for every active item belonging to the authenticated user.
+ * Useful on localhost where Plaid webhooks cannot reach the server, and for users
+ * who want to force a refresh rather than waiting for the next webhook.
+ *
+ * @param {FastifyRequest} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function manualSync(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.userId;
+  // Run transactions and investments in parallel — independent data sources.
+  const [txResult] = await Promise.all([
+    plaidService.syncAllTransactions(userId),
+    plaidService.syncAllInvestments(userId),
+  ]);
+  return reply.send(txResult);
+}
+
+/**
  * POST /api/plaid/webhook
  * Delegates entirely to the webhook module. That module handles signature
  * verification, fire-and-forget dispatch, and always returning { received: true }.

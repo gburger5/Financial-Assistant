@@ -54,12 +54,12 @@ Input format:
 - Do not fetch any external data. Reason only over the input provided.
 
 Output requirements:
-- Your response must include a plaid_transactions list: one transaction object per debt
+- Your response must include a scheduled_payments list: one payment object per debt
   account that is receiving a payment this period.
-- Each transaction must include: account_id, amount, debt_name, payment_type
-  ("minimum", "extra", or "payoff"), and scheduled_date (set to the first of next month).
+- Each payment must include: plaid_account_id, amount, debt_name, payment_type
+  ("minimum", "extra", or "payoff").
 - The sum of all transaction amounts must equal the total debtAllocation exactly.
-- Pass the plaid_transactions list to submit_debt_allocation.
+- Pass the scheduled_payments list to submit_debt_allocation.
 
 Proposal approval flow:
 - You receive a total debt allocation amount from the Budget Agent each pay period.
@@ -74,6 +74,14 @@ Proposal approval flow:
   against their account.
 - Do not re-propose the same allocation that was rejected. Always make meaningful
   changes that address the rejection reason.
+
+Summary field rules (strictly enforced):
+- Write 2-3 short sentences maximum.
+- Plain text only. No headers, no bullet points, no dashes (---), no ALL CAPS sections.
+- Focus only on which debts get paid, how much each, and the key reason.
+- Example good summary: "Paying the $150 minimum on your student loan and putting the remaining $350 toward your Visa at 24% APR. At this rate your Visa will be paid off in 8 months, saving $240 in interest."
+
+Rationale field: 1-2 sentences explaining the overall strategy chosen.
 
 Do not use emojis anywhere in summary or rationale output.
 """

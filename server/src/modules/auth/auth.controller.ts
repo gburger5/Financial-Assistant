@@ -54,13 +54,15 @@ export async function login(
 
 /**
  * Handles GET /verify.
- * Returns the decoded JWT payload already attached to request.user by the
- * verifyJWT preHandler. Does not hit the database.
+ * Does a fresh DB read so the response always reflects the latest user state,
+ * including onboarding flags that are updated server-side after JWT issuance
+ * (e.g. agentBudgetApproved set when a budget proposal is accepted).
  *
  * @param {FastifyRequest} request
  * @param {FastifyReply} reply
  * @returns {Promise<void>}
  */
 export async function verify(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  return reply.status(200).send(request.user);
+  const user = await authService.getUserById(request.user!.userId);
+  return reply.status(200).send(user);
 }

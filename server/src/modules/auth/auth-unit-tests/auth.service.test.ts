@@ -343,6 +343,7 @@ describe('getUserById', () => {
       lastName: '',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     });
   });
 

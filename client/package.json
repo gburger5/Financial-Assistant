@@ -8,18 +8,19 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "test": "echo 'No tests yet' && exit 0"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@emotion/react": "^11.11.3",
-    "@emotion/styled": "^11.11.0",
-    "@mui/icons-material": "^5.15.10",
-    "@mui/material": "^5.15.10",
+    "lucide-react": "^0.576.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0"
+    "react-router-dom": "^6.22.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
@@ -28,9 +29,11 @@
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^28.1.0",
     "rollup": "^4.30.1",
     "typescript": "^5.2.2",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.57.1"
