@@ -110,10 +110,17 @@ export async function findUserById(userId: string): Promise<UserRecord | null> {
  * @returns {Promise<void>}
  */
 export async function createUser(user: UserRecord): Promise<void> {
+  // DynamoDB rejects null values for GSI partition keys (e.g. passwordResetToken-index).
+  // Strip all null/undefined attributes before writing so the item simply omits
+  // those fields rather than storing an explicit null that DynamoDB cannot index.
+  const item = Object.fromEntries(
+    Object.entries(user).filter(([, v]) => v !== null && v !== undefined)
+  );
+
   await db.send(
     new PutCommand({
       TableName: Tables.Users,
-      Item: user,
+      Item: item,
     })
   );
 }

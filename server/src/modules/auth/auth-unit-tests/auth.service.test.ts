@@ -32,6 +32,19 @@ vi.mock('uuid', () => ({
 
 vi.mock('../../../lib/email.js', () => ({
   sendVerificationEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+  sendPasswordChangedEmail: vi.fn(),
+  sendAccountDeletedEmail: vi.fn(),
+}));
+
+vi.mock('../auth-tokens.repository.js', () => ({
+  createRefreshToken: vi.fn().mockResolvedValue(undefined),
+  deleteRefreshToken: vi.fn().mockResolvedValue(undefined),
+  deleteAllRefreshTokensForUser: vi.fn().mockResolvedValue(undefined),
+  revokeAccessToken: vi.fn().mockResolvedValue(undefined),
+  isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  findRefreshToken: vi.fn(),
+  findRefreshTokensByUserId: vi.fn().mockResolvedValue([]),
 }));
 
 import {
@@ -141,8 +154,12 @@ describe('validatePasswordComplexity', () => {
     expect(() => validatePasswordComplexity('NoDigitHere!')).toThrow(BadRequestError);
   });
 
-  it('does not throw for a password containing uppercase, lowercase, and a digit', () => {
-    expect(() => validatePasswordComplexity('ValidPass1')).not.toThrow();
+  it('throws BadRequestError when password has no special character', () => {
+    expect(() => validatePasswordComplexity('ValidPass1')).toThrow(BadRequestError);
+  });
+
+  it('does not throw for a password containing uppercase, lowercase, digit, and special character', () => {
+    expect(() => validatePasswordComplexity('ValidPass1!')).not.toThrow();
   });
 
   it('does not throw when complexity is met even with special characters', () => {
@@ -359,7 +376,7 @@ describe('loginUser', () => {
     expect(result.token).toBeDefined();
   });
 
-  it('issues a JWT that contains only userId and email', async () => {
+  it('issues a JWT that contains userId, email, and jti but no PII', async () => {
     mockFindByEmail.mockResolvedValue(sampleRecord);
     mockVerify.mockResolvedValue(true as never);
     mockResetLockout.mockResolvedValue(undefined);
@@ -369,9 +386,9 @@ describe('loginUser', () => {
 
     expect(decoded.userId).toBe('user-uuid');
     expect(decoded.email).toBe('alice@example.com');
+    expect(decoded.jti).toBeDefined();
     expect(decoded.firstName).toBeUndefined();
     expect(decoded.lastName).toBeUndefined();
-    expect(decoded.jti).toBeUndefined();
   });
 
   it('throws BadRequestError with lockout message on the MAX_LOGIN_ATTEMPTS-th failed attempt', async () => {
@@ -574,7 +591,7 @@ describe('updatePassword', () => {
   it('throws NotFoundError when the user does not exist', async () => {
     mockFindById.mockResolvedValue(null);
 
-    await expect(updatePassword('nonexistent-id', 'OldPass1!', 'NewPass1!')).rejects.toThrow(NotFoundError);
+    await expect(updatePassword('nonexistent-id', 'OldPass1!', 'NewPass1!', 'jti-x', 9999)).rejects.toThrow(NotFoundError);
     expect(mockUpdatePassword).not.toHaveBeenCalled();
   });
 
@@ -582,7 +599,7 @@ describe('updatePassword', () => {
     mockFindById.mockResolvedValue(sampleRecord);
     mockVerify.mockResolvedValue(false as never);
 
-    await expect(updatePassword('user-uuid', 'WrongPass1!', 'NewPass1!')).rejects.toThrow(UnauthorizedError);
+    await expect(updatePassword('user-uuid', 'WrongPass1!', 'NewPass1!', 'jti-x', 9999)).rejects.toThrow(UnauthorizedError);
     expect(mockUpdatePassword).not.toHaveBeenCalled();
   });
 
@@ -590,7 +607,7 @@ describe('updatePassword', () => {
     mockFindById.mockResolvedValue(sampleRecord);
     mockVerify.mockResolvedValue(true as never);
 
-    await expect(updatePassword('user-uuid', 'OldPass1!', 'weakpassword')).rejects.toThrow(BadRequestError);
+    await expect(updatePassword('user-uuid', 'OldPass1!', 'weakpassword', 'jti-x', 9999)).rejects.toThrow(BadRequestError);
     expect(mockUpdatePassword).not.toHaveBeenCalled();
   });
 
@@ -599,7 +616,7 @@ describe('updatePassword', () => {
     mockVerify.mockResolvedValue(true as never);
     mockHash.mockResolvedValue('$argon2id$newhash' as never);
 
-    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!');
+    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!', 'jti-x', 9999);
 
     expect(mockHash).toHaveBeenCalledWith('NewPass1!');
     expect(mockUpdatePassword).toHaveBeenCalledWith('user-uuid', '$argon2id$newhash');
@@ -610,7 +627,7 @@ describe('updatePassword', () => {
     mockVerify.mockResolvedValue(true as never);
     mockHash.mockResolvedValue('$argon2id$newhash' as never);
 
-    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!');
+    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!', 'jti-x', 9999);
 
     const [, storedHash] = mockUpdatePassword.mock.calls[0];
     expect(storedHash).not.toBe('NewPass1!');

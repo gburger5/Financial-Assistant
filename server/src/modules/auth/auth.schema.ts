@@ -101,6 +101,7 @@ export const loginSchema = {
       properties: {
         user: publicUserSchema,
         token: { type: 'string' },
+        refreshToken: { type: 'string' },
       },
     },
   },
@@ -117,6 +118,9 @@ export const verifySchema = {
       properties: {
         userId: { type: 'string' },
         email: { type: 'string' },
+        jti: { type: 'string' },
+        exp: { type: 'number' },
+        iat: { type: 'number' },
       },
     },
   },
@@ -252,12 +256,28 @@ export const updateEmailSchema = {
   },
 } as const;
 
+/** Route generics for POST /logout. */
+export interface LogoutRouteGeneric {
+  Body: {
+    refreshToken: string;
+  };
+}
+
 /**
  * Schema for POST /logout.
- * No request body — the JWT to revoke is read from the Authorization header
- * by the verifyJWT preHandler. Responds 200 with a success boolean.
+ * Body requires the opaque refreshToken so it can be deleted server-side,
+ * preventing token reuse after logout. The access token is revoked via the
+ * Authorization header (verifyJWT preHandler). Responds 200 with a success boolean.
  */
 export const logoutSchema = {
+  body: {
+    type: 'object',
+    required: ['refreshToken'],
+    additionalProperties: false,
+    properties: {
+      refreshToken: { type: 'string', minLength: 1 },
+    },
+  },
   response: {
     200: {
       type: 'object',

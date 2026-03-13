@@ -180,7 +180,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('returns 200 with user and token on success', async () => {
-    mockLoginUser.mockResolvedValue({ user: { userId: 'user-uuid', email: 'alice@example.com', firstName: 'Alice', lastName: 'Smith', createdAt: '2024-01-01T00:00:00.000Z' }, token: 'jwt-token-here' });
+    mockLoginUser.mockResolvedValue({ user: { userId: 'user-uuid', email: 'alice@example.com', firstName: 'Alice', lastName: 'Smith', createdAt: '2024-01-01T00:00:00.000Z' }, token: 'jwt-token-here', refreshToken: 'refresh-token-here' });
     app = await buildTestApp();
     const res = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'alice@example.com', password: 'ValidPass1!' } });
     expect(res.statusCode).toBe(200);
@@ -313,11 +313,11 @@ describe('PATCH /api/auth/profile/password', () => {
     expect(res.json().message).toBe('Passwords do not match');
   });
 
-  it('calls updatePassword with the authenticated userId', async () => {
+  it('calls updatePassword with the authenticated userId, passwords, jti, and exp', async () => {
     mockUpdatePassword.mockResolvedValue(undefined);
     app = await buildTestApp();
     await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'NewPass1!!' } });
-    expect(mockUpdatePassword).toHaveBeenCalledWith('user-route-123', 'OldPass1!!', 'NewPass1!!');
+    expect(mockUpdatePassword).toHaveBeenCalledWith('user-route-123', 'OldPass1!!', 'NewPass1!!', 'test-jti', expect.any(Number));
   });
 
   it('returns 200 on success', async () => {
@@ -378,43 +378,35 @@ describe('POST /api/auth/logout', () => {
 
   it('returns 401 when no Authorization header is provided', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/logout' });
+    // Body must be valid so schema validation passes and the auth check fires
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', payload: { refreshToken: 'rt.secret' } });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 400 when refreshToken is missing from the body', async () => {
+    app = await buildTestApp();
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: {} });
+    expect(res.statusCode).toBe(400);
   });
 
   it('returns 200 and calls logoutUser on success', async () => {
     mockLogoutUser.mockResolvedValue(undefined);
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` } });
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: { refreshToken: 'rt-uuid.rawsecret' } });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
     expect(mockLogoutUser).toHaveBeenCalled();
   });
 
-  it('passes jti, userId, and exp from the JWT to logoutUser', async () => {
+  it('passes jti, userId, exp, and refreshToken from request to logoutUser', async () => {
     mockLogoutUser.mockResolvedValue(undefined);
     app = await buildTestApp();
-    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` } });
-    const [jti, userId, exp] = mockLogoutUser.mock.calls[0];
+    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    const [jti, userId, exp, rawRefreshToken] = mockLogoutUser.mock.calls[0];
     expect(jti).toBe('test-jti');
     expect(userId).toBe('user-route-123');
     expect(typeof exp).toBe('number');
-  });
-
-  it('passes the refreshTokenId from the request body when provided', async () => {
-    mockLogoutUser.mockResolvedValue(undefined);
-    app = await buildTestApp();
-    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: { refreshTokenId: 'rt-uuid-123' } });
-    const [, , , refreshTokenId] = mockLogoutUser.mock.calls[0];
-    expect(refreshTokenId).toBe('rt-uuid-123');
-  });
-
-  it('passes undefined as refreshTokenId when body is empty', async () => {
-    mockLogoutUser.mockResolvedValue(undefined);
-    app = await buildTestApp();
-    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` } });
-    const [, , , refreshTokenId] = mockLogoutUser.mock.calls[0];
-    expect(refreshTokenId).toBeUndefined();
+    expect(rawRefreshToken).toBe('rt-uuid.rawsecret');
   });
 });
 
@@ -604,7 +596,7 @@ describe('DELETE /api/auth/account', () => {
     mockDeleteAccount.mockResolvedValue(undefined);
     app = await buildTestApp();
     await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!!' } });
-    expect(mockDeleteAccount).toHaveBeenCalledWith('user-route-123', 'ValidPass1!!');
+    expect(mockDeleteAccount).toHaveBeenCalledWith('user-route-123', 'ValidPass1!!', 'test-jti', expect.any(Number));
   });
 
   it('returns 401 when service throws UnauthorizedError (wrong password)', async () => {

@@ -40,6 +40,7 @@ import type {
   UpdateNameRouteGeneric,
   UpdatePasswordRouteGeneric,
   UpdateEmailRouteGeneric,
+  LogoutRouteGeneric,
   RefreshRouteGeneric,
   ForgotPasswordRouteGeneric,
   ResetPasswordRouteGeneric,
@@ -75,9 +76,23 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
   // Open routes (no auth required)
   // ------------------------------------------------------------------
 
-  fastify.post('/register', { schema: registerSchema }, register);
+  fastify.post(
+    '/register',
+    {
+      schema: registerSchema,
+      config: { rateLimit: { max: 5, timeWindow: 60_000 } },
+    },
+    register
+  );
 
-  fastify.post('/login', { schema: loginSchema }, login);
+  fastify.post(
+    '/login',
+    {
+      schema: loginSchema,
+      config: { rateLimit: { max: 10, timeWindow: 60_000 } },
+    },
+    login
+  );
 
   fastify.post(
     '/resend-verification',
@@ -90,7 +105,14 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.get('/verify-email', { schema: verifyEmailSchema }, verifyEmail);
 
-  fastify.post<RefreshRouteGeneric>('/refresh', { schema: refreshSchema }, refresh);
+  fastify.post<RefreshRouteGeneric>(
+    '/refresh',
+    {
+      schema: refreshSchema,
+      config: { rateLimit: { max: 20, timeWindow: 60_000 } },
+    },
+    refresh
+  );
 
   fastify.post<ForgotPasswordRouteGeneric>(
     '/forgot-password',
@@ -116,7 +138,7 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.get('/verify', { schema: verifySchema, preHandler: verifyJWT }, verify);
 
-  fastify.post(
+  fastify.post<LogoutRouteGeneric>(
     '/logout',
     {
       schema: logoutSchema,

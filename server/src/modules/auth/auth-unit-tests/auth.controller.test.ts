@@ -129,6 +129,7 @@ describe('login controller', () => {
         createdAt: '2024-01-01',
       },
       token: 'some-jwt',
+      refreshToken: 'some-refresh-token',
     };
     mockLoginUser.mockResolvedValue(loginResult);
     app = await buildTestApp();

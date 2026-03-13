@@ -46,6 +46,55 @@ export async function sendVerificationEmail(
 }
 
 /**
+ * Notifies a user that their password was successfully changed.
+ * Sent after both the authenticated password-change flow and the
+ * forgot-password reset flow so the user can detect unauthorized changes.
+ *
+ * @param {string} email - Recipient email address.
+ * @returns {Promise<void>}
+ */
+export async function sendPasswordChangedEmail(email: string): Promise<void> {
+  await client.transactionalEmails.sendTransacEmail({
+    to: [{ email }],
+    sender: {
+      email: process.env.EMAIL_FROM,
+      name: process.env.EMAIL_FROM_NAME,
+    },
+    subject: "Your password was changed",
+    htmlContent: `
+      <h2>Password changed</h2>
+      <p>The password for your account was just changed.</p>
+      <p>If you made this change, no action is needed.</p>
+      <p>If you did not make this change, reset your password immediately using the link on the login page.</p>
+    `,
+  });
+}
+
+/**
+ * Notifies a user that their account has been permanently deleted.
+ * Sent immediately before the user record is removed so the email
+ * address is still available to the caller.
+ *
+ * @param {string} email - Recipient email address.
+ * @returns {Promise<void>}
+ */
+export async function sendAccountDeletedEmail(email: string): Promise<void> {
+  await client.transactionalEmails.sendTransacEmail({
+    to: [{ email }],
+    sender: {
+      email: process.env.EMAIL_FROM,
+      name: process.env.EMAIL_FROM_NAME,
+    },
+    subject: "Your account has been deleted",
+    htmlContent: `
+      <h2>Account deleted</h2>
+      <p>Your account and all associated data have been permanently deleted.</p>
+      <p>If you did not request this, please contact support immediately.</p>
+    `,
+  });
+}
+
+/**
  * Sends a password-reset link to a user who requested a password reset.
  * The raw token is embedded in the link; only its hash is stored server-side.
  *

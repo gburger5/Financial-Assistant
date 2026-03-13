@@ -16,6 +16,7 @@ import type {
   UpdateNameRouteGeneric,
   UpdatePasswordRouteGeneric,
   UpdateEmailRouteGeneric,
+  LogoutRouteGeneric,
   RefreshRouteGeneric,
   ForgotPasswordRouteGeneric,
   ResetPasswordRouteGeneric,
@@ -144,14 +145,14 @@ export async function updatePassword(
   request: FastifyRequest<UpdatePasswordRouteGeneric>,
   reply: FastifyReply
 ): Promise<void> {
-  const { userId } = request.user as { userId: string };
+  const { userId, jti, exp } = request.user as { userId: string; jti: string; exp: number };
   const { currentPassword, newPassword, confirmNewPassword } = request.body;
 
   if (newPassword !== confirmNewPassword) {
     throw new BadRequestError('Passwords do not match');
   }
 
-  await authService.updatePassword(userId, currentPassword, newPassword);
+  await authService.updatePassword(userId, currentPassword, newPassword, jti, exp);
   return reply.status(200).send({ success: true });
 }
 
@@ -182,10 +183,13 @@ export async function updateEmail(
  * @param {FastifyReply} reply
  * @returns {Promise<void>}
  */
-export async function logout(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function logout(
+  request: FastifyRequest<LogoutRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
   const { userId, jti, exp } = request.user as { userId: string; jti: string; exp: number };
-  const body = (request.body ?? {}) as { refreshTokenId?: string };
-  await authService.logoutUser(jti, userId, exp, body.refreshTokenId);
+  const { refreshToken } = request.body;
+  await authService.logoutUser(jti, userId, exp, refreshToken);
   return reply.status(200).send({ success: true });
 }
 
@@ -258,8 +262,8 @@ export async function deleteAccountHandler(
   request: FastifyRequest<DeleteAccountRouteGeneric>,
   reply: FastifyReply
 ): Promise<void> {
-  const { userId } = request.user as { userId: string };
+  const { userId, jti, exp } = request.user as { userId: string; jti: string; exp: number };
   const { currentPassword } = request.body;
-  await authService.deleteAccount(userId, currentPassword);
+  await authService.deleteAccount(userId, currentPassword, jti, exp);
   return reply.status(200).send({ success: true });
 }

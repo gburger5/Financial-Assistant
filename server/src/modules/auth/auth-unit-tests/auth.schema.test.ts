@@ -221,9 +221,12 @@ describe('logoutSchema', () => {
     expect((properties.success as { type: string }).type).toBe('boolean');
   });
 
-  it('does not define a request body schema (JWT is in the Authorization header)', () => {
+  it('requires refreshToken in the request body so it can be revoked server-side', () => {
     const schema = logoutSchema as Record<string, unknown>;
-    expect(schema.body).toBeUndefined();
+    const body = schema.body as { required: string[]; properties: Record<string, unknown> };
+    expect(body).toBeDefined();
+    expect(body.required).toContain('refreshToken');
+    expect(body.properties).toHaveProperty('refreshToken');
   });
 });
 

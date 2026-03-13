@@ -37,6 +37,7 @@ interface JWTPayload {
 declare module 'fastify' {
   interface FastifyRequest {
     user: JWTPayload;
+    rawBody?: string;
   }
 }
 
@@ -66,8 +67,8 @@ export async function verifyJWT(
     throw new UnauthorizedError('No token provided');
   }
   const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_SECRET environment variable is required in production');
+  if (!secret && process.env.NODE_ENV !== 'development') {
+    throw new Error('JWT_SECRET environment variable is required');
   }
   let decoded: JWTPayload;
   try {

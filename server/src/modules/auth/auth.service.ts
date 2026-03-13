@@ -9,9 +9,13 @@ import { hash, verify } from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import * as repo from './auth.repository.js';
-import { sendVerificationEmail,} from '../../lib/email.js';
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+  sendAccountDeletedEmail,
+} from '../../lib/email.js';
 import * as authTokensRepo from './auth-tokens.repository.js';
-import { sendPasswordResetEmail } from '../../lib/email.js';
 import {
   BadRequestError,
   ConflictError,
@@ -51,7 +55,7 @@ export const LOCKOUT_DURATION_MINUTES = 15;
  * and one digit. Validated here instead of in JSON Schema because AJV cannot
  * express cross-character-class constraints as a single pattern cleanly.
  */
-const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9])/;
 
 /** Lifetime of a refresh token in days. */
 export const REFRESH_TOKEN_TTL_DAYS = 30;
@@ -71,8 +75,10 @@ export const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60;
  */
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_SECRET environment variable is required in production');
+  if (!secret && process.env.NODE_ENV !== 'development') {
+    // Fail loudly outside of local dev so staging/production never sign tokens
+    // with the well-known fallback value 'test-secret-key'.
+    throw new Error('JWT_SECRET environment variable is required');
   }
   return secret ?? 'test-secret-key';
 }
@@ -130,7 +136,7 @@ function generateOpaqueToken(ttlSeconds: number): {
 export function validatePasswordComplexity(password: string): void {
   if (!PASSWORD_REGEX.test(password)) {
     throw new BadRequestError(
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
     );
   }
 }
@@ -235,7 +241,7 @@ export async function registerUser(
 export async function loginUser(
   email: string,
   password: string
-): Promise<{ user: PublicUser; token: string }> {
+): Promise<{ user: PublicUser; token: string; refreshToken: string }> {
   const normalizedEmail = email.toLowerCase();
 
   const user = await repo.findUserByEmail(normalizedEmail);
@@ -290,13 +296,10 @@ export async function loginUser(
 
   await repo.resetLockout(user.id);
 
-  const token = jwt.sign(
-    { userId: user.id, email: user.email },
-    getJwtSecret(),
-    { expiresIn: '15m', algorithm: 'HS256' }
-  );
+  const token = issueAccessToken(user.id, user.email);
+  const refreshToken = await issueRefreshToken(user.id);
 
-  return { user: toPublicUser(user), token };
+  return { user: toPublicUser(user), token, refreshToken };
 }
 
 /**
@@ -436,7 +439,9 @@ export async function updateName(
 export async function updatePassword(
   userId: string,
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
+  jti: string,
+  jwtExp: number
 ): Promise<void> {
   const user = await repo.findUserById(userId);
   if (!user) throw new NotFoundError('User not found');
@@ -448,6 +453,14 @@ export async function updatePassword(
 
   const newHash = await hash(newPassword);
   await repo.updatePassword(userId, newHash);
+
+  // Revoke the current access token immediately so this session cannot be
+  await authTokensRepo.revokeAccessToken(jti, userId, jwtExp);
+
+  // Invalidate all other sessions so a compromised session cannot outlive a password change.
+  await authTokensRepo.deleteAllRefreshTokensForUser(userId);
+
+  await sendPasswordChangedEmail(user.email);
 }
 
 /**
@@ -493,25 +506,30 @@ export async function initiateEmailChange(
  *
  * When a `refreshTokenId` is supplied the corresponding refresh token is
  * also deleted, terminating the session fully. Omitting it revokes only
- * the current access token (useful for clients that manage refresh tokens
- * separately).
+ * the current access token and deletes the refresh token from the store.
  *
  * @param {string} jti - JWT ID claim from the access token to revoke.
  * @param {string} userId - Owner of the token.
  * @param {number} jwtExp - Original JWT `exp` claim (Unix seconds).
- * @param {string} [refreshTokenId] - Optional refresh token UUID to delete.
+ * @param {string} rawRefreshToken - The opaque refresh token sent by the client.
+ *   Format: "<tokenId>.<rawSecret>". The tokenId is extracted and used to delete
+ *   the stored record. If the format is invalid the deletion is skipped — the
+ *   access token is still revoked so the session is effectively ended.
  * @returns {Promise<void>}
  */
 export async function logoutUser(
   jti: string,
   userId: string,
   jwtExp: number,
-  refreshTokenId?: string
+  rawRefreshToken: string
 ): Promise<void> {
   await authTokensRepo.revokeAccessToken(jti, userId, jwtExp);
 
-  if (refreshTokenId) {
-    await authTokensRepo.deleteRefreshToken(refreshTokenId);
+  // Parse "<tokenId>.<rawSecret>" to extract the lookup key and delete the
+  const dotIndex = rawRefreshToken.indexOf('.');
+  if (dotIndex !== -1) {
+    const tokenId = rawRefreshToken.slice(0, dotIndex);
+    await authTokensRepo.deleteRefreshToken(tokenId);
   }
 }
 
@@ -678,6 +696,12 @@ export async function resetPassword(
 
   // Persist new hash and atomically clear the reset token to prevent reuse.
   await repo.updatePasswordAndClearResetToken(user.id, newHash);
+
+  // Invalidate all active sessions
+  await authTokensRepo.deleteAllRefreshTokensForUser(user.id);
+
+  // Notify the account owner so they can detect unauthorized resets.
+  await sendPasswordChangedEmail(user.email);
 }
 
 /**
@@ -697,7 +721,9 @@ export async function resetPassword(
  */
 export async function deleteAccount(
   userId: string,
-  currentPassword: string
+  currentPassword: string,
+  jti: string,
+  jwtExp: number
 ): Promise<void> {
   const user = await repo.findUserById(userId);
   if (!user) throw new NotFoundError('User not found');
@@ -705,8 +731,14 @@ export async function deleteAccount(
   const isValid = await verify(user.password_hash, currentPassword);
   if (!isValid) throw new UnauthorizedError('Current password is incorrect');
 
-  // Revoke all active sessions before wiping the record.
+  // Revoke the access token used to make this request
+  await authTokensRepo.revokeAccessToken(jti, userId, jwtExp);
+
+  // Purge all refresh tokens so every other session is also terminated.
   await authTokensRepo.deleteAllRefreshTokensForUser(userId);
+
+  // Notify the user before the record is deleted
+  await sendAccountDeletedEmail(user.email);
 
   await repo.deleteUser(userId);
 }
