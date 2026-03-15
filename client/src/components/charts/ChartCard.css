@@ -1,0 +1,27 @@
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.chart-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.chart-card__title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+}
+
+.chart-card__subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.chart-card__body {
+  flex: 1;
+}

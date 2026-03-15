@@ -11,7 +11,7 @@ const client = new DynamoDBClient(
   process.env.DYNAMODB_ENDPOINT
     ? {
         endpoint: process.env.DYNAMODB_ENDPOINT,
-        region: process.env.AWS_REGION ?? "us-east-1",
+        region: "us-east-1",
         credentials: { accessKeyId: "local", secretAccessKey: "local" },
       }
     : {}
@@ -205,6 +205,24 @@ async function main() {
       { AttributeName: "userId", KeyType: "HASH" },
       { AttributeName: "plaidAccountId", KeyType: "RANGE" },
     ],
+  });
+
+  await createTable("proposals", {
+    TableName: "proposals",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "proposalId", AttributeType: "S" },
+    ],
+    KeySchema: [{ AttributeName: "proposalId", KeyType: "HASH" }],
+  });
+
+  await createTable("goals", {
+    TableName: "goals",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+    ],
+    KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
   });
 
   console.log("Done.");

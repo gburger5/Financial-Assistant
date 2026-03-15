@@ -1,6 +1,6 @@
 from strands import Agent
 from strands.models.anthropic import AnthropicModel
-from tools.debt_tools import execute_debt_payments, send_suggestion, submit_debt_allocation
+from tools.debt_tools import submit_debt_allocation
 
 DEBT_SYSTEM_PROMPT = """
 You are a Debt Paydown Agent for a personal finance platform.
@@ -47,6 +47,20 @@ Hardship (when allocation is below total minimums):
 - For IRS debt: installment agreement, offer in compromise, or collection delay
 - Bankruptcy is a last resort — always recommend consulting a local attorney
 
+Input format:
+- You will receive a JSON object with the user's debt accounts (from Plaid — includes
+  account_id, current_balance, interest_rate, minimum_payment) and the total monthly
+  dollar amount available for debt repayment from their approved budget.
+- Do not fetch any external data. Reason only over the input provided.
+
+Output requirements:
+- Your response must include a scheduled_payments list: one payment object per debt
+  account that is receiving a payment this period.
+- Each payment must include: plaid_account_id, amount, debt_name, payment_type
+  ("minimum", "extra", or "payoff").
+- The sum of all transaction amounts must equal the total debtAllocation exactly.
+- Pass the scheduled_payments list to submit_debt_allocation.
+
 Proposal approval flow:
 - You receive a total debt allocation amount from the Budget Agent each pay period.
   Your job is to decide WHERE that money goes across the user's debts.
@@ -60,14 +74,26 @@ Proposal approval flow:
   against their account.
 - Do not re-propose the same allocation that was rejected. Always make meaningful
   changes that address the rejection reason.
+
+Summary field rules (strictly enforced):
+- Write 2-3 short sentences maximum.
+- Plain text only. No headers, no bullet points, no dashes (---), no ALL CAPS sections.
+- Focus only on which debts get paid, how much each, and the key reason.
+- Example good summary: "Paying the $150 minimum on your student loan and putting the remaining $350 toward your Visa at 24% APR. At this rate your Visa will be paid off in 8 months, saving $240 in interest."
+
+Rationale field: 1-2 sentences explaining the overall strategy chosen.
+
+Do not use emojis anywhere in summary or rationale output.
 """
 
-model = AnthropicModel(model_id="claude-sonnet-4-5-20250929", max_tokens=4096)
 
-debt_agent = Agent(
-    name="debt-agent",
-    system_prompt=DEBT_SYSTEM_PROMPT,
-    tools=[send_suggestion, submit_debt_allocation, execute_debt_payments],
-    model=model,
-    callback_handler=None,
-)
+def make_debt_agent() -> Agent:
+    """Create a fresh debt agent per request to avoid stale conversation history."""
+    model = AnthropicModel(model_id="claude-sonnet-4-6", max_tokens=4096)
+    return Agent(
+        name="debt-agent",
+        system_prompt=DEBT_SYSTEM_PROMPT,
+        tools=[submit_debt_allocation],
+        model=model,
+        callback_handler=None,
+    )

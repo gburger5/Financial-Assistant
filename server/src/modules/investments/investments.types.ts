@@ -156,3 +156,29 @@ export interface InvestmentSyncResult {
   holdingsUpserted: number;
   snapshotDate: string;
 }
+
+/** Allowed label values for high-yield savings accounts. */
+export type HysaLabel = 'emergency_fund' | 'other';
+
+/**
+ * @interface HighYieldSavingsAccount
+ * @description A high-yield savings account combining Plaid account data with
+ * user-assigned metadata. The label categorises the account's purpose (e.g.
+ * emergency fund), description is free-text from the user, and target is the
+ * dollar amount goal the user is saving toward.
+ *
+ * Account data (balances, name, mask) originates from the Plaid transactions
+ * product — these are depository/savings accounts, not investment accounts.
+ */
+export interface HighYieldSavingsAccount {
+  accountId: string;
+  name: string;
+  officialName: string | null;
+  mask: string | null;
+  currentBalance: number;
+  availableBalance: number | null;
+  isoCurrencyCode: string | null;
+  label: HysaLabel;
+  description: string;
+  target: number;
+}

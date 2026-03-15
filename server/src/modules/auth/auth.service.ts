@@ -32,6 +32,9 @@ export interface PublicUser {
   lastName: string;
   email: string;
   createdAt: string;
+  /** True once the user has accepted a budget agent proposal. Used by the
+   * frontend to skip the onboarding agent step on subsequent logins. */
+  agentBudgetApproved: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +85,7 @@ function toPublicUser(user: repo.UserRecord): PublicUser {
     lastName: user.lastName,
     email: user.email,
     createdAt: user.created_at,
+    agentBudgetApproved: (user.onboarding as Record<string, unknown>)?.agentBudgetApproved === true,
   };
 }
 

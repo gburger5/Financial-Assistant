@@ -1,26 +1,30 @@
+import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
 import boto3
-from dotenv import dotenv_values
 from strands import tool
 
-env = dotenv_values()
-dynamodb = boto3.resource("dynamodb", region_name=env.get("AWS_DEFAULT_REGION", "us-east-1"))
-proposals_table = dynamodb.Table(env.get("PROPOSALS_TABLE", "proposals"))
-debts_table = dynamodb.Table(env.get("DEBTS_TABLE", "debts"))
+logger = logging.getLogger(__name__)
 
 
-@tool
-def send_suggestion(user_id: str, message: str) -> dict:
-    """Send a suggestion or motivation message to the user.
+def floats_to_decimal(obj):
+    """Recursively convert all float values in a nested structure to Decimal."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: floats_to_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [floats_to_decimal(v) for v in obj]
+    return obj
 
-    Args:
-        user_id: The user's unique identifier
-        message: The suggestion message to send
-    """
-    return {"sent": True, "userId": user_id, "message": message}
+dynamodb_kwargs = {"region_name": os.environ.get("AWS_DEFAULT_REGION", "us-east-1")}
+if os.environ.get("DYNAMODB_ENDPOINT"):
+    dynamodb_kwargs["endpoint_url"] = os.environ["DYNAMODB_ENDPOINT"]
+dynamodb = boto3.resource("dynamodb", **dynamodb_kwargs)
+proposals_table = dynamodb.Table(os.environ.get("PROPOSALS_TABLE", "proposals"))
 
 
 @tool
@@ -30,6 +34,7 @@ def submit_debt_allocation(
     ordered_debts: list,
     total_allocation: float,
     rationale: str,
+    scheduled_payments: list,
 ) -> dict:
     """Submit a per-paycheck debt allocation proposal for user approval. Stores the proposal in DynamoDB with status pending.
 
@@ -39,7 +44,11 @@ def submit_debt_allocation(
         ordered_debts: Ordered list of dicts with debtId name balance interestRate minimumPayment and paymentAmount for each debt
         total_allocation: The total debt budget received from the Budget Agent
         rationale: Why you chose this specific split
+        scheduled_payments: List of debt payment objects — one per debt receiving a payment.
+            Each must have: plaid_account_id, amount, debt_name, payment_type ("minimum", "extra", or "payoff").
+            Sum of all amounts must equal total_allocation exactly.
     """
+    logger.info("submit_debt_allocation called for user %s total=%.2f", user_id, total_allocation)
     now = datetime.now(timezone.utc).isoformat()
     proposal_id = str(uuid.uuid4())
 
@@ -54,12 +63,18 @@ def submit_debt_allocation(
             "orderedDebts": ordered_debts,
             "totalAllocation": str(total_allocation),
         },
+        "scheduledPayments": scheduled_payments,
         "totalAllocation": str(total_allocation),
         "createdAt": now,
         "updatedAt": now,
     }
 
-    proposals_table.put_item(Item=item)
+    try:
+        proposals_table.put_item(Item=floats_to_decimal(item))
+        logger.info("Debt proposal %s written to DynamoDB for user %s", proposal_id, user_id)
+    except Exception as e:
+        logger.error("Failed to write debt proposal to DynamoDB: %s", e, exc_info=True)
+        raise
 
     return {
         "proposalId": proposal_id,
@@ -72,61 +87,3 @@ def submit_debt_allocation(
     }
 
 
-@tool
-def execute_debt_payments(
-    user_id: str,
-    proposal_id: str,
-    ordered_debts: list,
-    total_allocation: float,
-) -> dict:
-    """Execute an approved debt allocation. ONLY call this after the user has approved the proposal.
-
-    Deducts payment amount from each debt principal in the DynamoDB debts table,
-    records each payment transaction with timestamp, and marks the proposal as executed.
-    Raises ValueError if the proposal status is not approved.
-
-    Args:
-        user_id: The user's unique identifier
-        proposal_id: The proposal ID to execute
-        ordered_debts: Ordered list of dicts with debtId and paymentAmount for each debt
-        total_allocation: The total amount being paid across all debts
-    """
-    response = proposals_table.get_item(Key={"proposalId": proposal_id})
-    proposal = response.get("Item")
-
-    if not proposal:
-        raise ValueError(f"Proposal {proposal_id} not found")
-    if proposal["status"] != "approved":
-        raise ValueError(
-            f"Proposal {proposal_id} status is '{proposal['status']}', not 'approved'"
-        )
-
-    now = datetime.now(timezone.utc).isoformat()
-
-    for debt in ordered_debts:
-        payment = Decimal(str(debt["paymentAmount"]))
-        debts_table.update_item(
-            Key={"userId": user_id, "debtId": debt["debtId"]},
-            UpdateExpression="SET balance = balance - :payment, lastPaymentDate = :now, updatedAt = :now",
-            ExpressionAttributeValues={
-                ":payment": payment,
-                ":now": now,
-            },
-        )
-
-    proposals_table.update_item(
-        Key={"proposalId": proposal_id},
-        UpdateExpression="SET #s = :status, updatedAt = :now",
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={":status": "executed", ":now": now},
-    )
-
-    return {
-        "success": True,
-        "userId": user_id,
-        "proposalId": proposal_id,
-        "status": "executed",
-        "paymentsProcessed": len(ordered_debts),
-        "totalPaid": round(total_allocation, 2),
-        "executedAt": now,
-    }

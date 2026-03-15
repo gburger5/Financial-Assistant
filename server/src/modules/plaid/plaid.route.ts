@@ -30,6 +30,7 @@ import {
   createLinkToken,
   exchangePublicToken,
   getSyncStatus,
+  manualSync,
   handleWebhook,
 } from './plaid.controller.js';
 import type { ExchangePublicTokenBody } from './plaid.types.js';
@@ -113,6 +114,28 @@ async function plaidRoutes(fastify: FastifyInstance): Promise<void> {
       },
     },
   }, getSyncStatus);
+
+  /**
+   * POST /sync
+   * Manually triggers a transaction sync for all active items belonging to the
+   * authenticated user. Intended for local development (no webhooks) and for
+   * users who want to force a refresh after approving a proposal.
+   */
+  fastify.post('/sync', {
+    preHandler: [verifyJWT],
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            added: { type: 'integer' },
+            modified: { type: 'integer' },
+            removed: { type: 'integer' },
+          },
+        },
+      },
+    },
+  }, manualSync);
 
   /**
    * POST /webhook sub-plugin

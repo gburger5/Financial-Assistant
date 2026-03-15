@@ -21,7 +21,7 @@
 import type { FastifyInstance } from 'fastify';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 import { getBudget, initializeBudget, patchBudget, getHistory } from './budget.controller.js';
-import type { BudgetUpdateInput } from './budget.types.js';
+import { BUDGET_GOALS, type BudgetUpdateInput } from './budget.types.js';
 
 /** JSON Schema for a single BudgetAmount object. */
 const budgetAmountSchema = {
@@ -31,6 +31,12 @@ const budgetAmountSchema = {
   },
   required: ['amount'],
   additionalProperties: false,
+} as const;
+
+/** JSON Schema for the goals array — each item must be one of the allowed goal strings. */
+const goalsSchema = {
+  type: 'array',
+  items: { type: 'string', enum: BUDGET_GOALS },
 } as const;
 
 /** JSON Schema for a full Budget in response bodies. */
@@ -50,6 +56,7 @@ const budgetResponseSchema = {
     personalCare: budgetAmountSchema,
     debts: budgetAmountSchema,
     investments: budgetAmountSchema,
+    goals: goalsSchema,
   },
 } as const;
 
@@ -116,6 +123,7 @@ async function budgetRoutes(
           personalCare: budgetAmountSchema,
           debts: budgetAmountSchema,
           investments: budgetAmountSchema,
+          goals: goalsSchema,
         },
         additionalProperties: false,
       },

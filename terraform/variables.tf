@@ -78,6 +78,12 @@ variable "auth_tokens_table" {
   default     = "auth_tokens"
 }
 
+variable "budgets_table" {
+  description = "DynamoDB table name for user budgets"
+  type        = string
+  default     = "Budgets"
+}
+
 # Frontend
 variable "frontend_bucket_name" {
   description = "S3 bucket name for the React frontend (must be globally unique)"
@@ -108,6 +114,12 @@ variable "frontend_url_ssm_path" {
   description = "SSM Parameter Store path for the frontend URL"
   type        = string
   default     = "/myapp/frontend-url"
+}
+
+variable "encryption_key_ssm_path" {
+  description = "SSM Parameter Store path for the AES encryption key"
+  type        = string
+  default     = "/myapp/encryption-key"
 }
 
 # Optional HTTPS / custom domain (leave empty to deploy HTTP only)

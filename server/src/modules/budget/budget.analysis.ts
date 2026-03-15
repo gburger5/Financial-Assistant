@@ -124,6 +124,7 @@ export function generateBudgetFromHistory({
     personalCare:   { amount: 0 },
     debts:          { amount: 0 },
     investments:    { amount: 0 },
+    goals:          [],
   };
 
   // Single pass: accumulate totals by budget field path

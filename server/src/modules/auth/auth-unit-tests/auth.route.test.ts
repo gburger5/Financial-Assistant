@@ -24,6 +24,7 @@ import * as authService from '../auth.service.js';
 
 const mockRegisterUser = vi.mocked(authService.registerUser);
 const mockLoginUser = vi.mocked(authService.loginUser);
+const mockGetUserById = vi.mocked(authService.getUserById);
 
 const TEST_SECRET = 'route-integration-test-secret';
 
@@ -134,6 +135,7 @@ describe('POST /api/auth/register', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     });
     app = await buildTestApp();
 
@@ -201,6 +203,7 @@ describe('POST /api/auth/register', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     });
     app = await buildTestApp();
 
@@ -336,7 +339,8 @@ describe('POST /api/auth/login', () => {
       user: {
         userId: 'user-uuid', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z',
         firstName: '',
-        lastName: ''
+        lastName: '',
+        agentBudgetApproved: false,
       },
       token: 'jwt-token-here',
     });
@@ -415,6 +419,14 @@ describe('GET /api/auth/verify', () => {
   });
 
   it('returns 200 with userId and email from a valid JWT', async () => {
+    mockGetUserById.mockResolvedValueOnce({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    });
     app = await buildTestApp();
     const token = jwt.sign(
       { userId: 'user-uuid', email: 'alice@example.com' },

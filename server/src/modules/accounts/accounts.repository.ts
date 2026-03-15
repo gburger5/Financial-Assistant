@@ -137,3 +137,33 @@ export async function getAccountByPlaidAccountId(
   if (!result.Items || result.Items.length === 0) return null;
   return result.Items[0] as Account;
 }
+
+/**
+ * Atomically adjusts an account's currentBalance by a delta amount.
+ * Positive delta = balance increases (deposit/contribution).
+ * Negative delta = balance decreases (payment out).
+ *
+ * Uses ADD so concurrent adjustments are safe — no read-modify-write race.
+ *
+ * @param {string} userId - UUID of the user who owns the account.
+ * @param {string} plaidAccountId - Plaid account ID to adjust.
+ * @param {number} delta - Amount to add (positive) or subtract (negative).
+ * @returns {Promise<void>}
+ */
+export async function adjustBalance(
+  userId: string,
+  plaidAccountId: string,
+  delta: number,
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Accounts,
+      Key: { userId, plaidAccountId },
+      UpdateExpression: 'ADD currentBalance :delta SET updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':delta': delta,
+        ':now': new Date().toISOString(),
+      },
+    }),
+  );
+}

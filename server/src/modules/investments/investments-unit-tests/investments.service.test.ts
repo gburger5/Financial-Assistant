@@ -35,6 +35,10 @@ vi.mock('../../items/items.service.js', () => ({
   getItemForSync: vi.fn(),
 }));
 
+vi.mock('../../accounts/accounts.service.js', () => ({
+  syncAccounts: vi.fn(),
+}));
+
 // vi.hoisted() makes mock functions available inside the vi.mock factory.
 const { mockInvestmentsTransactionsGet, mockInvestmentsHoldingsGet } = vi.hoisted(() => ({
   mockInvestmentsTransactionsGet: vi.fn(),
@@ -201,6 +205,7 @@ function makeHoldingsResponse(holdings: PlaidHolding[], securities: PlaidSecurit
     data: {
       holdings,
       securities,
+      accounts: [],
     },
   };
 }
@@ -683,7 +688,7 @@ describe('syncTransactions', () => {
 describe('syncHoldings', () => {
   it('calls investmentsHoldingsGet with the provided accessToken', async () => {
     mockInvestmentsHoldingsGet.mockResolvedValue(makeHoldingsResponse([], []));
-    await syncHoldings('user-123', 'access-sandbox-token');
+    await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     const arg = mockInvestmentsHoldingsGet.mock.calls[0][0];
     expect(arg.access_token).toBe('access-sandbox-token');
   });
@@ -693,7 +698,7 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding], [samplePlaidSecurity]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    await syncHoldings('user-123', 'access-sandbox-token');
+    await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     expect(mockInvestmentsHoldingsGet).toHaveBeenCalledTimes(1);
   });
 
@@ -703,13 +708,13 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding, holding2], [samplePlaidSecurity]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    await syncHoldings('user-123', 'access-sandbox-token');
+    await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     expect(mockUpsertHolding).toHaveBeenCalledTimes(2);
   });
 
   it('returns { count: 0, snapshotDate } immediately when holdings is empty — no upserts issued', async () => {
     mockInvestmentsHoldingsGet.mockResolvedValue(makeHoldingsResponse([], []));
-    const result = await syncHoldings('user-123', 'access-sandbox-token');
+    const result = await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     expect(result.count).toBe(0);
     expect(mockUpsertHolding).not.toHaveBeenCalled();
   });
@@ -719,7 +724,7 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding], [samplePlaidSecurity]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    const result = await syncHoldings('user-123', 'access-sandbox-token');
+    const result = await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     expect(result.count).toBe(1);
   });
 
@@ -728,7 +733,7 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding], [samplePlaidSecurity]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    const result = await syncHoldings('user-123', 'access-sandbox-token');
+    const result = await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     expect(result.snapshotDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
@@ -738,7 +743,7 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding, holding2], [samplePlaidSecurity]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    await syncHoldings('user-123', 'access-sandbox-token');
+    await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     // Both upserted holdings must share the same snapshotDate embedded in their SK
     const call1 = mockUpsertHolding.mock.calls[0][0];
     const call2 = mockUpsertHolding.mock.calls[1][0];
@@ -752,7 +757,7 @@ describe('syncHoldings', () => {
       makeHoldingsResponse([samplePlaidHolding, holding2], [samplePlaidSecurity, security2]),
     );
     mockUpsertHolding.mockResolvedValue(undefined);
-    await syncHoldings('user-123', 'access-sandbox-token');
+    await syncHoldings('user-123', 'item-xyz', 'access-sandbox-token');
     // Each holding should have been matched to its correct security
     const calls = mockUpsertHolding.mock.calls.map((c) => c[0] as Holding);
     const appleHolding = calls.find((h) => h.securityId === 'sec-123');

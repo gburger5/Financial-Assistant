@@ -46,6 +46,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
         aws_dynamodb_table.users.arn,
         "${aws_dynamodb_table.users.arn}/index/email-index",
         aws_dynamodb_table.auth_tokens.arn,
+        aws_dynamodb_table.budgets.arn,
+        aws_dynamodb_table.proposals.arn,
       ]
     }]
   })
@@ -63,6 +65,7 @@ resource "aws_iam_role_policy" "lambda_ssm" {
       Resource = [
         "arn:aws:ssm:${var.aws_region}:*:parameter${var.jwt_secret_ssm_path}",
         "arn:aws:ssm:${var.aws_region}:*:parameter${var.frontend_url_ssm_path}",
+        "arn:aws:ssm:${var.aws_region}:*:parameter${var.encryption_key_ssm_path}",
       ]
     }]
   })
@@ -78,6 +81,11 @@ data "aws_ssm_parameter" "frontend_url" {
   name = var.frontend_url_ssm_path
 }
 
+data "aws_ssm_parameter" "encryption_key" {
+  name            = var.encryption_key_ssm_path
+  with_decryption = true
+}
+
 # ── Lambda function ────────────────────────────────────────────────────────────
 resource "aws_lambda_function" "api" {
   function_name    = var.lambda_function_name
@@ -90,9 +98,11 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      NODE_ENV     = "production"
-      JWT_SECRET   = data.aws_ssm_parameter.jwt_secret.value
-      FRONTEND_URL = data.aws_ssm_parameter.frontend_url.value
+      NODE_ENV          = "production"
+      JWT_SECRET        = data.aws_ssm_parameter.jwt_secret.value
+      FRONTEND_URL      = data.aws_ssm_parameter.frontend_url.value
+      ENCRYPTION_KEY    = data.aws_ssm_parameter.encryption_key.value
+      AGENT_SERVICE_URL = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.agents.dns_name}"
     }
   }
 

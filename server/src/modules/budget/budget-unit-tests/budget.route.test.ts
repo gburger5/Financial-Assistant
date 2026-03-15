@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
 import { NotFoundError } from '../../../lib/errors.js';
+import type { BudgetGoal } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -80,6 +81,7 @@ const sampleBudget = {
   personalCare: { amount: 100 },
   debts: { amount: 500 },
   investments: { amount: 300 },
+  goals: [],
 };
 
 beforeEach(() => {
@@ -354,6 +356,79 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 0 } },
+      headers: { authorization: `Bearer ${signToken()}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('accepts valid goals in the request body', async () => {
+    const updated = { ...sampleBudget, goals: ['pay down debt', 'save for goals'] as BudgetGoal[] };
+    mockUpdateBudget.mockResolvedValue(updated);
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/budget',
+      payload: { goals: ['pay down debt', 'save for goals'] },
+      headers: { authorization: `Bearer ${signToken()}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().goals).toEqual(['pay down debt', 'save for goals']);
+  });
+
+  it('returns 400 when goals contains an invalid string', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/budget',
+      payload: { goals: ['invalid goal'] },
+      headers: { authorization: `Bearer ${signToken()}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when goals contains a non-string value', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/budget',
+      payload: { goals: [123] },
+      headers: { authorization: `Bearer ${signToken()}` },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('passes goals to the service alongside category fields', async () => {
+    mockUpdateBudget.mockResolvedValue(sampleBudget);
+    app = await buildTestApp();
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/budget',
+      payload: { goals: ['build up emergency fund'], groceries: { amount: 500 } },
+      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+    });
+
+    expect(mockUpdateBudget).toHaveBeenCalledWith(TEST_USER_ID, {
+      goals: ['build up emergency fund'],
+      groceries: { amount: 500 },
+    });
+  });
+
+  it('accepts an empty goals array', async () => {
+    mockUpdateBudget.mockResolvedValue({ ...sampleBudget, goals: [] });
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/budget',
+      payload: { goals: [] },
       headers: { authorization: `Bearer ${signToken()}` },
     });
 
