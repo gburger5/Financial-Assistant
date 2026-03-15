@@ -11,7 +11,7 @@
  * This preserves full budget history; the latest budget is always the item
  * with the lexicographically largest budgetId.
  */
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables } from '../../db/tables.js';
 import type { Budget } from './budget.types.js';
@@ -75,4 +75,37 @@ export async function getBudgetHistory(userId: string): Promise<Budget[]> {
   );
 
   return (result.Items ?? []) as Budget[];
+}
+
+/**
+ * Deletes all budget records for a user.
+ * Queries the base table by userId (HASH key) to enumerate all budgetIds,
+ * then batch-deletes each record. Called during account deletion to ensure
+ * no financial data is orphaned.
+ *
+ * @param {string} userId - UUID of the user whose budgets to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllBudgetsForUser(userId: string): Promise<void> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Budgets,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: { ':userId': userId },
+      // Project only the keys needed for DeleteCommand — avoids deserializing large items.
+      ProjectionExpression: 'userId, budgetId',
+    }),
+  );
+
+  const items = result.Items ?? [];
+  await Promise.all(
+    items.map((item) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.Budgets,
+          Key: { userId: item.userId, budgetId: item.budgetId },
+        }),
+      ),
+    ),
+  );
 }

@@ -21,7 +21,10 @@
 import jwt from 'jsonwebtoken';
 import type { FastifyRequest } from 'fastify';
 import { UnauthorizedError } from '../lib/errors.js';
-import { isAccessTokenRevoked } from '../modules/auth/auth-tokens.repository.js';
+import {
+  isAccessTokenRevoked,
+  isSessionsInvalidatedForUser,
+} from '../modules/auth/auth-tokens.repository.js';
 
 /** Shape of the payload stored inside every JWT issued by this service. */
 interface JWTPayload {
@@ -87,9 +90,13 @@ export async function verifyJWT(
   if (!decoded.jti) {
     throw new UnauthorizedError('Invalid token');
   }
-  // Check revocation list (logout blocklist).
-  const revoked = await isAccessTokenRevoked(decoded.jti);
-  if (revoked) {
+  // Check revocation list (logout blocklist) and per-user session invalidation
+  // (password reset) in parallel to keep the overhead to one extra round-trip.
+  const [revoked, sessionInvalidated] = await Promise.all([
+    isAccessTokenRevoked(decoded.jti),
+    isSessionsInvalidatedForUser(decoded.userId, decoded.iat ?? 0),
+  ]);
+  if (revoked || sessionInvalidated) {
     throw new UnauthorizedError('Token has been revoked');
   }
   request.user = decoded;

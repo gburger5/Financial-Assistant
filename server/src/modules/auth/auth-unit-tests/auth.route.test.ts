@@ -28,6 +28,7 @@ vi.mock('../auth.service.js', () => ({
 // verifyJWT calls isAccessTokenRevoked — mock so tokens aren't checked against DB
 vi.mock('../auth-tokens.repository.js', () => ({
   isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  isSessionsInvalidatedForUser: vi.fn().mockResolvedValue(false),
 }));
 
 import authRoutes from '../auth.route.js';

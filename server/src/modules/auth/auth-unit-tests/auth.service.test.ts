@@ -19,6 +19,10 @@ vi.mock('../auth.repository.js', () => ({
   updatePassword: vi.fn(),
   updatePendingEmail: vi.fn(),
   applyPendingEmail: vi.fn(),
+  deleteUser: vi.fn().mockResolvedValue(undefined),
+  findUserByPasswordResetToken: vi.fn(),
+  updatePasswordAndClearResetToken: vi.fn().mockResolvedValue(undefined),
+  updatePasswordResetToken: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('argon2', () => ({
@@ -42,9 +46,34 @@ vi.mock('../auth-tokens.repository.js', () => ({
   deleteRefreshToken: vi.fn().mockResolvedValue(undefined),
   deleteAllRefreshTokensForUser: vi.fn().mockResolvedValue(undefined),
   revokeAccessToken: vi.fn().mockResolvedValue(undefined),
+  revokeAllAccessTokensForUser: vi.fn().mockResolvedValue(undefined),
   isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
   findRefreshToken: vi.fn(),
   findRefreshTokensByUserId: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../budget/budget.repository.js', () => ({
+  deleteAllBudgetsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../items/items.repository.js', () => ({
+  deleteAllItemsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../accounts/accounts.repository.js', () => ({
+  deleteAllAccountsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../transactions/transactions.repository.js', () => ({
+  deleteAllTransactionsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../liabilities/liabilities.repository.js', () => ({
+  deleteAllLiabilitiesForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../investments/investments.repository.js', () => ({
+  deleteAllInvestmentDataForUser: vi.fn().mockResolvedValue(undefined),
 }));
 
 import {
@@ -57,10 +86,20 @@ import {
   updateName,
   updatePassword,
   initiateEmailChange,
+  deleteAccount,
+  resetPassword,
+  refreshAccessToken,
   MAX_LOGIN_ATTEMPTS,
   LOCKOUT_DURATION_MINUTES,
 } from '../auth.service.js';
 import * as repo from '../auth.repository.js';
+import * as authTokensRepo from '../auth-tokens.repository.js';
+import * as budgetRepo from '../../budget/budget.repository.js';
+import * as itemsRepo from '../../items/items.repository.js';
+import * as accountsRepo from '../../accounts/accounts.repository.js';
+import * as transactionsRepo from '../../transactions/transactions.repository.js';
+import * as liabilitiesRepo from '../../liabilities/liabilities.repository.js';
+import * as investmentsRepo from '../../investments/investments.repository.js';
 import { hash, verify } from 'argon2';
 import { sendVerificationEmail } from '../../../lib/email.js';
 import {
@@ -723,4 +762,181 @@ it('sends the raw token to email but stores only its hash in the database', asyn
   const { createHash } = await import('crypto');
   const expectedHash = createHash('sha256').update(rawToken).digest('hex');
   expect(storedHash).toBe(expectedHash);
+});
+
+// ---------------------------------------------------------------------------
+// deleteAccount
+// ---------------------------------------------------------------------------
+
+describe('deleteAccount', () => {
+  const mockDeleteUser = vi.mocked(repo.deleteUser);
+  const mockRevokeAccessToken = vi.mocked(authTokensRepo.revokeAccessToken);
+  const mockDeleteAllRefreshTokens = vi.mocked(authTokensRepo.deleteAllRefreshTokensForUser);
+  const mockDeleteTransactions = vi.mocked(transactionsRepo.deleteAllTransactionsForUser);
+  const mockDeleteLiabilities = vi.mocked(liabilitiesRepo.deleteAllLiabilitiesForUser);
+  const mockDeleteInvestments = vi.mocked(investmentsRepo.deleteAllInvestmentDataForUser);
+  const mockDeleteAccounts = vi.mocked(accountsRepo.deleteAllAccountsForUser);
+  const mockDeleteItems = vi.mocked(itemsRepo.deleteAllItemsForUser);
+  const mockDeleteBudgets = vi.mocked(budgetRepo.deleteAllBudgetsForUser);
+
+  it('throws NotFoundError when the user does not exist', async () => {
+    mockFindById.mockResolvedValue(null);
+
+    await expect(deleteAccount('nonexistent', 'Pass1!', 'jti-x', 9999)).rejects.toThrow(NotFoundError);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('throws UnauthorizedError when the current password is incorrect', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(false as never);
+
+    await expect(deleteAccount('user-uuid', 'WrongPass1!', 'jti-x', 9999)).rejects.toThrow(UnauthorizedError);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('revokes the current access token before deletion', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockRevokeAccessToken).toHaveBeenCalledWith('jti-x', 'user-uuid', 9999);
+  });
+
+  it('deletes all refresh tokens before deletion', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockDeleteAllRefreshTokens).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('cascade-deletes all financial data before removing the user record', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockDeleteTransactions).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteLiabilities).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteInvestments).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteAccounts).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteItems).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteBudgets).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('deletes the user record last', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    const callOrder: string[] = [];
+    mockDeleteTransactions.mockImplementation(async () => { callOrder.push('transactions'); });
+    mockDeleteUser.mockImplementation(async () => { callOrder.push('user'); });
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(callOrder.indexOf('user')).toBeGreaterThan(callOrder.indexOf('transactions'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resetPassword
+// ---------------------------------------------------------------------------
+
+describe('resetPassword', () => {
+  const mockFindByResetToken = vi.mocked(repo.findUserByPasswordResetToken);
+  const mockUpdatePasswordAndClear = vi.mocked(repo.updatePasswordAndClearResetToken);
+  const mockDeleteAllRefreshTokens = vi.mocked(authTokensRepo.deleteAllRefreshTokensForUser);
+  const mockRevokeAllAccessTokens = vi.mocked(authTokensRepo.revokeAllAccessTokensForUser);
+
+  const resetRecord: repo.UserRecord = {
+    ...sampleRecord,
+    passwordResetToken: 'hashed-token',
+    passwordResetTokenExpires: Math.floor(Date.now() / 1000) + 3600,
+  };
+
+  it('throws BadRequestError when the token matches no user', async () => {
+    mockFindByResetToken.mockResolvedValue(null);
+
+    await expect(resetPassword('bad-token', 'NewPass1!')).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when the reset token is expired', async () => {
+    mockFindByResetToken.mockResolvedValue({
+      ...resetRecord,
+      passwordResetTokenExpires: Math.floor(Date.now() / 1000) - 60,
+    });
+
+    await expect(resetPassword('expired-token', 'NewPass1!')).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when the new password fails complexity', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+
+    await expect(resetPassword('good-token', 'weak')).rejects.toThrow(BadRequestError);
+    expect(mockUpdatePasswordAndClear).not.toHaveBeenCalled();
+  });
+
+  it('persists the new password hash and clears the reset token', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockUpdatePasswordAndClear).toHaveBeenCalledWith('user-uuid', '$argon2id$newhash');
+  });
+
+  it('invalidates all refresh tokens on success', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockDeleteAllRefreshTokens).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('revokes all access tokens on success to close the 15-min window', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockRevokeAllAccessTokens).toHaveBeenCalledWith('user-uuid');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshAccessToken — rotation order
+// ---------------------------------------------------------------------------
+
+describe('refreshAccessToken — token rotation order', () => {
+  const mockDeleteRefreshToken = vi.mocked(authTokensRepo.deleteRefreshToken);
+  const mockCreateRefreshToken = vi.mocked(authTokensRepo.createRefreshToken);
+  const mockFindRefreshToken = vi.mocked(authTokensRepo.findRefreshToken);
+
+  it('issues new tokens before deleting the old one to prevent retry failures', async () => {
+    // Build a valid refresh token record
+    const { createHash } = await import('crypto');
+    const rawSecret = 'deadbeef'.repeat(8); // 64 hex chars
+    const tokenHash = createHash('sha256').update(rawSecret).digest('hex');
+    const tokenId = 'token-uuid-1';
+
+    mockFindRefreshToken.mockResolvedValue({
+      tokenId: `refresh#${tokenId}`,
+      userId: 'user-uuid',
+      tokenHash,
+      expiresAt: Math.floor(Date.now() / 1000) + 1800,
+      createdAt: new Date().toISOString(),
+    });
+    mockFindById.mockResolvedValue(sampleRecord);
+
+    const callOrder: string[] = [];
+    mockCreateRefreshToken.mockImplementation(async () => { callOrder.push('create'); });
+    mockDeleteRefreshToken.mockImplementation(async () => { callOrder.push('delete'); });
+
+    await refreshAccessToken(`${tokenId}.${rawSecret}`);
+
+    // create must happen before delete
+    expect(callOrder.indexOf('create')).toBeLessThan(callOrder.indexOf('delete'));
+  });
 });

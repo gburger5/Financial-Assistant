@@ -15,7 +15,7 @@
  * accept only itemId and must resolve userId via the GSI before issuing
  * an UpdateCommand against the full composite key.
  */
-import { QueryCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, QueryCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables, Indexes } from '../../db/tables.js';
 import type { PlaidItem, CreatePlaidItemInput } from './items.types.js';
@@ -228,5 +228,29 @@ export async function markItemActive(itemId: string): Promise<void> {
         ':updatedAt': new Date().toISOString(),
       },
     }),
+  );
+}
+
+/**
+ * Deletes all PlaidItems for a user.
+ * Queries the base table by userId (HASH key) to enumerate all itemIds,
+ * then batch-deletes each record. Called during account deletion to ensure
+ * bank connection records are not orphaned.
+ *
+ * @param {string} userId - UUID of the user whose Plaid items to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllItemsForUser(userId: string): Promise<void> {
+  const items = await getItemsByUserId(userId);
+
+  await Promise.all(
+    items.map((item) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.PlaidItems,
+          Key: { userId: item.userId, itemId: item.itemId },
+        }),
+      ),
+    ),
   );
 }

@@ -27,7 +27,7 @@ export async function sendVerificationEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
   await client.transactionalEmails.sendTransacEmail({
     to: [{ email }],
@@ -106,7 +106,7 @@ export async function sendPasswordResetEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}`;
 
   await client.transactionalEmails.sendTransacEmail({
     to: [{ email }],

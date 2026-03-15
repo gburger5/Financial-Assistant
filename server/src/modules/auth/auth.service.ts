@@ -16,6 +16,12 @@ import {
   sendAccountDeletedEmail,
 } from '../../lib/email.js';
 import * as authTokensRepo from './auth-tokens.repository.js';
+import { deleteAllBudgetsForUser } from '../budget/budget.repository.js';
+import { deleteAllItemsForUser } from '../items/items.repository.js';
+import { deleteAllAccountsForUser } from '../accounts/accounts.repository.js';
+import { deleteAllTransactionsForUser } from '../transactions/transactions.repository.js';
+import { deleteAllLiabilitiesForUser } from '../liabilities/liabilities.repository.js';
+import { deleteAllInvestmentDataForUser } from '../investments/investments.repository.js';
 import {
   BadRequestError,
   ConflictError,
@@ -597,11 +603,12 @@ export async function refreshAccessToken(
     throw new UnauthorizedError('Invalid refresh token');
   }
 
-  // Rotate: delete the consumed token then issue a fresh pair.
-  await authTokensRepo.deleteRefreshToken(tokenId);
-
+  // Rotate: issue the fresh pair first, then delete the consumed token.
+  // Issuing before deleting means a client retry during a transient failure
+  // won't be left without a valid token pair.
   const accessToken = issueAccessToken(user.id, user.email);
   const newRefreshToken = await issueRefreshToken(user.id);
+  await authTokensRepo.deleteRefreshToken(tokenId);
 
   return { accessToken, refreshToken: newRefreshToken };
 }
@@ -701,8 +708,11 @@ export async function resetPassword(
   // Persist new hash and atomically clear the reset token to prevent reuse.
   await repo.updatePasswordAndClearResetToken(user.id, newHash);
 
-  // Invalidate all active sessions
-  await authTokensRepo.deleteAllRefreshTokensForUser(user.id);
+  // Invalidate all active sessions — refresh tokens and any in-flight access tokens.
+  await Promise.all([
+    authTokensRepo.deleteAllRefreshTokensForUser(user.id),
+    authTokensRepo.revokeAllAccessTokensForUser(user.id),
+  ]);
 
   // Notify the account owner so they can detect unauthorized resets.
   await sendPasswordChangedEmail(user.email);
@@ -740,6 +750,14 @@ export async function deleteAccount(
 
   // Purge all refresh tokens so every other session is also terminated.
   await authTokensRepo.deleteAllRefreshTokensForUser(userId);
+
+  // Delete all user financial data before removing the user record.
+  await deleteAllTransactionsForUser(userId);
+  await deleteAllLiabilitiesForUser(userId);
+  await deleteAllInvestmentDataForUser(userId);
+  await deleteAllAccountsForUser(userId);
+  await deleteAllItemsForUser(userId);
+  await deleteAllBudgetsForUser(userId);
 
   // Notify the user before the record is deleted
   await sendAccountDeletedEmail(user.email);

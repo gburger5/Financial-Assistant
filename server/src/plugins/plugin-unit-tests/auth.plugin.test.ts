@@ -15,12 +15,14 @@ import errorHandlerPlugin from '../errorHandler.plugin.js';
 // Mock the revocation-list repository before importing the plugin
 // ---------------------------------------------------------------------------
 
-const { mockIsRevoked } = vi.hoisted(() => ({
+const { mockIsRevoked, mockIsSessionsInvalidated } = vi.hoisted(() => ({
   mockIsRevoked: vi.fn(),
+  mockIsSessionsInvalidated: vi.fn(),
 }));
 
 vi.mock('../../modules/auth/auth-tokens.repository.js', () => ({
   isAccessTokenRevoked: mockIsRevoked,
+  isSessionsInvalidatedForUser: mockIsSessionsInvalidated,
 }));
 
 import { verifyJWT } from '../auth.plugin.js';
@@ -44,8 +46,9 @@ async function buildTestApp(): Promise<FastifyInstance> {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = TEST_SECRET;
-  // Default: token is not in the revocation list
+  // Default: token is not in the revocation list and sessions are not invalidated
   mockIsRevoked.mockResolvedValue(false);
+  mockIsSessionsInvalidated.mockResolvedValue(false);
 });
 
 let app: FastifyInstance;
@@ -375,5 +378,84 @@ describe('verifyJWT — valid token', () => {
     // isAccessTokenRevoked IS called — just returns false
     expect(mockIsRevoked).toHaveBeenCalledWith('jti-valid');
     expect(mockIsRevoked).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session invalidation (password reset revocation)
+// ---------------------------------------------------------------------------
+
+describe('verifyJWT — session invalidation', () => {
+  it('returns 401 with "Token has been revoked" when the user sessions were invalidated after the token was issued', async () => {
+    mockIsSessionsInvalidated.mockResolvedValue(true);
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-reset', email: 'bob@example.com', jti: 'jti-stale' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/protected',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().message).toBe('Token has been revoked');
+  });
+
+  it('calls isSessionsInvalidatedForUser with the correct userId and iat', async () => {
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-check', email: 'carol@example.com', jti: 'jti-check' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    await app.inject({
+      method: 'GET',
+      url: '/protected',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(mockIsSessionsInvalidated).toHaveBeenCalledWith('u-check', expect.any(Number));
+  });
+
+  it('checks both JTI revocation and session invalidation in parallel on every request', async () => {
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-parallel', email: 'd@e.com', jti: 'jti-parallel' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    await app.inject({
+      method: 'GET',
+      url: '/protected',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(mockIsRevoked).toHaveBeenCalledTimes(1);
+    expect(mockIsSessionsInvalidated).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows the request when neither JTI revocation nor session invalidation triggers', async () => {
+    mockIsRevoked.mockResolvedValue(false);
+    mockIsSessionsInvalidated.mockResolvedValue(false);
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-ok', email: 'e@f.com', jti: 'jti-ok' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/protected',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
   });
 });

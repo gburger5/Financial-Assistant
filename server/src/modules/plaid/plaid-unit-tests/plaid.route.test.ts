@@ -29,6 +29,7 @@ vi.mock('../plaid.webhook.js', () => ({
 // We mock it here so tests don't need a real DynamoDB connection.
 vi.mock('../../../modules/auth/auth-tokens.repository.js', () => ({
   isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  isSessionsInvalidatedForUser: vi.fn().mockResolvedValue(false),
 }));
 
 // ---------------------------------------------------------------------------

@@ -28,6 +28,7 @@ import {
   deleteByPlaidTransactionId,
   getTransactionsSince,
   getTransactionsInRange,
+  deleteAllTransactionsForUser,
 } from '../transactions.repository.js';
 import type { Transaction } from '../transactions.types.js';
 
@@ -336,5 +337,52 @@ describe('getTransactionsInRange', () => {
     await getTransactionsInRange('user-123', '2025-01-01', '2025-01-31');
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.KeyConditionExpression).toMatch(/BETWEEN/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteAllTransactionsForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllTransactionsForUser', () => {
+  it('does nothing when the user has no transactions', async () => {
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllTransactionsForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues one DeleteCommand per transaction', async () => {
+    const second = { userId: 'user-123', sortKey: '2025-02-01#txn-def' };
+    mockSend
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', sortKey: '2025-01-15#txn-abc' }, second] })
+      .mockResolvedValue({});
+
+    await deleteAllTransactionsForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes from the Transactions table', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', sortKey: '2025-01-15#txn-abc' }] })
+      .mockResolvedValue({});
+
+    await deleteAllTransactionsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.TableName).toBe('Transactions');
+  });
+
+  it('uses the composite key { userId, sortKey } for deletion', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', sortKey: '2025-01-15#txn-abc' }] })
+      .mockResolvedValue({});
+
+    await deleteAllTransactionsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.Key).toEqual({ userId: 'user-123', sortKey: '2025-01-15#txn-abc' });
   });
 });

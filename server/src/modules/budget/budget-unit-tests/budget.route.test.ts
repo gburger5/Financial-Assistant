@@ -25,6 +25,7 @@ vi.mock('../budget.service.js', () => ({
 // Mock revocation check so verifyJWT doesn't hit DynamoDB
 vi.mock('../../../modules/auth/auth-tokens.repository.js', () => ({
   isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  isSessionsInvalidatedForUser: vi.fn().mockResolvedValue(false),
 }));
 
 // ---------------------------------------------------------------------------

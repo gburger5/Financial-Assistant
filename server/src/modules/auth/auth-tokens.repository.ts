@@ -231,3 +231,65 @@ export async function deleteAllRefreshTokensForUser(userId: string): Promise<voi
     )
   );
 }
+
+/**
+ * Records a per-user "all sessions invalidated at" marker in the AuthTokens
+ * table. Any access token whose `iat` is at or before the recorded timestamp
+ * will be rejected by the auth plugin.
+ *
+ * Stored under the key "invalidate#<userId>" with a 15-minute TTL — the
+ * maximum remaining lifetime of any access token issued before this call.
+ * After 15 minutes every such token has naturally expired, so the marker
+ * can be safely purged by DynamoDB TTL.
+ *
+ * Called by the password-reset flow to close the window where a stolen
+ * access token could still be used after the password is changed.
+ *
+ * @param {string} userId - The user whose access tokens should be invalidated.
+ * @returns {Promise<void>}
+ */
+export async function revokeAllAccessTokensForUser(userId: string): Promise<void> {
+  // Access tokens live 15 minutes; store the marker for that long.
+  const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+  const now = Math.floor(Date.now() / 1000);
+
+  await db.send(
+    new PutCommand({
+      TableName: Tables.AuthTokens,
+      Item: {
+        tokenId: `invalidate#${userId}`,
+        userId,
+        invalidatedAt: now,
+        expiresAt: now + ACCESS_TOKEN_TTL_SECONDS,
+      },
+    })
+  );
+}
+
+/**
+ * Checks whether all access tokens for a user were invalidated after the
+ * given token was issued. Used by the auth plugin alongside the per-token
+ * JTI revocation check.
+ *
+ * Returns true when a marker exists AND the marker's `invalidatedAt` timestamp
+ * is greater than `tokenIat`, meaning the token was issued before the
+ * invalidation event (password reset, etc.) and must be rejected.
+ *
+ * @param {string} userId - The user whose invalidation marker to check.
+ * @param {number} tokenIat - The `iat` claim (Unix seconds) from the access token.
+ * @returns {Promise<boolean>} True when the token predates the invalidation marker.
+ */
+export async function isSessionsInvalidatedForUser(
+  userId: string,
+  tokenIat: number
+): Promise<boolean> {
+  const result = await db.send(
+    new GetCommand({
+      TableName: Tables.AuthTokens,
+      Key: { tokenId: `invalidate#${userId}` },
+    })
+  );
+
+  if (!result.Item) return false;
+  return (result.Item.invalidatedAt as number) > tokenIat;
+}

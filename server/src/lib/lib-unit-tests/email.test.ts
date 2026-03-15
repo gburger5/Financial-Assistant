@@ -121,6 +121,15 @@ describe('sendVerificationEmail', () => {
       'https://staging.example.com/verify-email?token=tok-xyz',
     );
   });
+
+  it('URL-encodes tokens that contain special characters', async () => {
+    await sendVerificationEmail('alice@example.com', 'tok+with spaces&special=chars');
+
+    const { htmlContent } = mockSendTransacEmail.mock.calls[0][0];
+    // encodeURIComponent encodes +, spaces, &, = etc.
+    expect(htmlContent).toContain(encodeURIComponent('tok+with spaces&special=chars'));
+    expect(htmlContent).not.toContain('tok+with spaces&special=chars');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -208,6 +217,14 @@ describe('sendPasswordResetEmail', () => {
     expect(htmlContent).toContain(
       'https://staging.example.com/reset-password?token=reset-tok',
     );
+  });
+
+  it('URL-encodes tokens that contain special characters', async () => {
+    await sendPasswordResetEmail('alice@example.com', 'tok+with spaces&special=chars');
+
+    const { htmlContent } = mockSendTransacEmail.mock.calls[0][0];
+    expect(htmlContent).toContain(encodeURIComponent('tok+with spaces&special=chars'));
+    expect(htmlContent).not.toContain('tok+with spaces&special=chars');
   });
 });
 
