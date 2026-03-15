@@ -252,6 +252,14 @@ describe('GET /api/auth/verify', () => {
   });
 
   it('returns 200 with userId and email from a valid JWT with jti', async () => {
+    mockGetUserById.mockResolvedValueOnce({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    });
     app = await buildTestApp();
     const token = makeToken({ userId: 'user-uuid', email: 'alice@example.com' });
     const res = await app.inject({ method: 'GET', url: '/api/auth/verify', headers: { authorization: `Bearer ${token}` } });
