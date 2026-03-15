@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundError } from '../../../lib/errors.js';
+import type { BudgetGoal } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -76,6 +77,7 @@ const sampleBudget: Budget = {
   personalCare: { amount: 100 },
   debts: { amount: 500 },
   investments: { amount: 300 },
+  goals: [],
 };
 
 beforeEach(() => {
@@ -270,6 +272,26 @@ describe('updateBudget', () => {
     const saved = mockSaveBudget.mock.calls[0][0];
     expect(saved.groceries.amount).toBe(999);
     expect(saved.housing.amount).toBe(2500);
+  });
+
+  it('merges goals onto the existing budget', async () => {
+    mockGetLatestBudget.mockResolvedValue(sampleBudget);
+    const update: BudgetUpdateInput = { goals: ['pay down debt', 'save for goals'] };
+
+    await updateBudget('user-svc-1', update);
+
+    const saved = mockSaveBudget.mock.calls[0][0];
+    expect(saved.goals).toEqual(['pay down debt', 'save for goals']);
+  });
+
+  it('preserves existing goals when updating only categories', async () => {
+    const budgetWithGoals = { ...sampleBudget, goals: ['maximize investments'] as BudgetGoal[] };
+    mockGetLatestBudget.mockResolvedValue(budgetWithGoals);
+
+    await updateBudget('user-svc-1', { groceries: { amount: 999 } });
+
+    const saved = mockSaveBudget.mock.calls[0][0];
+    expect(saved.goals).toEqual(['maximize investments']);
   });
 });
 

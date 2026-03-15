@@ -21,6 +21,9 @@ import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
 import authRoutes from './modules/auth/auth.route.js';
 import budgetRoutes from './modules/budget/budget.route.js';
 import plaidRoutes from './modules/plaid/plaid.route.js';
+import agentRoutes from './routes/agent.js';
+import transactionRoutes from './modules/transactions/transactions.route.js';
+import accountRoutes from './modules/accounts/accounts.route.js';
 import { createLogger } from './lib/logger.js';
 import { registerHooks } from './hooks/hooks.js';
 
@@ -143,6 +146,15 @@ export function buildApp(): FastifyInstance {
 
   // Plaid routes: link-token, exchange-token, webhook.
   app.register(plaidRoutes, { prefix: '/api/plaid' });
+
+  // Agent routes: budget proposal, respond, debt/investing proposals.
+  app.register(agentRoutes, { prefix: '/api/agent' });
+
+  // Transaction routes: recent transaction history.
+  app.register(transactionRoutes, { prefix: '/api/transactions' });
+
+  // Account routes: linked bank accounts.
+  app.register(accountRoutes, { prefix: '/api/accounts' });
 
   return app;
 }

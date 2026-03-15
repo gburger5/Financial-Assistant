@@ -31,6 +31,23 @@ resource "aws_dynamodb_table" "proposals" {
   }
 }
 
+resource "aws_dynamodb_table" "budgets" {
+  name         = var.budgets_table
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "userId"
+  range_key    = "budgetId"
+
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  attribute {
+    name = "budgetId"
+    type = "S"
+  }
+}
+
 resource "aws_dynamodb_table" "debts" {
   name         = var.debts_table
   billing_mode = "PAY_PER_REQUEST"

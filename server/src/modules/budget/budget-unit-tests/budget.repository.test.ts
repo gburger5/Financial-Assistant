@@ -42,6 +42,7 @@ const sampleBudget: Budget = {
   personalCare: { amount: 100 },
   debts: { amount: 500 },
   investments: { amount: 300 },
+  goals: [],
 };
 
 beforeEach(() => {

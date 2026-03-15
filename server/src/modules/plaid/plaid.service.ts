@@ -51,6 +51,8 @@ export async function createLinkToken(userId: string): Promise<{ linkToken: stri
     user: { client_user_id: userId },
     client_name: 'Financial Assistant',
     products: [Products.Transactions],
+    // Transfer is a server-side API — it cannot be listed as a Link product
+    // and causes Plaid to return 400 if included here.
     optional_products: [Products.Investments, Products.Liabilities],
     country_codes: [CountryCode.Us],
     language: 'en',
@@ -226,6 +228,70 @@ export async function triggerInitialSync(userId: string, itemId: string): Promis
       );
     } else {
       throw err;
+    }
+  }
+}
+
+/**
+ * Runs a transaction sync for every active item belonging to a user.
+ * Useful for local development where Plaid webhooks cannot reach localhost,
+ * and for users who want to force a refresh rather than waiting for a webhook.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @returns {Promise<{ added: number; modified: number; removed: number }>}
+ */
+export async function syncAllTransactions(
+  userId: string,
+): Promise<{ added: number; modified: number; removed: number }> {
+  const items = await getItemsForUser(userId);
+  const activeItems = items.filter((i) => i.status === 'active');
+
+  let added = 0;
+  let modified = 0;
+  let removed = 0;
+
+  for (const item of activeItems) {
+    try {
+      const result = await syncTransactions(userId, item.itemId);
+      added += result.addedCount;
+      modified += result.modifiedCount;
+      removed += result.removedCount;
+    } catch (err) {
+      logger.warn({ err, itemId: item.itemId }, 'syncAllTransactions: item sync failed — skipping');
+    }
+  }
+
+  return { added, modified, removed };
+}
+
+/**
+ * Runs an investment holdings + accounts sync for every active item belonging
+ * to a user. Called from the manual sync endpoint so the dashboard Sync button
+ * refreshes investment data in addition to transactions.
+ *
+ * Skips items where the investments product is not enabled (ITEM_ERROR) rather
+ * than aborting the whole batch — a checking-only account should not prevent
+ * a Schwab investment account from syncing.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @returns {Promise<void>}
+ */
+export async function syncAllInvestments(userId: string): Promise<void> {
+  const items = await getItemsForUser(userId);
+  const activeItems = items.filter((i) => i.status === 'active');
+
+  for (const item of activeItems) {
+    try {
+      await updateInvestments(userId, item.itemId);
+    } catch (err) {
+      if (plaidErrorType(err) === 'ITEM_ERROR') {
+        logger.info(
+          { errorCode: plaidErrorCode(err), userId, itemId: item.itemId },
+          'syncAllInvestments: investments product not available on this item — skipping',
+        );
+      } else {
+        logger.warn({ err, itemId: item.itemId }, 'syncAllInvestments: item sync failed — skipping');
+      }
     }
   }
 }

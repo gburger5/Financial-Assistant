@@ -20,6 +20,7 @@ import { register, login, verify } from '../auth.controller.js';
 
 const mockRegisterUser = vi.mocked(authService.registerUser);
 const mockLoginUser = vi.mocked(authService.loginUser);
+const mockGetUserById = vi.mocked(authService.getUserById);
 
 /** Minimal Fastify app with controller handlers wired to plain routes. */
 async function buildTestApp(): Promise<FastifyInstance> {
@@ -89,6 +90,7 @@ describe('register controller', () => {
       lastName: 'Smith',
       email: 'alice@example.com',
       createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
     };
     mockRegisterUser.mockResolvedValue(publicUser);
     app = await buildTestApp();
@@ -127,6 +129,7 @@ describe('login controller', () => {
         lastName: 'Smith',
         email: 'alice@example.com',
         createdAt: '2024-01-01',
+        agentBudgetApproved: false,
       },
       token: 'some-jwt',
       refreshToken: 'some-refresh-token',
@@ -151,8 +154,16 @@ describe('login controller', () => {
 // ---------------------------------------------------------------------------
 
 describe('verify controller', () => {
-  it('returns 200 with the request.user payload already attached by the auth middleware', async () => {
-    const userPayload = { userId: 'user-uuid', email: 'alice@example.com' };
+  it('returns 200 with a fresh DB read of the authenticated user', async () => {
+    const dbUser = {
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    };
+    mockGetUserById.mockResolvedValue(dbUser);
 
     // Build a one-off app that pre-populates request.user before calling verify,
     // simulating what auth.plugin does in production.
@@ -160,7 +171,7 @@ describe('verify controller', () => {
     await app.register(errorHandlerPlugin);
     app.get('/verify', async (req, reply) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      req.user = userPayload as any;
+      req.user = { userId: 'user-uuid', email: 'alice@example.com' } as any;
       return verify(req, reply);
     });
     await app.ready();
@@ -169,6 +180,6 @@ describe('verify controller', () => {
     await app.close();
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject(userPayload);
+    expect(res.json()).toMatchObject({ userId: 'user-uuid', email: 'alice@example.com' });
   });
 });

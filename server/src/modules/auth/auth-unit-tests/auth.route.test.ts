@@ -35,6 +35,7 @@ import * as authService from '../auth.service.js';
 
 const mockRegisterUser = vi.mocked(authService.registerUser);
 const mockLoginUser = vi.mocked(authService.loginUser);
+const mockGetUserById = vi.mocked(authService.getUserById);
 const mockUpdateName = vi.mocked(authService.updateName);
 const mockUpdatePassword = vi.mocked(authService.updatePassword);
 const mockInitiateEmailChange = vi.mocked(authService.initiateEmailChange);
@@ -110,7 +111,18 @@ describe('POST /api/auth/register', () => {
   });
 
   it('strips extra body fields before they reach the service (additionalProperties: false)', async () => {
-    mockRegisterUser.mockResolvedValue({ userId: 'u-1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z' });
+    // Fastify's default AJV config uses removeAdditional: 'all', which strips
+    // unknown properties rather than rejecting the request. The security benefit
+    // is that extra fields (e.g. 'role: admin') never reach the handler,
+    // preventing mass-assignment even when all required fields are present.
+    mockRegisterUser.mockResolvedValue({
+      userId: 'u-1',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    });
     app = await buildTestApp();
     await app.inject({ method: 'POST', url: '/api/auth/register', payload: { firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', password: 'ValidPass1!', confirmPassword: 'ValidPass1!', role: 'admin' } });
     expect(mockRegisterUser).toHaveBeenCalledWith('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
@@ -131,7 +143,14 @@ describe('POST /api/auth/register', () => {
   });
 
   it('returns 201 with PublicUser on successful registration', async () => {
-    mockRegisterUser.mockResolvedValue({ userId: 'user-uuid', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z' });
+    mockRegisterUser.mockResolvedValue({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+    });
     app = await buildTestApp();
     const res = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', password: 'ValidPass1!', confirmPassword: 'ValidPass1!' } });
     expect(res.statusCode).toBe(201);
@@ -180,7 +199,16 @@ describe('POST /api/auth/login', () => {
   });
 
   it('returns 200 with user and token on success', async () => {
-    mockLoginUser.mockResolvedValue({ user: { userId: 'user-uuid', email: 'alice@example.com', firstName: 'Alice', lastName: 'Smith', createdAt: '2024-01-01T00:00:00.000Z' }, token: 'jwt-token-here', refreshToken: 'refresh-token-here' });
+    mockLoginUser.mockResolvedValue({
+      user: {
+        userId: 'user-uuid', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z',
+        firstName: 'Alice',
+        lastName: 'Smith',
+        agentBudgetApproved: false,
+      },
+      token: 'jwt-token-here',
+      refreshToken: 'refresh-token-here',
+    });
     app = await buildTestApp();
     const res = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'alice@example.com', password: 'ValidPass1!' } });
     expect(res.statusCode).toBe(200);

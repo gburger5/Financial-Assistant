@@ -17,6 +17,8 @@
  */
 import { plaidClient } from '../../lib/plaidClient.js';
 import { getItemForSync } from '../items/items.service.js';
+import { syncAccounts } from '../accounts/accounts.service.js';
+import type { PlaidAccountData } from '../accounts/accounts.types.js';
 import {
   getHoldingsBySnapshotDate,
   getHoldingsSince as repoGetHoldingsSince,
@@ -284,12 +286,20 @@ export async function syncTransactions(userId: string, accessToken: string): Pro
  * A Map keyed by security_id is built once for O(1) lookups — using
  * Array.find() in the mapping loop would be O(n²) for large portfolios.
  *
+ * syncAccounts is called with the accounts from the Plaid response so that
+ * investment-only items (e.g. Schwab with no transactions or liabilities)
+ * still have their accounts written to the Accounts table. Without this call,
+ * such accounts would never be stored — syncAccounts is otherwise only called
+ * by the transactions and liabilities sync paths.
+ *
  * @param {string} userId - UUID of the user who owns the bank connection.
+ * @param {string} itemId - Plaid item ID, required to upsert account records.
  * @param {string} accessToken - Decrypted Plaid access token for the connection.
  * @returns {Promise<{ count: number; snapshotDate: string }>}
  */
 export async function syncHoldings(
   userId: string,
+  itemId: string,
   accessToken: string,
 ): Promise<{ count: number; snapshotDate: string }> {
   const response = await plaidClient.investmentsHoldingsGet({
@@ -298,6 +308,10 @@ export async function syncHoldings(
 
   const holdings = response.data.holdings as unknown as PlaidHolding[];
   const securities = response.data.securities as unknown as PlaidSecurity[];
+
+  // Sync accounts from the holdings response so investment-only items
+  // (no transactions/liabilities product) still appear in the Accounts table.
+  await syncAccounts(userId, itemId, response.data.accounts as PlaidAccountData[]);
 
   // Calculate snapshotDate once — all holdings in this batch share the same date.
   const snapshotDate = formatDate(new Date());
@@ -344,7 +358,7 @@ export async function updateInvestments(
 
   const [transactionsUpserted, { count: holdingsUpserted, snapshotDate }] = await Promise.all([
     syncTransactions(userId, item.accessToken),
-    syncHoldings(userId, item.accessToken),
+    syncHoldings(userId, itemId, item.accessToken),
   ]);
 
   return { transactionsUpserted, holdingsUpserted, snapshotDate };
