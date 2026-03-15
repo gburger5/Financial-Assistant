@@ -296,14 +296,14 @@ describe('PATCH /api/auth/profile/name', () => {
   });
 
   it('calls updateName with the authenticated userId from the JWT', async () => {
-    mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z' });
+    mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false });
     app = await buildTestApp();
     await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { firstName: 'Alice', lastName: 'Smith' } });
     expect(mockUpdateName).toHaveBeenCalledWith('user-route-123', 'Alice', 'Smith');
   });
 
   it('returns 200 on success', async () => {
-    mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z' });
+    mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false });
     app = await buildTestApp();
     const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { firstName: 'Alice', lastName: 'Smith' } });
     expect(res.statusCode).toBe(200);
