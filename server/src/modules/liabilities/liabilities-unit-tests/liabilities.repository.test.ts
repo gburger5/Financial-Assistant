@@ -22,7 +22,7 @@ vi.mock('../../../db/index.js', () => ({
   db: { send: mockSend },
 }));
 
-import { upsertSnapshot, getByUserId } from '../liabilities.repository.js';
+import { upsertSnapshot, getByUserId, deleteAllLiabilitiesForUser } from '../liabilities.repository.js';
 import type { CreditLiability, StudentLiability, MortgageLiability } from '../liabilities.types.js';
 
 // ---------------------------------------------------------------------------
@@ -241,5 +241,51 @@ describe('getByUserId', () => {
     expect(cmd.input.KeyConditionExpression).toBeDefined();
     const values = Object.values(cmd.input.ExpressionAttributeValues as Record<string, unknown>);
     expect(values).toContain('user-123');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteAllLiabilitiesForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllLiabilitiesForUser', () => {
+  it('does nothing when the user has no liabilities', async () => {
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllLiabilitiesForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues one DeleteCommand per liability', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleCredit, sampleStudent] })
+      .mockResolvedValue({});
+
+    await deleteAllLiabilitiesForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes from the Liabilities table', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleCredit] })
+      .mockResolvedValue({});
+
+    await deleteAllLiabilitiesForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.TableName).toBe('Liabilities');
+  });
+
+  it('uses the composite key { userId, plaidAccountId } for deletion', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleCredit] })
+      .mockResolvedValue({});
+
+    await deleteAllLiabilitiesForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.Key).toEqual({ userId: 'user-123', plaidAccountId: 'acct-credit' });
   });
 });

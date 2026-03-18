@@ -36,6 +36,8 @@ const sampleUser: UserRecord = {
   emailVerificationToken: 'hashed-token',
   emailVerificationTokenExpires: Math.floor(Date.now() / 1000) + 3600,
   pendingEmail: null,
+  passwordResetToken: null,
+  passwordResetTokenExpires: null,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
   failedLoginAttempts: 0,
@@ -120,12 +122,17 @@ describe('findUserById', () => {
 // ---------------------------------------------------------------------------
 
 describe('createUser', () => {
-  it('sends a PutCommand with the full user record to the Users table', async () => {
+  it('sends a PutCommand to the Users table with null fields stripped', async () => {
     mockSend.mockResolvedValue({});
     await createUser(sampleUser);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.TableName).toBe('Users');
-    expect(cmd.input.Item).toEqual(sampleUser);
+    // Null-valued fields are omitted so DynamoDB GSI keys are never set to null.
+    // Non-null fields must all be present and unchanged.
+    const expectedItem = Object.fromEntries(
+      Object.entries(sampleUser).filter(([, v]) => v !== null && v !== undefined)
+    );
+    expect(cmd.input.Item).toEqual(expectedItem);
   });
 
   it('returns undefined on success', async () => {

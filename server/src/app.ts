@@ -14,6 +14,7 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
 import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
@@ -105,7 +106,11 @@ export function buildApp(): FastifyInstance {
   // including the /health probe and any future routes added below.
   registerHooks(app);
 
-  // Restrict CORS to the configured frontend origin (falls back to localhost for local dev).
+  // Security headers on every response.
+  app.register(helmet);
+
+  // Restrict CORS to the configured frontend origin. Falls back to localhost
+  // for local development when FRONTEND_URL is not set.
   const allowedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
   app.register(cors, {

@@ -19,7 +19,7 @@
  *   expression syntax and must be aliased via ExpressionAttributeNames in
  *   every UpdateExpression that references them.
  */
-import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Indexes, Tables } from '../../db/tables.js';
 import type { Holding, InvestmentTransaction } from './investments.types.js';
@@ -364,4 +364,59 @@ export async function getHoldingsByAccountId(plaidAccountId: string): Promise<Ho
   );
 
   return (result.Items ?? []) as Holding[];
+}
+
+/**
+ * Deletes all InvestmentTransaction and Holding records for a user.
+ * Queries both tables by userId (HASH key) and batch-deletes all records.
+ * Called during account deletion to ensure investment data is not orphaned.
+ *
+ * @param {string} userId - UUID of the user whose investment data to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllInvestmentDataForUser(userId: string): Promise<void> {
+  // Enumerate keys from both tables in parallel.
+  const [txResult, holdingsResult] = await Promise.all([
+    db.send(
+      new QueryCommand({
+        TableName: Tables.InvestmentTransactions,
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: { ':userId': userId },
+        ProjectionExpression: 'userId, dateTransactionId',
+      }),
+    ),
+    db.send(
+      new QueryCommand({
+        TableName: Tables.Holdings,
+        KeyConditionExpression: 'userId = :userId',
+        ExpressionAttributeValues: { ':userId': userId },
+        ProjectionExpression: 'userId, snapshotDateAccountSecurity',
+      }),
+    ),
+  ]);
+
+  const txItems = txResult.Items ?? [];
+  const holdingItems = holdingsResult.Items ?? [];
+
+  await Promise.all([
+    ...txItems.map((item) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.InvestmentTransactions,
+          Key: { userId: item.userId, dateTransactionId: item.dateTransactionId },
+        }),
+      ),
+    ),
+    ...holdingItems.map((item) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.Holdings,
+          Key: {
+            userId: item.userId,
+            snapshotDateAccountSecurity: item.snapshotDateAccountSecurity,
+          },
+        }),
+      ),
+    ),
+  ]);
 }
