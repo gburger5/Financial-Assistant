@@ -37,12 +37,24 @@ async function main() {
     AttributeDefinitions: [
       { AttributeName: "id", AttributeType: "S" },
       { AttributeName: "email", AttributeType: "S" },
+      { AttributeName: "emailVerificationToken", AttributeType: "S" },
+      { AttributeName: "passwordResetToken", AttributeType: "S" },
     ],
     KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
     GlobalSecondaryIndexes: [
       {
         IndexName: "email-index",
         KeySchema: [{ AttributeName: "email", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        IndexName: "EmailVerificationTokenIndex",
+        KeySchema: [{ AttributeName: "emailVerificationToken", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+      {
+        IndexName: "passwordResetToken-index",
+        KeySchema: [{ AttributeName: "passwordResetToken", KeyType: "HASH" }],
         Projection: { ProjectionType: "ALL" },
       },
     ],
@@ -66,8 +78,16 @@ async function main() {
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
       { AttributeName: "tokenId", AttributeType: "S" },
+      { AttributeName: "userId", AttributeType: "S" },
     ],
     KeySchema: [{ AttributeName: "tokenId", KeyType: "HASH" }],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "userId-index",
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
   });
 
   await createTable("PlaidItems", {
