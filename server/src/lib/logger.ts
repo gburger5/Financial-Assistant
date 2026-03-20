@@ -39,7 +39,7 @@ export function createLogger(destination?: DestinationStream): pino.Logger {
   const isTest = process.env.NODE_ENV === 'test' && !destination;
 
   const options: LoggerOptions = {
-    level: isTest ? 'silent' : 'info',
+    level: isTest ? 'warn' : 'info',
 
     // Remove pid and hostname from every log line. In a containerised environment
     // these fields are redundant — the orchestrator tracks per-container context
