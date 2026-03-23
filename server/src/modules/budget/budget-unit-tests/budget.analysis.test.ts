@@ -254,7 +254,8 @@ describe('generateBudgetFromHistory', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     const categories = [
       'income', 'housing', 'utilities', 'transportation', 'groceries',
-      'takeout', 'shopping', 'personalCare', 'investments',
+      'takeout', 'shopping', 'personalCare', 'savings', 'entertainment',
+      'medical', 'investments',
     ] as const;
     for (const cat of categories) {
       expect(budget[cat].amount).toBe(0);
@@ -284,11 +285,12 @@ describe('generateBudgetFromHistory', () => {
     expect(budget.income.amount).toBe(3000);
   });
 
-  it('returns BudgetAmount objects for all 10 required categories', () => {
+  it('returns BudgetAmount objects for all 13 required categories', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     const requiredCategories = [
       'income', 'housing', 'utilities', 'transportation', 'groceries',
-      'takeout', 'shopping', 'personalCare', 'debts', 'investments',
+      'takeout', 'shopping', 'personalCare', 'savings', 'entertainment',
+      'medical', 'debts', 'investments',
     ] as const;
     for (const cat of requiredCategories) {
       expect(budget).toHaveProperty(cat);
@@ -407,5 +409,63 @@ describe('generateBudgetFromHistory', () => {
   it('initializes goals as an empty array', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     expect(budget.goals).toEqual([]);
+  });
+
+  // -------------------------------------------------------------------------
+  // New categories: savings, entertainment, medical
+  // -------------------------------------------------------------------------
+
+  it('computes savings from TRANSFER_OUT_ACCOUNT_TRANSFER transactions', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-s1', detailedCategory: 'TRANSFER_OUT_ACCOUNT_TRANSFER', amount: 200 }),
+      makeTransaction({ plaidTransactionId: 'tx-s2', detailedCategory: 'TRANSFER_OUT_ACCOUNT_TRANSFER', amount: 100 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.savings.amount).toBe(300);
+  });
+
+  it('computes entertainment from ENTERTAINMENT_* transactions', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-e1', detailedCategory: 'ENTERTAINMENT_TV_AND_MOVIES', amount: 15.99 }),
+      makeTransaction({ plaidTransactionId: 'tx-e2', detailedCategory: 'ENTERTAINMENT_MUSIC_AND_AUDIO', amount: 10.99 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.entertainment.amount).toBe(26.98);
+  });
+
+  it('computes medical from MEDICAL_* transactions', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-m1', detailedCategory: 'MEDICAL_PHARMACIES_AND_SUPPLEMENTS', amount: 47.36 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.medical.amount).toBe(47.36);
+  });
+
+  it('sets savings, entertainment, and medical to 0 when no matching transactions exist', () => {
+    const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
+    expect(budget.savings.amount).toBe(0);
+    expect(budget.entertainment.amount).toBe(0);
+    expect(budget.medical.amount).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // INCOME_INTEREST_EARNED in income
+  // -------------------------------------------------------------------------
+
+  it('includes INCOME_INTEREST_EARNED in income total', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-i1', detailedCategory: 'INCOME_SALARY', amount: -3000 }),
+      makeTransaction({ plaidTransactionId: 'tx-i2', detailedCategory: 'INCOME_INTEREST_EARNED', amount: -21.65 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.income.amount).toBe(3021.65);
+  });
+
+  it('includes INCOME_DIVIDENDS in income total', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-d1', detailedCategory: 'INCOME_DIVIDENDS', amount: -50 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.income.amount).toBe(50);
   });
 });

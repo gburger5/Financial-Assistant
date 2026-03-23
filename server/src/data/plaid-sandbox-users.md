@@ -3,94 +3,86 @@
 Custom users created in the Plaid Sandbox dashboard for end-to-end testing.
 
 For logging in, use anything for the password and MFA prompt:
-- Use Chase Bank to login custom_user_checking
-- Use Chase Bank to login custom_user_savings
+- Use Chase Bank to login custom_user_depository
 - Use Charles Schwab to login custom_user_investments
 - Use First Platypus Bank to login custom_user_debts
 
 ---
+# Custom user 1: New Grad Woman
 
-## custom_user_checking
+## custom_user_depository
 
-**Description:** Checking account for basic_girl
+**Description:** Checking and savings accounts for basic_girl
+
+### Account 1: Primary Checking
 
 - **Account:** Primary Checking (Plaid Premier Checking Account)
 - **Type:** depository / checking
 - **Starting Balance:** $4,200.00
 
-### Transactions (January 2026)
+#### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
 | 01/01 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
-| 01/01 | ONLINE TRANSFER - RIVERSIDE APARTMENTS | $1,500.00 |
-| 01/03 | TOYOTA FINANCIAL SERVICES PAYMENT | $250.00 |
+| 01/01 | ONLINE TRANSFER TO SAVINGS - EMERGENCY FUND | $200.00 |
+| 01/01 | ONLINE TRANSFER TO SAVINGS - VACATION FUND | $100.00 |
+| 01/01 | ONLINE TRANSFER TO FIDELITY - ROTH IRA CONTRIBUTION | $291.67 |
+| 01/02 | ONLINE TRANSFER - RIVERSIDE APARTMENTS | $1,500.00 |
 | 01/04 | SHELL #4821 | $33.81 |
-| 01/05 | CITY POWER & LIGHT - AUTOPAY | $50.00 |
+| 01/06 | CITY POWER & LIGHT - AUTOPAY | $50.00 |
 | 01/05 | WHOLE FOODS MARKET | $110.38 |
-| 01/06 | CHIPOTLE #0293 | $11.00 |
-| 01/08 | GREAT CLIPS | $41.15 |
-| 01/09 | AMAZON.COM*2X3K9 | $102.06 |
-| 01/10 | MCDONALD'S #8821 | $24.87 |
+| 01/10 | NAVIENT STUDENT LOAN PAYMENT | $412.00 |
 | 01/11 | CHEVRON #1092 | $39.84 |
 | 01/12 | KROGER #0421 | $125.20 |
-| 01/14 | DOORDASH*THAI ORCHID | $23.79 |
 | 01/15 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
-| 01/17 | CVS PHARMACY #3821 | $47.36 |
-| 01/18 | TARGET #0821 | $127.38 |
+| 01/15 | ONLINE TRANSFER TO SAVINGS - EMERGENCY FUND | $200.00 |
+| 01/15 | ONLINE TRANSFER TO SAVINGS - VACATION FUND | $100.00 |
+| 01/15 | ONLINE TRANSFER TO FIDELITY - ROTH IRA CONTRIBUTION | $291.67 |
 | 01/19 | EXXON #3341 | $32.11 |
 | 01/19 | TRADER JOE'S | $107.17 |
-| 01/20 | UBER EATS*PIZZA PALACE | $26.72 |
-| 01/23 | H&M #3341 | $121.27 |
 | 01/24 | ULTA BEAUTY #0442 | $90.90 |
 | 01/25 | CHICK-FIL-A #0442 | $20.44 |
 | 01/26 | WHOLE FOODS MARKET | $83.96 |
 | 01/27 | SPEEDWAY #8823 | $36.38 |
+| 01/28 | CHASE CREDIT CARD PAYMENT - SAPPHIRE PREFERRED | $35.00 |
+| 01/28 | APPLE CARD PAYMENT - GOLDMAN SACHS | $55.00 |
 
 **Monthly income:** $5,600 (2 biweekly paychecks)
-**Monthly expenses:** ~$3,005 (negative amounts are inflows)
 
----
-
-## custom_user_savings
-
-**Description:** High-yield savings accounts for basic_girl's savings goals
-
-### Account 1: High-Yield Savings — Emergency Fund
+### Account 2: High-Yield Savings — Emergency Fund
 
 - **Account:** High-Yield Savings - Emergency Fund (Chase High Yield Savings Account)
 - **Type:** depository / savings
 - **Starting Balance:** $5,200.00
-- **APY:** ~5.00%
 
 #### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
-| 01/01 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | $200.00 |
-| 01/15 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | $200.00 |
+| 01/01 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | -$200.00 |
+| 01/15 | ONLINE TRANSFER FROM CHECKING - EMERGENCY FUND | -$200.00 |
 | 01/31 | INTEREST PAYMENT | -$21.65 |
 
 **Monthly contributions:** $400 (2 transfers aligned with paydays)
-**Monthly interest:** ~$21.65 (negative = inflow)
+**Monthly interest:** ~$21.65
 
-### Account 2: High-Yield Savings — Vacation Fund
+### Account 3: High-Yield Savings — Vacation Fund
 
 - **Account:** High-Yield Savings - Vacation Fund (Chase High Yield Savings Account)
 - **Type:** depository / savings
 - **Starting Balance:** $3,550.00
-- **APY:** ~5.00%
 
 #### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
-| 01/01 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | $100.00 |
-| 01/15 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | $100.00 |
+| 01/01 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | -$100.00 |
+| 01/15 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | -$100.00 |
 | 01/31 | INTEREST PAYMENT | -$14.80 |
 
 **Monthly contributions:** $200 (2 transfers aligned with paydays)
-**Monthly interest:** ~$14.80 (negative = inflow)
+**Monthly interest:** ~$14.80
 
 ---
 
@@ -163,17 +155,19 @@ For logging in, use anything for the password and MFA prompt:
 - **Credit Limit:** $5,000
 - **Purchase APR:** 22.99%
 - **Cash APR:** 29.99%
+- **Balance Transfer APR:** 22.99%
+- **Last Payment:** $35.00
 - **Minimum Payment:** $35.00
 
 #### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
-| 01/06 | CHIPOTLE #0293 | $11.00 |
-| 01/09 | AMAZON.COM | $102.06 |
-| 01/14 | DOORDASH*THAI ORCHID | $23.79 |
-| 01/18 | TARGET #0821 | $127.38 |
-| 01/22 | UBER EATS*PIZZA PALACE | $26.72 |
+| 01/07 | CHIPOTLE #0293 | $11.00 |
+| 01/10 | AMAZON.COM | $102.06 |
+| 01/15 | DOORDASH*THAI ORCHID | $23.79 |
+| 01/19 | TARGET #0821 | $127.38 |
+| 01/23 | UBER EATS*PIZZA PALACE | $26.72 |
 | 01/28 | PAYMENT - THANK YOU | -$35.00 |
 
 ### Account 2: Apple Card (credit card)
@@ -183,17 +177,19 @@ For logging in, use anything for the password and MFA prompt:
 - **Credit Limit:** $6,000
 - **Purchase APR:** 19.99%
 - **Cash APR:** 24.99%
+- **Balance Transfer APR:** 19.99%
+- **Last Payment:** $55.00
 - **Minimum Payment:** $55.00
 
 #### Transactions (January 2026)
 
 | Date | Description | Amount |
 |------|-------------|--------|
-| 01/03 | APPLE ONE SUBSCRIPTION | $14.99 |
-| 01/08 | GREAT CLIPS | $41.15 |
-| 01/10 | MCDONALD'S #8821 | $24.87 |
-| 01/17 | CVS PHARMACY #3821 | $47.36 |
-| 01/23 | H&M #3341 | $121.27 |
+| 01/04 | APPLE ONE SUBSCRIPTION | $14.99 |
+| 01/09 | GREAT CLIPS | $41.15 |
+| 01/11 | MCDONALD'S #8821 | $24.87 |
+| 01/18 | CVS PHARMACY #3821 | $47.36 |
+| 01/24 | H&M #3341 | $121.27 |
 | 01/28 | PAYMENT - THANK YOU | -$55.00 |
 
 ### Account 3: Navient Student Loan
@@ -212,15 +208,3 @@ For logging in, use anything for the password and MFA prompt:
 | 01/10 | NAVIENT STUDENT LOAN PAYMENT | $412.00 |
 
 ---
-
-## Usage
-
-These users are configured in the [Plaid Sandbox dashboard](https://dashboard.plaid.com/developers/sandbox).
-When testing with Plaid Link in Sandbox mode, select "Custom" as the institution and use one of these usernames.
-All three users can be linked under a single Plaid Item or separately to test different account types.
-
-| User | Tests |
-|------|-------|
-| custom_user_checking | Income detection, expense categorization, budget generation |
-| custom_user_investments | Holdings sync, investment transaction history, portfolio display |
-| custom_user_debts | Liability sync, minimum payments, debt-to-income calculations |
