@@ -93,11 +93,17 @@ export interface MortgageDetails {
  *
  * DynamoDB schema:
  *   PK: userId (HASH)
- *   SK: plaidAccountId (RANGE)
+ *   SK: sortKey (RANGE) — format: "plaidAccountId#ULID"
+ *
+ * Each sync creates a new record (append-only). The ULID suffix sorts
+ * chronologically, so the latest snapshot per account is the one with
+ * the highest sort key for a given plaidAccountId prefix.
  */
 interface BaseLiability {
   userId: string;
-  /** Sort key — uniquely identifies this account within the user's liabilities. */
+  /** Composite sort key: "plaidAccountId#ULID". Enables historical snapshots. */
+  sortKey: string;
+  /** The Plaid account this liability belongs to. */
   plaidAccountId: string;
   /**
    * Always null — Plaid's liabilities endpoint does not return balances on liability

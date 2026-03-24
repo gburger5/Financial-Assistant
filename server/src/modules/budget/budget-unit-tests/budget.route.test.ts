@@ -363,19 +363,19 @@ describe('PATCH /api/budget', () => {
   });
 
   it('accepts valid goals in the request body', async () => {
-    const updated = { ...sampleBudget, goals: ['pay down debt', 'save for goals'] as BudgetGoal[] };
+    const updated = { ...sampleBudget, goals: ['pay down debt', 'save for big purchase'] as BudgetGoal[] };
     mockUpdateBudget.mockResolvedValue(updated);
     app = await buildTestApp();
 
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/budget',
-      payload: { goals: ['pay down debt', 'save for goals'] },
+      payload: { goals: ['pay down debt', 'save for big purchase'] },
       headers: { authorization: `Bearer ${signToken()}` },
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().goals).toEqual(['pay down debt', 'save for goals']);
+    expect(res.json().goals).toEqual(['pay down debt', 'save for big purchase']);
   });
 
   it('returns 400 when goals contains an invalid string', async () => {
@@ -411,12 +411,12 @@ describe('PATCH /api/budget', () => {
     await app.inject({
       method: 'PATCH',
       url: '/api/budget',
-      payload: { goals: ['build up emergency fund'], groceries: { amount: 500 } },
+      payload: { goals: ['build a strong emergency fund'], groceries: { amount: 500 } },
       headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
     });
 
     expect(mockUpdateBudget).toHaveBeenCalledWith(TEST_USER_ID, {
-      goals: ['build up emergency fund'],
+      goals: ['build a strong emergency fund'],
       groceries: { amount: 500 },
     });
   });

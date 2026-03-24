@@ -12,7 +12,7 @@ For logging in, use anything for the password and MFA prompt:
 
 ## custom_user_depository
 
-**Description:** Checking and savings accounts for basic_girl
+**Description:** Checking and emergency fund savings for basic_girl
 
 ### Account 1: Primary Checking
 
@@ -26,7 +26,6 @@ For logging in, use anything for the password and MFA prompt:
 |------|-------------|--------|
 | 01/01 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
 | 01/01 | ONLINE TRANSFER TO SAVINGS - EMERGENCY FUND | $200.00 |
-| 01/01 | ONLINE TRANSFER TO SAVINGS - VACATION FUND | $100.00 |
 | 01/01 | ONLINE TRANSFER TO FIDELITY - ROTH IRA CONTRIBUTION | $291.67 |
 | 01/02 | ONLINE TRANSFER - RIVERSIDE APARTMENTS | $1,500.00 |
 | 01/04 | SHELL #4821 | $33.81 |
@@ -37,7 +36,6 @@ For logging in, use anything for the password and MFA prompt:
 | 01/12 | KROGER #0421 | $125.20 |
 | 01/15 | DIRECT DEPOSIT - ACME CORP PAYROLL | -$2,800.00 |
 | 01/15 | ONLINE TRANSFER TO SAVINGS - EMERGENCY FUND | $200.00 |
-| 01/15 | ONLINE TRANSFER TO SAVINGS - VACATION FUND | $100.00 |
 | 01/15 | ONLINE TRANSFER TO FIDELITY - ROTH IRA CONTRIBUTION | $291.67 |
 | 01/19 | EXXON #3341 | $32.11 |
 | 01/19 | TRADER JOE'S | $107.17 |
@@ -66,23 +64,6 @@ For logging in, use anything for the password and MFA prompt:
 
 **Monthly contributions:** $400 (2 transfers aligned with paydays)
 **Monthly interest:** ~$21.65
-
-### Account 3: High-Yield Savings — Vacation Fund
-
-- **Account:** High-Yield Savings - Vacation Fund (Chase High Yield Savings Account)
-- **Type:** depository / savings
-- **Starting Balance:** $3,550.00
-
-#### Transactions (January 2026)
-
-| Date | Description | Amount |
-|------|-------------|--------|
-| 01/01 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | -$100.00 |
-| 01/15 | ONLINE TRANSFER FROM CHECKING - VACATION FUND | -$100.00 |
-| 01/31 | INTEREST PAYMENT | -$14.80 |
-
-**Monthly contributions:** $200 (2 transfers aligned with paydays)
-**Monthly interest:** ~$14.80
 
 ---
 

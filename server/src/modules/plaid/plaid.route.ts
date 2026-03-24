@@ -117,9 +117,10 @@ async function plaidRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /sync
-   * Manually triggers a transaction sync for all active items belonging to the
-   * authenticated user. Intended for local development (no webhooks) and for
-   * users who want to force a refresh after approving a proposal.
+   * Syncs all data types (transactions, debt transactions, investments,
+   * liabilities) for all active items belonging to the authenticated user.
+   * Items are processed in parallel. Used for local development (no webhooks)
+   * and as the explicit sync step between linking and budget creation.
    */
   fastify.post('/sync', {
     preHandler: [verifyJWT],
@@ -128,9 +129,24 @@ async function plaidRoutes(fastify: FastifyInstance): Promise<void> {
         200: {
           type: 'object',
           properties: {
-            added: { type: 'integer' },
-            modified: { type: 'integer' },
-            removed: { type: 'integer' },
+            transactions: {
+              type: 'object',
+              properties: {
+                added: { type: 'integer' },
+                modified: { type: 'integer' },
+                removed: { type: 'integer' },
+              },
+            },
+            debtTransactions: { type: 'integer' },
+            investments: { type: 'integer' },
+            liabilities: {
+              type: 'object',
+              properties: {
+                credit: { type: 'integer' },
+                student: { type: 'integer' },
+                mortgage: { type: 'integer' },
+              },
+            },
           },
         },
       },

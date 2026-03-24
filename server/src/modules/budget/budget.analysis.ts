@@ -122,7 +122,7 @@ export function generateBudgetFromHistory({
     takeout:        { amount: 0 },
     shopping:       { amount: 0 },
     personalCare:   { amount: 0 },
-    savings:        { amount: 0 },
+    emergencyFund:  { amount: 0 },
     entertainment:  { amount: 0 },
     medical:        { amount: 0 },
     debts:          { amount: 0 },

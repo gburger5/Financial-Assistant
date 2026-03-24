@@ -25,11 +25,13 @@ import { Products, CountryCode } from 'plaid'
 import { plaidClient } from '../../lib/plaidClient.js';
 import { encrypt } from '../../lib/encryption.js';
 import { linkItem, getItemsForUser, updateCursor } from '../items/items.service.js';
-import { syncTransactions } from '../transactions/transactions.service.js';
+import { syncTransactions, syncDebtTransactions } from '../transactions/transactions.service.js';
 import { updateInvestments } from '../investments/investments.service.js';
 import { updateLiabilities } from '../liabilities/liabilities.service.js';
+import { syncAccounts } from '../accounts/accounts.service.js';
 import { createLogger } from '../../lib/logger.js';
 import type { LinkBankAccountResult, SyncStatus } from './plaid.types.js';
+import type { PlaidAccountData } from '../accounts/accounts.types.js';
 
 const logger = createLogger();
 
@@ -97,10 +99,13 @@ export async function linkBankAccount(
 
   await linkItem({ userId, itemId, encryptedAccessToken, institutionId, institutionName });
 
-  // Fire-and-forget: initial sync takes 30–60 s; the HTTP response cannot wait.
-  triggerInitialSync(userId, itemId).catch((err) =>
-    logger.error({ err, userId, itemId }, 'triggerInitialSync failed'),
-  );
+  // Populate accounts immediately so the frontend knows what accounts exist.
+  // Data syncing (transactions, investments, liabilities) is decoupled — the
+  // frontend triggers it via POST /sync when ready.
+  const accountsResponse = await plaidClient.accountsGet({
+    access_token: accessToken,
+  });
+  await syncAccounts(userId, itemId, accountsResponse.data.accounts as PlaidAccountData[]);
 
   return { message: 'Bank account linked successfully', itemId };
 }
@@ -294,6 +299,117 @@ export async function syncAllInvestments(userId: string): Promise<void> {
       }
     }
   }
+}
+
+/** Result envelope returned by syncAllData. */
+export interface SyncAllResult {
+  transactions: { added: number; modified: number; removed: number };
+  debtTransactions: number;
+  investments: number;
+  liabilities: { credit: number; student: number; mortgage: number };
+}
+
+/**
+ * Syncs all data types for all active items belonging to a user.
+ * Items are processed in parallel (separate Plaid connections with no shared
+ * state). Within each item, all data types are also parallel — they write to
+ * separate DynamoDB tables and the only shared write (syncAccounts balance
+ * refresh) is idempotent.
+ *
+ * Each product is wrapped in try/catch with ITEM_ERROR handling — an item
+ * that only has checking accounts will not have investments, and that is not
+ * an error.
+ *
+ * @param {string} userId - UUID of the authenticated user.
+ * @returns {Promise<SyncAllResult>}
+ */
+export async function syncAllData(userId: string): Promise<SyncAllResult> {
+  const items = await getItemsForUser(userId);
+  const activeItems = items.filter((i) => i.status === 'active');
+
+  const totals: SyncAllResult = {
+    transactions: { added: 0, modified: 0, removed: 0 },
+    debtTransactions: 0,
+    investments: 0,
+    liabilities: { credit: 0, student: 0, mortgage: 0 },
+  };
+
+  const itemResults = await Promise.all(
+    activeItems.map(async (item) => {
+      const results = {
+        tx: null as Awaited<ReturnType<typeof syncTransactions>> | null,
+        debtTx: 0,
+        inv: false,
+        liab: null as Awaited<ReturnType<typeof updateLiabilities>> | null,
+      };
+
+      // All four data types in parallel within each item.
+      await Promise.all([
+        // Transactions (cursor-based sync)
+        syncTransactions(userId, item.itemId)
+          .then((r) => { results.tx = r; })
+          .catch((err) => {
+            if (plaidErrorType(err) === 'ITEM_ERROR') {
+              logger.info({ errorCode: plaidErrorCode(err), itemId: item.itemId }, 'syncAllData: transactions product not available — skipping');
+            } else {
+              logger.warn({ err, itemId: item.itemId }, 'syncAllData: transaction sync failed');
+            }
+          }),
+
+        // Debt transactions (transactionsGet fallback for credit/loan accounts)
+        syncDebtTransactions(userId, item.itemId)
+          .then((count) => { results.debtTx = count; })
+          .catch((err) => {
+            if (plaidErrorType(err) === 'ITEM_ERROR') {
+              logger.info({ errorCode: plaidErrorCode(err), itemId: item.itemId }, 'syncAllData: debt transactions not available — skipping');
+            } else {
+              logger.warn({ err, itemId: item.itemId }, 'syncAllData: debt transaction sync failed');
+            }
+          }),
+
+        // Investments (holdings + investment transactions)
+        updateInvestments(userId, item.itemId)
+          .then(() => { results.inv = true; })
+          .catch((err) => {
+            if (plaidErrorType(err) === 'ITEM_ERROR') {
+              logger.info({ errorCode: plaidErrorCode(err), itemId: item.itemId }, 'syncAllData: investments product not available — skipping');
+            } else {
+              logger.warn({ err, itemId: item.itemId }, 'syncAllData: investment sync failed');
+            }
+          }),
+
+        // Liabilities (current debt snapshots)
+        updateLiabilities(item.itemId)
+          .then((r) => { results.liab = r; })
+          .catch((err) => {
+            if (plaidErrorType(err) === 'ITEM_ERROR') {
+              logger.info({ errorCode: plaidErrorCode(err), itemId: item.itemId }, 'syncAllData: liabilities product not available — skipping');
+            } else {
+              logger.warn({ err, itemId: item.itemId }, 'syncAllData: liability sync failed');
+            }
+          }),
+      ]);
+
+      return results;
+    }),
+  );
+
+  // Aggregate results across all items.
+  for (const r of itemResults) {
+    if (r.tx) {
+      totals.transactions.added += r.tx.addedCount;
+      totals.transactions.modified += r.tx.modifiedCount;
+      totals.transactions.removed += r.tx.removedCount;
+    }
+    totals.debtTransactions += r.debtTx;
+    if (r.liab) {
+      totals.liabilities.credit += r.liab.creditCount;
+      totals.liabilities.student += r.liab.studentCount;
+      totals.liabilities.mortgage += r.liab.mortgageCount;
+    }
+  }
+
+  return totals;
 }
 
 /**

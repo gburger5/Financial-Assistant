@@ -5,15 +5,19 @@
 export type BudgetGoal =
   | 'pay down debt'
   | 'maximize investments'
-  | 'save for goals'
-  | 'build up emergency fund';
+  | 'build a strong emergency fund'
+  | 'save for big purchase'
+  | 'lower overall spending'
+  | 'have more fun money';
 
 /** All valid BudgetGoal values, used for runtime validation. */
 export const BUDGET_GOALS: BudgetGoal[] = [
   'pay down debt',
   'maximize investments',
-  'save for goals',
-  'build up emergency fund',
+  'build a strong emergency fund',
+  'save for big purchase',
+  'lower overall spending',
+  'have more fun money',
 ];
 
 export interface Budget {
@@ -28,7 +32,7 @@ export interface Budget {
   takeout: BudgetAmount;
   shopping: BudgetAmount;
   personalCare: BudgetAmount;
-  savings: BudgetAmount;
+  emergencyFund: BudgetAmount;
   entertainment: BudgetAmount;
   medical: BudgetAmount;
   debts: BudgetAmount;
@@ -49,7 +53,7 @@ export type BudgetUpdateInput = Partial<{
   shopping: BudgetAmount;
   takeout: BudgetAmount;
   personalCare: BudgetAmount;
-  savings: BudgetAmount;
+  emergencyFund: BudgetAmount;
   entertainment: BudgetAmount;
   medical: BudgetAmount;
   debts: BudgetAmount;
@@ -63,8 +67,11 @@ export type BudgetUpdateInput = Partial<{
  * dot-separated paths into the Budget object where that amount should
  * be accumulated (e.g. 'groceries.amount').
  *
- * Debt-related categories (LOAN_PAYMENTS_*) are intentionally absent —
- * debts are sourced from liabilities (minimum payments), not transactions.
+ * Intentionally absent categories:
+ * - LOAN_PAYMENTS_* — debts are sourced from liabilities (minimum payments), not transactions.
+ * - TRANSFER_OUT_ACCOUNT_TRANSFER — too generic (catches credit card payments, inter-account moves).
+ * - TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS — investments come from investmentTransactions
+ *   to avoid double-counting the same money leaving checking and arriving in the investment account.
  */
 export const CATEGORY_MAP: Record<string, string[]> = {
   // Income
@@ -129,8 +136,8 @@ export const CATEGORY_MAP: Record<string, string[]> = {
   'PERSONAL_CARE_LAUNDRY_AND_DRY_CLEANING': ['personalCare.amount'],
   'PERSONAL_CARE_OTHER_PERSONAL_CARE': ['personalCare.amount'],
 
-  // Savings (internal transfers to savings accounts)
-  'TRANSFER_OUT_ACCOUNT_TRANSFER': ['savings.amount'],
+  // Emergency Fund (explicit savings transfers only — not generic account transfers)
+  'TRANSFER_OUT_SAVINGS': ['emergencyFund.amount'],
 
   // Entertainment
   'ENTERTAINMENT_CASINOS_AND_GAMBLING': ['entertainment.amount'],

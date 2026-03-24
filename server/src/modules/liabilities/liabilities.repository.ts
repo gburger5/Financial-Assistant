@@ -6,15 +6,12 @@
  * found; the service layer decides what to do.
  *
  * Liabilities table schema:
- *   PK: userId (HASH), SK: plaidAccountId (RANGE)
+ *   PK: userId (HASH), SK: sortKey (RANGE) — format: "plaidAccountId#ULID"
  *
- * Key design distinction from every other repository in this codebase:
- *   upsertSnapshot uses PutCommand (full overwrite), not UpdateCommand.
- *   Liabilities are current-state snapshots — what you owe right now.
- *   There is no analytical value in preserving previous field values, so
- *   no ConditionExpression and no if_not_exists pattern. The entire record
- *   is always replaced. This is intentionally different from transactions
- *   and holdings which use UpdateCommand + if_not_exists(createdAt).
+ * Each sync creates a new record per liability account (append-only).
+ * The ULID suffix sorts chronologically, so the latest snapshot per account
+ * is the one with the highest sort key for a given plaidAccountId prefix.
+ * saveSnapshot uses PutCommand — each call creates a new historical record.
  */
 import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
@@ -22,15 +19,14 @@ import { Tables } from '../../db/tables.js';
 import type { Liability } from './liabilities.types.js';
 
 /**
- * Upserts a single liability record in DynamoDB using PutCommand.
- * The entire item is replaced on every call — no ConditionExpression,
- * no field-level preservation. Current state is the only state that matters
- * for financial planning; stale field values have no analytical purpose.
+ * Saves a liability snapshot as a new historical record in DynamoDB.
+ * The sortKey (plaidAccountId#ULID) is set by the service layer before
+ * calling this function, ensuring each sync creates a distinct record.
  *
  * @param {Liability} liability - The fully-mapped liability to persist.
  * @returns {Promise<void>}
  */
-export async function upsertSnapshot(liability: Liability): Promise<void> {
+export async function saveSnapshot(liability: Liability): Promise<void> {
   await db.send(
     new PutCommand({
       TableName: Tables.Liabilities,
@@ -40,15 +36,46 @@ export async function upsertSnapshot(liability: Liability): Promise<void> {
 }
 
 /**
- * Returns all liabilities for a user across all types (credit, student, mortgage).
- * The caller filters by type in memory — a user has at most a handful of
- * liability accounts, so in-memory filtering is negligible compared to the
- * write overhead a GSI on liabilityType would add.
+ * Returns the most recent liability snapshot for each account belonging to a user.
+ * Queries all records for the user, groups by plaidAccountId, and returns
+ * only the record with the highest sortKey (latest ULID) per account.
  *
- * @param {string} userId - UUID of the user whose liabilities to fetch.
- * @returns {Promise<Liability[]>} All liabilities for the user, or [] if none.
+ * @param {string} userId - UUID of the user whose latest liabilities to fetch.
+ * @returns {Promise<Liability[]>} Latest snapshot per account, or [] if none.
  */
-export async function getByUserId(userId: string): Promise<Liability[]> {
+export async function getLatestByUserId(userId: string): Promise<Liability[]> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Liabilities,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: { ':userId': userId },
+    }),
+  );
+
+  const items = (result.Items ?? []) as Liability[];
+
+  // Group by plaidAccountId, keep only the record with the highest sortKey per account.
+  // sortKey format is "plaidAccountId#ULID" — ULIDs sort chronologically as strings.
+  const latestByAccount = new Map<string, Liability>();
+  for (const item of items) {
+    const existing = latestByAccount.get(item.plaidAccountId);
+    if (!existing || item.sortKey > existing.sortKey) {
+      latestByAccount.set(item.plaidAccountId, item);
+    }
+  }
+
+  return Array.from(latestByAccount.values());
+}
+
+/**
+ * Returns all liability snapshots (full history) for a user.
+ * Includes every historical record, not just the latest per account.
+ * Useful for tracking how liabilities change over time.
+ *
+ * @param {string} userId - UUID of the user whose liability history to fetch.
+ * @returns {Promise<Liability[]>} All snapshots for the user, or [] if none.
+ */
+export async function getAllByUserId(userId: string): Promise<Liability[]> {
   const result = await db.send(
     new QueryCommand({
       TableName: Tables.Liabilities,

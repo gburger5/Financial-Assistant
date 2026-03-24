@@ -35,19 +35,25 @@ vi.mock('../../items/items.service.js', () => ({
 
 vi.mock('../../accounts/accounts.service.js', () => ({
   syncAccounts: vi.fn(),
+  getAccountsForItem: vi.fn(),
 }));
 
-// vi.hoisted() makes mockTransactionsSync available inside the vi.mock factory.
-const { mockTransactionsSync } = vi.hoisted(() => ({
+// vi.hoisted() makes mock Plaid methods available inside the vi.mock factory.
+const { mockTransactionsSync, mockTransactionsGet } = vi.hoisted(() => ({
   mockTransactionsSync: vi.fn(),
+  mockTransactionsGet: vi.fn(),
 }));
 vi.mock('../../../lib/plaidClient.js', () => ({
-  plaidClient: { transactionsSync: mockTransactionsSync },
+  plaidClient: {
+    transactionsSync: mockTransactionsSync,
+    transactionsGet: mockTransactionsGet,
+  },
 }));
 
 import {
   mapPlaidTransaction,
   syncTransactions,
+  syncDebtTransactions,
   getTransactionsSince,
   getTransactionsInRange,
 } from '../transactions.service.js';
@@ -63,6 +69,7 @@ const mockGetTransactionsInRange = vi.mocked(repo.getTransactionsInRange);
 const mockGetItemForSync = vi.mocked(itemsService.getItemForSync);
 const mockUpdateCursor = vi.mocked(itemsService.updateCursor);
 const mockSyncAccounts = vi.mocked(accountsService.syncAccounts);
+const mockGetAccountsForItem = vi.mocked(accountsService.getAccountsForItem);
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -876,5 +883,146 @@ describe('getTransactionsInRange', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].pending).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// syncDebtTransactions
+// ---------------------------------------------------------------------------
+
+describe('syncDebtTransactions', () => {
+  /** Account fixtures for getAccountsForItem mock. */
+  const creditAccount = {
+    userId: 'user-123',
+    plaidAccountId: 'acct-credit-1',
+    itemId: 'item-abc',
+    name: 'Sapphire',
+    type: 'credit' as const,
+    subtype: 'credit card',
+    currentBalance: 1000,
+    availableBalance: null,
+    limitBalance: 5000,
+    isoCurrencyCode: 'USD',
+    unofficialCurrencyCode: null,
+    officialName: null,
+    mask: '1234',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    createdAt: '2025-01-01T00:00:00.000Z',
+  };
+
+  const depositoryAccount = {
+    ...creditAccount,
+    plaidAccountId: 'acct-checking',
+    name: 'Checking',
+    type: 'depository' as const,
+    subtype: 'checking',
+  };
+
+  const loanAccount = {
+    ...creditAccount,
+    plaidAccountId: 'acct-loan-1',
+    name: 'Student Loan',
+    type: 'loan' as const,
+    subtype: 'student',
+  };
+
+  /** Builds a mock transactionsGet response. */
+  function makeGetResponse(transactions: PlaidTransaction[], totalTransactions?: number) {
+    return {
+      data: {
+        transactions,
+        total_transactions: totalTransactions ?? transactions.length,
+        accounts: [{ account_id: 'acct-credit-1', type: 'credit' }],
+      },
+    };
+  }
+
+  it('returns 0 and skips API call when item has no credit or loan accounts', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([depositoryAccount]);
+
+    const result = await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(result).toBe(0);
+    expect(mockTransactionsGet).not.toHaveBeenCalled();
+  });
+
+  it('calls transactionsGet with debt account IDs only', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([depositoryAccount, creditAccount, loanAccount]);
+    mockTransactionsGet.mockResolvedValue(makeGetResponse([]));
+    mockSyncAccounts.mockResolvedValue(undefined);
+
+    await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(mockTransactionsGet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        access_token: 'access-sandbox-token',
+        options: expect.objectContaining({
+          account_ids: ['acct-credit-1', 'acct-loan-1'],
+        }),
+      }),
+    );
+  });
+
+  it('maps and upserts returned transactions', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([creditAccount]);
+    mockTransactionsGet.mockResolvedValue(makeGetResponse([samplePlaidTx]));
+    mockSyncAccounts.mockResolvedValue(undefined);
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    const result = await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(result).toBe(1);
+    expect(mockUpsertTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('paginates when total_transactions exceeds page size', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([creditAccount]);
+    // First page: 1 transaction, total is 2. Second page: 1 more transaction.
+    mockTransactionsGet
+      .mockResolvedValueOnce(makeGetResponse([samplePlaidTx], 2))
+      .mockResolvedValueOnce(makeGetResponse([{ ...samplePlaidTx, transaction_id: 'txn-def' }], 2));
+    mockSyncAccounts.mockResolvedValue(undefined);
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    const result = await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(mockTransactionsGet).toHaveBeenCalledTimes(2);
+    expect(result).toBe(2);
+  });
+
+  it('includes personal_finance_category in the request options', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([creditAccount]);
+    mockTransactionsGet.mockResolvedValue(makeGetResponse([]));
+    mockSyncAccounts.mockResolvedValue(undefined);
+
+    await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(mockTransactionsGet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          include_personal_finance_category: true,
+        }),
+      }),
+    );
+  });
+
+  it('calls syncAccounts with accounts from the first page response', async () => {
+    mockGetItemForSync.mockResolvedValue(sampleItem);
+    mockGetAccountsForItem.mockResolvedValue([creditAccount]);
+    mockTransactionsGet.mockResolvedValue(makeGetResponse([]));
+    mockSyncAccounts.mockResolvedValue(undefined);
+
+    await syncDebtTransactions('user-123', 'item-abc');
+
+    expect(mockSyncAccounts).toHaveBeenCalledWith(
+      'user-123',
+      'item-abc',
+      expect.any(Array),
+    );
   });
 });

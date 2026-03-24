@@ -96,7 +96,7 @@ function flattenAgentBudget(agentBudget: Budget): Omit<Budget, 'userId' | 'budge
     personalCare:   { amount: num(b.needs?.other?.personalCare) },
     takeout:        { amount: num(b.wants?.takeout) },
     shopping:       { amount: num(b.wants?.shopping) },
-    savings:        { amount: num(b.savings?.monthlySavings) },
+    emergencyFund:  { amount: num(b.emergencyFund?.monthlyContribution) },
     entertainment:  { amount: num(b.wants?.entertainment) },
     medical:        { amount: num(b.needs?.other?.medical) },
     investments:    { amount: num(b.investments?.monthlyContribution) },

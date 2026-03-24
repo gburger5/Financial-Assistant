@@ -1,20 +1,108 @@
 # agents/test_direct.py
+# Runs the budget agent without touching DynamoDB — prints the proposal to console.
+from agents.budget import BUDGET_SYSTEM_PROMPT
+from strands.models.anthropic import AnthropicModel
+from strands import Agent, tool
 import json
-from agents.budget import make_budget_agent
+from dotenv import load_dotenv
 
-agent = make_budget_agent()
+load_dotenv()
+
+
+@tool
+def budget_proposal(
+    summary: str,
+    rationale: str,
+    income: float,
+    housing: float,
+    utilities: float,
+    transportation: float,
+    groceries: float,
+    takeout: float,
+    shopping: float,
+    personal_care: float,
+    savings: float,
+    entertainment: float,
+    medical: float,
+    debts: float,
+    investments: float,
+) -> dict:
+    """Submit a budget proposal for user approval.
+
+    Args:
+        summary: Human-readable breakdown shown to the user
+        rationale: Why you chose this specific split reference user goals when relevant
+        income: Monthly take-home income
+        housing: Recommended monthly housing (rent or mortgage)
+        utilities: Recommended monthly utilities
+        transportation: Recommended monthly transportation
+        groceries: Recommended monthly groceries
+        takeout: Recommended monthly takeout and restaurants
+        shopping: Recommended monthly shopping
+        personalCare: Recommended monthly personal care
+        emergencyFund: Recommended monthly emergency fund contribution
+        entertainment: Recommended monthly entertainment
+        medical: Recommended monthly medical
+        debts: Recommended monthly debt payments
+        investments: Recommended monthly investment contribution
+    """
+    proposal = {
+        "budget": {
+            "income": {"amount": income},
+            "housing": {"amount": housing},
+            "utilities": {"amount": utilities},
+            "transportation": {"amount": transportation},
+            "groceries": {"amount": groceries},
+            "takeout": {"amount": takeout},
+            "shopping": {"amount": shopping},
+            "personalCare": {"amount": personal_care},
+            "emergencyFund": {"amount": savings},
+            "entertainment": {"amount": entertainment},
+            "medical": {"amount": medical},
+            "debts": {"amount": debts},
+            "investments": {"amount": investments},
+            "goals": [],
+        },
+        "summary": summary,
+        "rationale": rationale,
+    }
+    print("\n" + "=" * 60)
+    print("BUDGET PROPOSAL")
+    print("=" * 60)
+    print(json.dumps(proposal, indent=2))
+    print("=" * 60 + "\n")
+    return {"status": "printed", "proposalId": "dry-run"}
+
+
+model = AnthropicModel(model_id="claude-sonnet-4-6", max_tokens=4096)
+agent = Agent(
+    name="budget-agent",
+    system_prompt=BUDGET_SYSTEM_PROMPT,
+    tools=[budget_proposal],
+    model=model,
+    callback_handler=None,
+)
+
 result = agent(
-    "Analyze the following actual spending budget for user test-user-123 "
-    "and propose an improved budget following the 50/30/20 rule. "
-    f"Current budget (actual spending from the past 60 days): {json.dumps({
-        'income': {'salary': 7000},
-        'needs': {'housing': 2100, 'utilities': 200, 'groceries': 500, 'transportation': 300},
-        'wants': {'dining': 400, 'entertainment': 200, 'subscriptions': 50},
-        'debts': {'credit_card': 250, 'student_loan': 350}
-    })}. "
-    "User profile: {'firstName': 'Test', 'email': 'test@example.com'}. "
-    "Goals: {'emergency_fund': {'target': 10000, 'current': 2000}}. "
-    "Current debts: [{'name': 'Credit Card', 'balance': 5000, 'rate': 22.99, 'minimum': 150}]. "
-    "Submit your proposal via submit_budget_proposal."
+    "Analyze the following actual spending budget for the user."
+    "Then propose an improved budget using the budget proposal tool."
+    f"Current budget (actual spending from the past 60 days): {json.dumps(
+        {
+            "income": {"amount": 5636.45},
+            "housing": {"amount": 1500},
+            "utilities": {"amount": 50},
+            "transportation": {"amount": 142.14},
+            "groceries": {"amount": 426.71},
+            "takeout": {"amount": 106.82},
+            "shopping": {"amount": 350.71},
+            "personalCare": {"amount": 132.05},
+            "savings": {"amount": 600},
+            "entertainment": {"amount": 14.99},
+            "medical": {"amount": 47.36},
+            "debts": {"amount": 502},
+            "investments": {"amount": 1090.03},
+            "goals": []
+        }
+    )}. "
 )
 print(result)

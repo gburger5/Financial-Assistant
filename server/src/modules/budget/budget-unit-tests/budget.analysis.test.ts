@@ -254,7 +254,7 @@ describe('generateBudgetFromHistory', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     const categories = [
       'income', 'housing', 'utilities', 'transportation', 'groceries',
-      'takeout', 'shopping', 'personalCare', 'savings', 'entertainment',
+      'takeout', 'shopping', 'personalCare', 'emergencyFund', 'entertainment',
       'medical', 'investments',
     ] as const;
     for (const cat of categories) {
@@ -289,7 +289,7 @@ describe('generateBudgetFromHistory', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
     const requiredCategories = [
       'income', 'housing', 'utilities', 'transportation', 'groceries',
-      'takeout', 'shopping', 'personalCare', 'savings', 'entertainment',
+      'takeout', 'shopping', 'personalCare', 'emergencyFund', 'entertainment',
       'medical', 'debts', 'investments',
     ] as const;
     for (const cat of requiredCategories) {
@@ -412,16 +412,35 @@ describe('generateBudgetFromHistory', () => {
   });
 
   // -------------------------------------------------------------------------
-  // New categories: savings, entertainment, medical
+  // New categories: emergencyFund, entertainment, medical
   // -------------------------------------------------------------------------
 
-  it('computes savings from TRANSFER_OUT_ACCOUNT_TRANSFER transactions', () => {
+  it('does NOT map TRANSFER_OUT_ACCOUNT_TRANSFER to any category — too generic', () => {
     const txs = [
       makeTransaction({ plaidTransactionId: 'tx-s1', detailedCategory: 'TRANSFER_OUT_ACCOUNT_TRANSFER', amount: 200 }),
-      makeTransaction({ plaidTransactionId: 'tx-s2', detailedCategory: 'TRANSFER_OUT_ACCOUNT_TRANSFER', amount: 100 }),
     ];
     const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
-    expect(budget.savings.amount).toBe(300);
+    // Generic account transfers include credit card payments, inter-account moves, etc.
+    // Too ambiguous for any single budget category.
+    expect(budget.emergencyFund.amount).toBe(0);
+  });
+
+  it('computes emergencyFund from TRANSFER_OUT_SAVINGS transactions', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-s1', detailedCategory: 'TRANSFER_OUT_SAVINGS', amount: 200 }),
+      makeTransaction({ plaidTransactionId: 'tx-s2', detailedCategory: 'TRANSFER_OUT_SAVINGS', amount: 200 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.emergencyFund.amount).toBe(400);
+  });
+
+  it('does NOT map TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS — investments come from investmentTransactions', () => {
+    const txs = [
+      makeTransaction({ plaidTransactionId: 'tx-inv1', detailedCategory: 'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS', amount: 291.67 }),
+    ];
+    const budget = generateBudgetFromHistory({ userId, transactions: txs, liabilities: [] });
+    expect(budget.investments.amount).toBe(0);
+    expect(budget.emergencyFund.amount).toBe(0);
   });
 
   it('computes entertainment from ENTERTAINMENT_* transactions', () => {
@@ -441,9 +460,9 @@ describe('generateBudgetFromHistory', () => {
     expect(budget.medical.amount).toBe(47.36);
   });
 
-  it('sets savings, entertainment, and medical to 0 when no matching transactions exist', () => {
+  it('sets emergencyFund, entertainment, and medical to 0 when no matching transactions exist', () => {
     const budget = generateBudgetFromHistory({ userId, transactions: [], liabilities: [] });
-    expect(budget.savings.amount).toBe(0);
+    expect(budget.emergencyFund.amount).toBe(0);
     expect(budget.entertainment.amount).toBe(0);
     expect(budget.medical.amount).toBe(0);
   });

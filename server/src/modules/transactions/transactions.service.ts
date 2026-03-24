@@ -25,7 +25,7 @@
 import { createLogger } from '../../lib/logger.js';
 import { plaidClient } from '../../lib/plaidClient.js';
 import { getItemForSync, updateCursor } from '../items/items.service.js';
-import { syncAccounts } from '../accounts/accounts.service.js';
+import { syncAccounts, getAccountsForItem } from '../accounts/accounts.service.js';
 import {
   deleteByPlaidTransactionId,
   getTransactionsSince as repoGetTransactionsSince,
@@ -234,6 +234,84 @@ export async function syncTransactions(
   }
 
   return { addedCount, modifiedCount, removedCount, nextCursor, hasTransactionCapableAccounts, notReady };
+}
+
+/**
+ * Fetches transactions for debt accounts (credit cards and loans) via Plaid's
+ * transactionsGet API. In Plaid sandbox, transactionsSync does not return
+ * custom transactions for debt accounts — this function fills that gap.
+ *
+ * Only runs for items that have credit or loan accounts. Transactions are
+ * mapped and upserted identically to syncTransactions, so duplicates are
+ * harmless (idempotent upsert by plaidTransactionId).
+ *
+ * @param {string} userId - UUID of the user who owns the bank connection.
+ * @param {string} itemId - Plaid item ID of the bank connection.
+ * @returns {Promise<number>} Count of transactions upserted.
+ */
+export async function syncDebtTransactions(
+  userId: string,
+  itemId: string,
+): Promise<number> {
+  const item = await getItemForSync(itemId);
+  const accounts = await getAccountsForItem(itemId);
+  const debtAccounts = accounts.filter(
+    (a) => a.type === 'credit' || a.type === 'loan',
+  );
+
+  if (debtAccounts.length === 0) {
+    return 0;
+  }
+
+  const debtAccountIds = debtAccounts.map((a) => a.plaidAccountId);
+  const today = new Date().toISOString().slice(0, 10);
+  const twoYearsAgo = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  let offset = 0;
+  let totalTransactions = 0;
+  let upsertedCount = 0;
+  const PAGE_SIZE = 500;
+
+  do {
+    const response = await plaidClient.transactionsGet({
+      access_token: item.accessToken,
+      start_date: twoYearsAgo,
+      end_date: today,
+      options: {
+        account_ids: debtAccountIds,
+        count: PAGE_SIZE,
+        offset,
+        include_personal_finance_category: true,
+      },
+    });
+
+    const page = response.data;
+    totalTransactions = page.total_transactions;
+
+    // Sync account balances from the first page response.
+    if (offset === 0) {
+      await syncAccounts(userId, itemId, page.accounts as Parameters<typeof syncAccounts>[2]);
+    }
+
+    for (const plaidTx of page.transactions) {
+      try {
+        const tx = mapPlaidTransaction(userId, plaidTx as PlaidTransaction);
+        await upsertTransaction(tx);
+        upsertedCount++;
+      } catch (err) {
+        logger.error(
+          { err, plaidTransactionId: (plaidTx as PlaidTransaction).transaction_id },
+          'syncDebtTransactions: failed to upsert transaction — skipping',
+        );
+      }
+    }
+
+    offset += page.transactions.length;
+  } while (offset < totalTransactions);
+
+  return upsertedCount;
 }
 
 /**
