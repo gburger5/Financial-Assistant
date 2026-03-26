@@ -57,6 +57,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
+<<<<<<< HEAD
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
@@ -65,4 +66,16 @@ function App() {
   )
 }
 
+=======
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </AuthProvider>
+  </SettingsProvider>)
+
+}
+
+
+>>>>>>> 71c293c (Created settings page and utilities)
 export default App
