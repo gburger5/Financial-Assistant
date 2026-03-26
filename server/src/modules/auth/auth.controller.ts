@@ -9,7 +9,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import * as authService from './auth.service.js';
 import { BadRequestError } from '../../lib/errors.js';
-import type { RegisterRouteGeneric, LoginRouteGeneric } from './auth.schema.js';
+import type { RegisterRouteGeneric, LoginRouteGeneric, UpdateProfileRouteGeneric } from './auth.schema.js';
 
 /**
  * Handles POST /register.
@@ -64,5 +64,24 @@ export async function login(
  */
 export async function verify(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = await authService.getUserById(request.user!.userId);
+  return reply.status(200).send(user);
+}
+
+/**
+ * Handles PATCH /profile.
+ * Updates the authenticated user's birthday. Delegates to the service and
+ * returns the updated PublicUser.
+ *
+ * @param {FastifyRequest<UpdateProfileRouteGeneric>} request
+ * @param {FastifyReply} reply
+ * @returns {Promise<void>}
+ */
+export async function updateProfile(
+  request: FastifyRequest<UpdateProfileRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const userId = request.user!.userId;
+  const { birthday } = request.body;
+  const user = await authService.updateBirthday(userId, birthday);
   return reply.status(200).send(user);
 }

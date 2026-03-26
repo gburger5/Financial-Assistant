@@ -216,15 +216,6 @@ async function main() {
     KeySchema: [{ AttributeName: "proposalId", KeyType: "HASH" }],
   });
 
-  await createTable("goals", {
-    TableName: "goals",
-    BillingMode: "PAY_PER_REQUEST",
-    AttributeDefinitions: [
-      { AttributeName: "userId", AttributeType: "S" },
-    ],
-    KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
-  });
-
   console.log("Done.");
 }
 

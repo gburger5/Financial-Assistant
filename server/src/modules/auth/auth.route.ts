@@ -6,8 +6,8 @@
  * Register this plugin in app.ts with prefix: '/api/auth'.
  */
 import type { FastifyInstance } from 'fastify';
-import { register, login, verify } from './auth.controller.js';
-import { registerSchema, loginSchema, verifySchema } from './auth.schema.js';
+import { register, login, verify, updateProfile } from './auth.controller.js';
+import { registerSchema, loginSchema, verifySchema, updateProfileSchema, type UpdateProfileRouteGeneric } from './auth.schema.js';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 
 /**
@@ -16,9 +16,10 @@ import { verifyJWT } from '../../plugins/auth.plugin.js';
  * intentionally encapsulated — they add no decorators to the parent scope.
  *
  * Routes:
- *   POST /register — open, creates a new user account
- *   POST /login    — open, returns a JWT on valid credentials
- *   GET  /verify   — protected, echoes the decoded JWT payload
+ *   POST  /register — open, creates a new user account
+ *   POST  /login    — open, returns a JWT on valid credentials
+ *   GET   /verify   — protected, echoes the decoded JWT payload
+ *   PATCH /profile  — protected, updates user profile fields (birthday)
  *
  * @param {FastifyInstance} fastify
  * @returns {Promise<void>}
@@ -29,4 +30,5 @@ export default async function authRoutes(
   fastify.post('/register', { schema: registerSchema }, register);
   fastify.post('/login', { schema: loginSchema }, login);
   fastify.get('/verify', { schema: verifySchema, preHandler: verifyJWT }, verify);
+  fastify.patch<UpdateProfileRouteGeneric>('/profile', { schema: updateProfileSchema, preHandler: verifyJWT }, updateProfile);
 }

@@ -8,26 +8,26 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import * as budgetService from './budget.service.js';
 import { NotFoundError } from '../../lib/errors.js';
-import type { BudgetUpdateInput } from './budget.types.js';
+import type { BudgetGoal, BudgetUpdateInput } from './budget.types.js';
 
 /**
  * Handles POST /budget/initialize.
  * Generates the user's initial budget from their full transaction and liability
- * history. If a budget already exists (e.g. the user linked a second bank
- * account), returns the existing budget unchanged — createInitialBudget is
- * idempotent. Called by the frontend immediately after a successful token
- * exchange, once triggerInitialSync has finished populating the data tables.
+ * history, using the goals selected by the user during onboarding.
+ * If a budget already exists (e.g. the user linked a second bank account),
+ * returns the existing budget unchanged — createInitialBudget is idempotent.
  *
- * @param {FastifyRequest} request
+ * @param {FastifyRequest<{ Body: { goals: BudgetGoal[] } }>} request
  * @param {FastifyReply} reply
  * @returns {Promise<void>}
  */
 export async function initializeBudget(
-  request: FastifyRequest,
+  request: FastifyRequest<{ Body: { goals: BudgetGoal[] } }>,
   reply: FastifyReply,
 ): Promise<void> {
   const userId = request.user!.userId;
-  const budget = await budgetService.createInitialBudget(userId);
+  const { goals } = request.body;
+  const budget = await budgetService.createInitialBudget(userId, goals);
   return reply.status(201).send(budget);
 }
 

@@ -25,6 +25,8 @@ export interface UserRecord {
   email: string;
   /** Argon2id hash of the user's password. Never returned to callers. */
   password_hash: string;
+  /** ISO date string (YYYY-MM-DD). Set during onboarding, before budget creation. */
+  birthday?: string;
   created_at: string;
   updated_at: string;
   /** Incremented on each failed login attempt; reset on success. */
@@ -133,6 +135,32 @@ export async function updateLoginFailure(
       ExpressionAttributeValues: {
         ':failedLoginAttempts': failedLoginAttempts,
         ':accountLockedUntil': lockedUntil,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates the birthday field on a user record.
+ * Uses UpdateExpression so no other concurrently-updated fields are overwritten.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} birthday - ISO date string (YYYY-MM-DD).
+ * @returns {Promise<void>}
+ */
+export async function updateUserBirthday(
+  userId: string,
+  birthday: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression:
+        'SET birthday = :birthday, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':birthday': birthday,
         ':updated_at': new Date().toISOString(),
       },
     })

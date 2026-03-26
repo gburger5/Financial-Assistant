@@ -67,6 +67,8 @@ async function buildTestApp(): Promise<FastifyInstance> {
 // Fixtures
 // ---------------------------------------------------------------------------
 
+const testGoals: BudgetGoal[] = ['pay down debt', 'maximize investments'];
+
 const sampleBudget = {
   userId: TEST_USER_ID,
   budgetId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
@@ -79,9 +81,12 @@ const sampleBudget = {
   takeout: { amount: 150 },
   shopping: { amount: 250 },
   personalCare: { amount: 100 },
+  emergencyFund: { amount: 0 },
+  entertainment: { amount: 0 },
+  medical: { amount: 0 },
   debts: { amount: 500 },
   investments: { amount: 300 },
-  goals: [],
+  goals: testGoals,
 };
 
 beforeEach(() => {
@@ -100,7 +105,11 @@ describe('POST /api/budget/initialize', () => {
   it('returns 401 when no Authorization header is provided', async () => {
     app = await buildTestApp();
 
-    const res = await app.inject({ method: 'POST', url: '/api/budget/initialize' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/budget/initialize',
+      payload: { goals: testGoals },
+    });
 
     expect(res.statusCode).toBe(401);
   });
@@ -113,9 +122,49 @@ describe('POST /api/budget/initialize', () => {
       method: 'POST',
       url: '/api/budget/initialize',
       headers: { authorization: `Bearer ${token}` },
+      payload: { goals: testGoals },
     });
 
     expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 400 when goals is missing from the body', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/budget/initialize',
+      headers: { authorization: `Bearer ${signToken()}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when goals is an empty array (minItems: 1)', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/budget/initialize',
+      headers: { authorization: `Bearer ${signToken()}` },
+      payload: { goals: [] },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when goals contains an invalid string', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/budget/initialize',
+      headers: { authorization: `Bearer ${signToken()}` },
+      payload: { goals: ['not a real goal'] },
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 
   it('returns 201 with the created budget on success', async () => {
@@ -126,13 +175,14 @@ describe('POST /api/budget/initialize', () => {
       method: 'POST',
       url: '/api/budget/initialize',
       headers: { authorization: `Bearer ${signToken()}` },
+      payload: { goals: testGoals },
     });
 
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ userId: TEST_USER_ID });
   });
 
-  it('calls createInitialBudget with the authenticated userId from the JWT', async () => {
+  it('calls createInitialBudget with the authenticated userId and goals from the body', async () => {
     mockCreateInitialBudget.mockResolvedValue(sampleBudget);
     app = await buildTestApp();
 
@@ -140,9 +190,10 @@ describe('POST /api/budget/initialize', () => {
       method: 'POST',
       url: '/api/budget/initialize',
       headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      payload: { goals: testGoals },
     });
 
-    expect(mockCreateInitialBudget).toHaveBeenCalledWith(TEST_USER_ID);
+    expect(mockCreateInitialBudget).toHaveBeenCalledWith(TEST_USER_ID, testGoals);
   });
 });
 

@@ -7,6 +7,9 @@
 
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
+import { getAccountsForUser } from '../accounts/accounts.service.js';
+import { getLatestHoldings } from '../investments/investments.service.js';
+import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
 
 /**
  * Zod schema for the budget proposal output. Field names match the server's
@@ -35,42 +38,67 @@ export const budgetProposalSchema = z.object({
 /** TypeScript type inferred from the budget proposal schema. */
 export type BudgetProposal = z.infer<typeof budgetProposalSchema>;
 
+/** Input schema shared by all user-data retrieval tools. */
+const userIdSchema = z.object({
+  userId: z.string().describe('UUID of the user whose data to retrieve'),
+});
+
 /**
- * Console-only budget proposal tool. Prints the proposal as formatted JSON
- * and returns a dry-run acknowledgment. No database or external writes.
+ * Retrieves all bank accounts (checking, savings, credit, loan, investment)
+ * for a user from DynamoDB. Returns balances, account types, and metadata.
  */
-export const submitBudgetProposal = tool({
-  name: 'submit_budget_proposal',
-  description: 'Submit a budget proposal for user review. Prints the proposal to the console.',
-  inputSchema: budgetProposalSchema,
-  callback: (input: BudgetProposal) => {
-    const proposal = {
-      budget: {
-        income: { amount: input.income },
-        housing: { amount: input.housing },
-        utilities: { amount: input.utilities },
-        transportation: { amount: input.transportation },
-        groceries: { amount: input.groceries },
-        takeout: { amount: input.takeout },
-        shopping: { amount: input.shopping },
-        personalCare: { amount: input.personalCare },
-        emergencyFund: { amount: input.emergencyFund },
-        entertainment: { amount: input.entertainment },
-        medical: { amount: input.medical },
-        debts: { amount: input.debts },
-        investments: { amount: input.investments },
-        goals: [],
-      },
-      summary: input.summary,
-      rationale: input.rationale,
-    };
+export const getUserAccounts = tool({
+  name: 'get_user_accounts',
+  description:
+    'Retrieve all bank accounts for a user. Returns an array of accounts with ' +
+    'fields: name, type (depository/credit/loan/investment), subtype, ' +
+    'currentBalance, availableBalance, limitBalance, and isoCurrencyCode. ' +
+    'Use this to understand the user\'s full financial picture — checking vs ' +
+    'savings balances, credit utilization, and loan balances.',
+  inputSchema: userIdSchema,
+  callback: async (input: z.infer<typeof userIdSchema>) => {
+    const accounts = await getAccountsForUser(input.userId);
+    return JSON.parse(JSON.stringify({ accounts }));
+  },
+});
 
-    console.log('\n' + '='.repeat(60));
-    console.log('BUDGET PROPOSAL');
-    console.log('='.repeat(60));
-    console.log(JSON.stringify(proposal, null, 2));
-    console.log('='.repeat(60) + '\n');
+/**
+ * Retrieves the latest investment holdings snapshot for a user. Returns
+ * ticker symbols, quantities, values, cost basis, and security types.
+ */
+export const getUserHoldings = tool({
+  name: 'get_user_holdings',
+  description:
+    'Retrieve the latest investment holdings for a user. Returns an array of ' +
+    'holdings with fields: tickerSymbol, securityName, securityType ' +
+    '(etf/mutual fund/equity/etc.), quantity, institutionPrice, ' +
+    'institutionValue, costBasis, and closePrice. Use this to understand ' +
+    'the user\'s investment allocation and portfolio composition.',
+  inputSchema: userIdSchema,
+  callback: async (input: z.infer<typeof userIdSchema>) => {
+    const holdings = await getLatestHoldings(input.userId);
+    return JSON.parse(JSON.stringify({ holdings }));
+  },
+});
 
-    return { status: 'printed', proposalId: 'dry-run' };
+/**
+ * Retrieves the latest liability snapshot (credit cards, student loans,
+ * mortgages) for a user. Returns APRs, minimum payments, and balances.
+ */
+export const getUserLiabilities = tool({
+  name: 'get_user_liabilities',
+  description:
+    'Retrieve the latest liabilities for a user. Returns an array of liabilities, ' +
+    'each with liabilityType (credit/student/mortgage) and a details object. ' +
+    'Credit: minimumPaymentAmount, aprs (with aprPercentage and aprType). ' +
+    'Student: minimumPaymentAmount, interestRatePercentage, outstandingInterestAmount, ' +
+    'originationPrincipalAmount, repaymentPlan. ' +
+    'Mortgage: nextMonthlyPayment, interestRatePercentage, outstandingPrincipalBalance. ' +
+    'Use this to understand debt obligations, interest rates, and minimum payments — ' +
+    'critical for deciding how to split between debt repayment and investing.',
+  inputSchema: userIdSchema,
+  callback: async (input: z.infer<typeof userIdSchema>) => {
+    const liabilities = await getLiabilitiesForUser(input.userId);
+    return JSON.parse(JSON.stringify({ liabilities }));
   },
 });

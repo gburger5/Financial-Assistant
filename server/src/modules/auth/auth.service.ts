@@ -33,6 +33,8 @@ export interface PublicUser {
   /** True once the user has accepted a budget agent proposal. Used by the
    * frontend to skip the onboarding agent step on subsequent logins. */
   agentBudgetApproved: boolean;
+  /** ISO date string (YYYY-MM-DD). Set during onboarding, before budget creation. */
+  birthday?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +86,7 @@ function toPublicUser(user: repo.UserRecord): PublicUser {
     email: user.email,
     createdAt: user.created_at,
     agentBudgetApproved: (user.onboarding as Record<string, unknown>)?.agentBudgetApproved === true,
+    birthday: user.birthday,
   };
 }
 
@@ -260,5 +263,24 @@ export async function getUserById(userId: string): Promise<PublicUser> {
   if (!user) {
     throw new NotFoundError('User not found');
   }
+  return toPublicUser(user);
+}
+
+/**
+ * Updates a user's birthday.
+ * Persists the change to DynamoDB and returns the updated PublicUser.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} birthday - ISO date string (YYYY-MM-DD).
+ * @returns {Promise<PublicUser>}
+ * @throws {NotFoundError} If no user with that ID exists.
+ */
+export async function updateBirthday(userId: string, birthday: string): Promise<PublicUser> {
+  const user = await repo.findUserById(userId);
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+  await repo.updateUserBirthday(userId, birthday);
+  user.birthday = birthday;
   return toPublicUser(user);
 }

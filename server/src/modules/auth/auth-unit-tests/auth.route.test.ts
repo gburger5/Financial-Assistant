@@ -14,6 +14,7 @@ vi.mock('../auth.service.js', () => ({
   registerUser: vi.fn(),
   loginUser: vi.fn(),
   getUserById: vi.fn(),
+  updateBirthday: vi.fn(),
 }));
 
 import authRoutes from '../auth.route.js';
@@ -22,6 +23,7 @@ import * as authService from '../auth.service.js';
 const mockRegisterUser = vi.mocked(authService.registerUser);
 const mockLoginUser = vi.mocked(authService.loginUser);
 const mockGetUserById = vi.mocked(authService.getUserById);
+const mockUpdateBirthday = vi.mocked(authService.updateBirthday);
 
 const TEST_SECRET = 'route-integration-test-secret';
 
@@ -441,5 +443,148 @@ describe('GET /api/auth/verify', () => {
     const body = res.json();
     expect(body.userId).toBe('user-uuid');
     expect(body.email).toBe('alice@example.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile
+// ---------------------------------------------------------------------------
+
+describe('PATCH /api/auth/profile', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 when no Authorization header is provided', async () => {
+    app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      payload: { birthday: '1995-06-15' },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 400 when birthday is missing (schema validation)', async () => {
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-1', email: 'a@b.com' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when birthday is not a valid date format (schema validation)', async () => {
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'u-1', email: 'a@b.com' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { birthday: 'not-a-date' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 200 with updated PublicUser on success', async () => {
+    mockUpdateBirthday.mockResolvedValue({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+      birthday: '1995-06-15',
+    });
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'user-uuid', email: 'alice@example.com' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { birthday: '1995-06-15' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.birthday).toBe('1995-06-15');
+    expect(body.userId).toBe('user-uuid');
+  });
+
+  it('calls updateBirthday with the authenticated userId and birthday', async () => {
+    mockUpdateBirthday.mockResolvedValue({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+      birthday: '1990-01-01',
+    });
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'user-uuid', email: 'alice@example.com' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { birthday: '1990-01-01' },
+    });
+
+    expect(mockUpdateBirthday).toHaveBeenCalledWith('user-uuid', '1990-01-01');
+  });
+
+  it('strips extra body fields (additionalProperties: false)', async () => {
+    mockUpdateBirthday.mockResolvedValue({
+      userId: 'user-uuid',
+      firstName: 'Alice',
+      lastName: 'Smith',
+      email: 'alice@example.com',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      agentBudgetApproved: false,
+      birthday: '1995-06-15',
+    });
+    app = await buildTestApp();
+    const token = jwt.sign(
+      { userId: 'user-uuid', email: 'alice@example.com' },
+      TEST_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/profile',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { birthday: '1995-06-15', role: 'admin' },
+    });
+
+    // Succeeds — extra field is stripped, not rejected
+    expect(res.statusCode).toBe(200);
+    expect(mockUpdateBirthday).toHaveBeenCalledWith('user-uuid', '1995-06-15');
   });
 });

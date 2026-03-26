@@ -28,7 +28,7 @@ const testBudget: Budget = {
   medical: { amount: 47.36 },
   debts: { amount: 502 },
   investments: { amount: 1090.03 },
-  goals: [],
+  goals: ['pay down debt'],
 };
 
 /**

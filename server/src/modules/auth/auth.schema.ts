@@ -27,6 +27,13 @@ export interface RegisterRouteGeneric {
   };
 }
 
+/** Route generics for PATCH /profile. */
+export interface UpdateProfileRouteGeneric {
+  Body: {
+    birthday: string;
+  };
+}
+
 /** Route generics for POST /login. */
 export interface LoginRouteGeneric {
   Body: {
@@ -52,6 +59,7 @@ export const publicUserSchema = {
     email: { type: 'string' },
     createdAt: { type: 'string' },
     agentBudgetApproved: { type: 'boolean' },
+    birthday: { type: 'string' },
   },
 } as const;
 
@@ -112,6 +120,25 @@ export const loginSchema = {
  * No request body. Responds 200 with the decoded JWT payload fields.
  */
 export const verifySchema = {
+  response: {
+    200: publicUserSchema,
+  },
+} as const;
+
+/**
+ * Schema for PATCH /profile.
+ * Body requires a birthday string in YYYY-MM-DD format.
+ * Responds 200 with the updated PublicUser.
+ */
+export const updateProfileSchema = {
+  body: {
+    type: 'object',
+    required: ['birthday'],
+    additionalProperties: false,
+    properties: {
+      birthday: { type: 'string', format: 'date' },
+    },
+  },
   response: {
     200: publicUserSchema,
   },

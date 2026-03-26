@@ -5,7 +5,7 @@
  * and analysis module are all mocked so no real DynamoDB calls or computation occurs.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundError } from '../../../lib/errors.js';
+import { BadRequestError, NotFoundError } from '../../../lib/errors.js';
 import type { BudgetGoal } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
@@ -63,6 +63,8 @@ const mockGenerateBudgetFromHistory = vi.mocked(analysis.generateBudgetFromHisto
 // Fixtures
 // ---------------------------------------------------------------------------
 
+const testGoals: BudgetGoal[] = ['pay down debt', 'maximize investments'];
+
 const sampleBudget: Budget = {
   userId: 'user-svc-1',
   budgetId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
@@ -75,9 +77,12 @@ const sampleBudget: Budget = {
   takeout: { amount: 150 },
   shopping: { amount: 250 },
   personalCare: { amount: 100 },
+  emergencyFund: { amount: 0 },
+  entertainment: { amount: 0 },
+  medical: { amount: 0 },
   debts: { amount: 500 },
   investments: { amount: 300 },
-  goals: [],
+  goals: testGoals,
 };
 
 beforeEach(() => {
@@ -93,10 +98,14 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('createInitialBudget', () => {
+  it('throws BadRequestError when goals array is empty', async () => {
+    await expect(createInitialBudget('user-svc-1', [])).rejects.toThrow(BadRequestError);
+  });
+
   it('returns the existing budget without generating a new one when one already exists', async () => {
     mockGetLatestBudget.mockResolvedValue(sampleBudget);
 
-    const result = await createInitialBudget('user-svc-1');
+    const result = await createInitialBudget('user-svc-1', testGoals);
 
     expect(result).toEqual(sampleBudget);
     expect(mockSaveBudget).not.toHaveBeenCalled();
@@ -106,7 +115,7 @@ describe('createInitialBudget', () => {
   it('skips fetching transactions when a budget already exists', async () => {
     mockGetLatestBudget.mockResolvedValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockGetTransactionsSince).not.toHaveBeenCalled();
   });
@@ -115,7 +124,7 @@ describe('createInitialBudget', () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockGetTransactionsSince).toHaveBeenCalledWith('user-svc-1', '2000-01-01');
   });
@@ -124,7 +133,7 @@ describe('createInitialBudget', () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockGetInvestmentTransactionsSince).toHaveBeenCalledWith('user-svc-1', '2000-01-01');
   });
@@ -133,7 +142,7 @@ describe('createInitialBudget', () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockGetLiabilitiesForUser).toHaveBeenCalledWith('user-svc-1');
   });
@@ -148,13 +157,14 @@ describe('createInitialBudget', () => {
     mockGetLiabilitiesForUser.mockResolvedValue(fakeLiabilities);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockGenerateBudgetFromHistory).toHaveBeenCalledWith({
       userId: 'user-svc-1',
       transactions: fakeTxs,
       liabilities: fakeLiabilities,
       investmentTransactions: fakeInvTxs,
+      goals: testGoals,
     });
   });
 
@@ -162,7 +172,7 @@ describe('createInitialBudget', () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    await createInitialBudget('user-svc-1');
+    await createInitialBudget('user-svc-1', testGoals);
 
     expect(mockSaveBudget).toHaveBeenCalledWith(sampleBudget);
   });
@@ -171,7 +181,7 @@ describe('createInitialBudget', () => {
     mockGetLatestBudget.mockResolvedValue(null);
     mockGenerateBudgetFromHistory.mockReturnValue(sampleBudget);
 
-    const result = await createInitialBudget('user-svc-1');
+    const result = await createInitialBudget('user-svc-1', testGoals);
 
     expect(result).toEqual(sampleBudget);
   });
@@ -276,12 +286,12 @@ describe('updateBudget', () => {
 
   it('merges goals onto the existing budget', async () => {
     mockGetLatestBudget.mockResolvedValue(sampleBudget);
-    const update: BudgetUpdateInput = { goals: ['pay down debt', 'save for goals'] };
+    const update: BudgetUpdateInput = { goals: ['pay down debt', 'save for big purchase'] };
 
     await updateBudget('user-svc-1', update);
 
     const saved = mockSaveBudget.mock.calls[0][0];
-    expect(saved.goals).toEqual(['pay down debt', 'save for goals']);
+    expect(saved.goals).toEqual(['pay down debt', 'save for big purchase']);
   });
 
   it('preserves existing goals when updating only categories', async () => {
