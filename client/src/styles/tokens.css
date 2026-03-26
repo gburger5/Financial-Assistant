@@ -64,14 +64,14 @@ html[data-text-scale="xl"]  { font-size: 20px; }
   --color-info:       #457B9D;
   --color-info-bg:    rgba(69, 123, 157, 0.08);
 
-  /* ── Chart Colors ──────────────────────────── */
-  --color-chart-1: #0A2540;
-  --color-chart-2: #457B9D;
-  --color-chart-3: #00D4AA;
-  --color-chart-4: #F59E0B;
-  --color-chart-5: #EF4444;
-  --color-chart-6: #06B6D4;
-  --color-chart-7: #8B5CF6;
+  /* ── Chart Colors (theme-safe — visible in both modes) ── */
+  --color-chart-1: #457B9D;
+  --color-chart-2: #00D4AA;
+  --color-chart-3: #F59E0B;
+  --color-chart-4: #EF4444;
+  --color-chart-5: #3B82F6;
+  --color-chart-6: #8B5CF6;
+  --color-chart-7: #14B8A6;
 
   /* ── Gradients ──────────────────────────────── */
   --gradient-primary:   linear-gradient(135deg, #0A2540 0%, #00D4AA 100%);
@@ -186,4 +186,3 @@ html[data-text-scale="xl"]  { font-size: 20px; }
   --shadow-glow: 0 4px 20px rgba(0, 212, 170, 0.15);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--color-border);
 }
-
