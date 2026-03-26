@@ -1,47 +1,64 @@
 /**
  * @module testDirect
- * @description Standalone script that runs the budget agent and prints the
- * structured output to the console. No DynamoDB or external side effects.
+ * @description Standalone script that runs the debt agent and prints the
+ * structured output to the console.
  *
  * Usage: npx tsx src/modules/agents/test_direct.ts
  */
 
 import 'dotenv/config';
-import { invokeBudgetAgent } from './budget-agent.js';
-import type { Budget } from '../budget/budget.types.js';
+import { invokeDebtAgent } from './debt-agent.js';
+import type { DebtAgentInput } from '../../types.js';
 
-/** Hardcoded test budget matching the Python test_direct.py fixture. */
-const testBudget: Budget = {
-  userId: 'test-user-123',
-  budgetId: 'test-budget-001',
-  createdAt: new Date().toISOString(),
-  income: { amount: 5636.45 },
-  housing: { amount: 1500 },
-  utilities: { amount: 50 },
-  transportation: { amount: 142.14 },
-  groceries: { amount: 426.71 },
-  takeout: { amount: 106.82 },
-  shopping: { amount: 350.71 },
-  personalCare: { amount: 132.05 },
-  emergencyFund: { amount: 600 },
-  entertainment: { amount: 14.99 },
-  medical: { amount: 47.36 },
-  debts: { amount: 502 },
-  investments: { amount: 1090.03 },
-  goals: ['pay down debt'],
+/** Hardcoded test input matching the user's local DynamoDB liabilities data. */
+const testInput: DebtAgentInput = {
+  userId: '20da96f1-fe41-4dc1-9fdd-9b7b7efc0400',
+  debtAllocation: 1502,
+  debts: [
+    {
+      account_id: 'lnNAkm1LKNhvPMvR4BDWhNeMq4KnlripyR6Zl',
+      name: 'Credit Card 1',
+      institution_name: null,
+      type: 'credit_card',
+      current_balance: 1200,
+      interest_rate: 22.99,
+      minimum_payment: 35,
+      next_payment_due_date: null,
+    },
+    {
+      account_id: 'qyQA3JjExQFdrgdjeZo9T5Q6bEwxeqUgaRBdZ',
+      name: 'Credit Card 2',
+      institution_name: null,
+      type: 'credit_card',
+      current_balance: 2500,
+      interest_rate: 19.99,
+      minimum_payment: 55,
+      next_payment_due_date: null,
+    },
+    {
+      account_id: 'KDmPoAVj5mSMDrM7aEqxcENko6wByWHRP1rVa',
+      name: 'Student Loan',
+      institution_name: null,
+      type: 'student_loan',
+      current_balance: 38000,
+      interest_rate: 5.5,
+      minimum_payment: 412,
+      next_payment_due_date: null,
+    },
+  ],
 };
 
 /**
- * Invokes the budget agent with the test fixture and prints the structured
- * proposal to the console.
+ * Invokes the debt agent with the test fixture and prints the structured
+ * payment plan to the console.
  */
 async function main(): Promise<void> {
-  const proposal = await invokeBudgetAgent('test-user-123', testBudget);
+  const plan = await invokeDebtAgent(testInput);
 
   console.log('\n' + '='.repeat(60));
-  console.log('BUDGET PROPOSAL');
+  console.log('DEBT PAYMENT PLAN');
   console.log('='.repeat(60));
-  console.log(JSON.stringify(proposal, null, 2));
+  console.log(JSON.stringify(plan, null, 2));
   console.log('='.repeat(60) + '\n');
 }
 

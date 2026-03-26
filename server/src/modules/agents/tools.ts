@@ -8,6 +8,7 @@
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
 import { getAccountsForUser } from '../accounts/accounts.service.js';
+import { getUserById } from '../auth/auth.service.js';
 import { getLatestHoldings } from '../investments/investments.service.js';
 import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
 
@@ -37,6 +38,70 @@ export const budgetProposalSchema = z.object({
 
 /** TypeScript type inferred from the budget proposal schema. */
 export type BudgetProposal = z.infer<typeof budgetProposalSchema>;
+
+/**
+ * Zod schema for the debt payment plan output. Used as structuredOutputSchema
+ * by the debt agent so responses are automatically validated.
+ */
+export const debtPaymentPlanSchema = z.object({
+  summary: z
+    .string()
+    .describe(
+      'Two to three short plain-text sentences. No headers, bullets, dashes, or ALL CAPS. ' +
+      'Focus only on which debts get paid, how much each, and the key reason.'
+    ),
+
+  rationale: z
+    .string()
+    .describe(
+      'Two to three sentences explaining the overall strategy chosen (avalanche, snowball, or hybrid) and why.'
+    ),
+
+  scheduled_payments: z
+    .array(
+      z.object({
+        plaid_account_id: z.string().describe('The Plaid account ID for this debt.'),
+        debt_name: z.string().describe('Human-readable name of the debt (e.g. "Chase Sapphire Visa").'),
+        amount: z.number().describe('Dollar amount to pay this period.'),
+        payment_type: z
+          .enum(['minimum', 'extra', 'payoff'])
+          .describe('"minimum" for minimum payment, "extra" for above-minimum, "payoff" for full remaining balance.'),
+      })
+    )
+    .describe(
+      'One payment object per debt account receiving a payment this period. ' +
+      'The sum of all amounts must equal the total debtAllocation exactly.'
+    ),
+
+  projections: z
+    .array(
+      z.object({
+        plaid_account_id: z.string().describe('The Plaid account ID for this debt.'),
+        debt_name: z.string().describe('Human-readable name of the debt.'),
+        current_balance: z.number().describe('Current outstanding balance.'),
+        apr: z.number().describe('Annual percentage rate as a decimal (e.g. 0.24 for 24%).'),
+        months_to_payoff: z.number().describe('Estimated months until this debt is fully paid off.'),
+        total_interest_paid: z
+          .number()
+          .describe('Total interest that will be paid over the life of this debt under the current strategy.'),
+      })
+    )
+    .describe('One projection per debt account showing payoff timeline and interest costs.'),
+
+  interest_savings: z
+    .number()
+    .describe('Total interest saved compared to making only minimum payments across all debts.'),
+
+  positive_outcomes: z
+    .string()
+    .describe(
+      'The highest impact positive outcome: freed-up cash flow when a debt is paid off, ' +
+      'total interest saved, or other encouraging facts.'
+    ),
+});
+
+/** TypeScript type inferred from the debt payment plan schema. */
+export type DebtPaymentPlan = z.infer<typeof debtPaymentPlanSchema>;
 
 /** Input schema shared by all user-data retrieval tools. */
 const userIdSchema = z.object({
@@ -100,5 +165,46 @@ export const getUserLiabilities = tool({
   callback: async (input: z.infer<typeof userIdSchema>) => {
     const liabilities = await getLiabilitiesForUser(input.userId);
     return JSON.parse(JSON.stringify({ liabilities }));
+  },
+});
+
+/**
+ * Computes a user's age in whole years from their birthday.
+ * Accounts for whether the birthday has occurred yet this year.
+ *
+ * @param {string} birthday - ISO date string (YYYY-MM-DD).
+ * @returns {number} Age in whole years.
+ */
+function computeAge(birthday: string): number {
+  const birth = new Date(birthday);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+/**
+ * Retrieves a user's name and age. Age is computed from their birthday.
+ * Returns null for age if the user has not set a birthday yet.
+ */
+export const getUserProfile = tool({
+  name: 'get_user_profile',
+  description:
+    'Retrieve a user\'s name and age. Returns firstName, lastName, and age ' +
+    '(in years, computed from birthday). Age is null if the user has not set ' +
+    'a birthday. Use this to personalize advice and factor in life stage — ' +
+    'e.g. younger users have a longer investment horizon, older users may ' +
+    'need more conservative allocations.',
+  inputSchema: userIdSchema,
+  callback: async (input: z.infer<typeof userIdSchema>) => {
+    const user = await getUserById(input.userId);
+    return {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      age: user.birthday ? computeAge(user.birthday) : null,
+    };
   },
 });

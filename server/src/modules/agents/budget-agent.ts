@@ -12,6 +12,7 @@ import {
   getUserAccounts,
   getUserHoldings,
   getUserLiabilities,
+  getUserProfile,
   type BudgetProposal,
 } from './tools.js';
 import type { Budget } from '../budget/budget.types.js';
@@ -52,11 +53,7 @@ Before producing your recommendation, use the available tools (IN PARALLEL) to g
 1. Call get_user_accounts to see all bank accounts — checking/savings balances, credit utilization, loan balances.
 2. Call get_user_holdings to see investment portfolio — allocation, holdings, cost basis.
 3. Call get_user_liabilities to see debt details — APRs, interest rates, minimum payments.
-
-Use this data to make informed decisions. For example:
-- If the user already has a healthy emergency fund in savings, you can recommend a smaller emergency fund contribution.
-- If credit card APRs are high (>20%), prioritize debt repayment over investing.
-- If the user has significant investment holdings, factor that into your investment allocation recommendation.
+4. Call get_user_profile to get the user's name and age — factor life stage into recommendations.
 
 When finished, follow these guidelines for a framework. The default split is:
 - 50% Needs
@@ -115,7 +112,7 @@ export function makeBudgetAgent(): Agent {
   return new Agent({
     systemPrompt: BUDGET_SYSTEM_PROMPT,
     model,
-    tools: [getUserAccounts, getUserHoldings, getUserLiabilities],
+    tools: [getUserAccounts, getUserHoldings, getUserLiabilities, getUserProfile],
     structuredOutputSchema: budgetProposalSchema,
     printer: false
   });
@@ -139,7 +136,7 @@ export async function invokeBudgetAgent(
   const message =
     `Analyze the following actual spending budget for user "${userId}". ` +
     `Then recommend an improved budget. ` +
-    `Current budget (actual spending from the past 60 days): ${JSON.stringify(budget)}.`;
+    `Current budget: ${JSON.stringify(budget)}.`;
 
   const result = await agent.invoke(message);
   return result.structuredOutput as BudgetProposal;
