@@ -121,7 +121,11 @@ export function buildApp(): FastifyInstance {
 
   // Graceful shutdown plugin — listens for SIGINT/SIGTERM and calls
   // app.close() to allow in-flight requests to complete before exit.
-  app.register(gracefulShutdown);
+  // Skipped in test mode: each test creates a fresh app instance in the same
+  // process, so the handlers accumulate and trigger MaxListenersExceededWarning.
+  if (process.env.NODE_ENV !== 'test') {
+    app.register(gracefulShutdown);
+  }
 
   // Global rate limiting — tightened per-route limits are applied in route plugins.
   app.register(rateLimit, {
