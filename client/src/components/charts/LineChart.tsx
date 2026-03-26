@@ -18,11 +18,15 @@ interface LineChartProps {
   color?: string
 }
 
-export default function LineChart({ data, color = 'var(--color-chart-1)' }: LineChartProps) {
+export default function LineChart({ data, color = '#00D4AA' }: LineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <ReLineChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-        <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+        <CartesianGrid
+          stroke="var(--color-border)"
+          strokeDasharray="3 3"
+          vertical={false}
+        />
         <XAxis
           dataKey="label"
           tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }}
@@ -38,14 +42,14 @@ export default function LineChart({ data, color = 'var(--color-chart-1)' }: Line
         />
         <Tooltip
           contentStyle={{
-            background: 'var(--color-bg-elevated)',
+            background: 'var(--color-bg-surface)',
             border: '1px solid var(--color-border)',
             borderRadius: '10px',
             color: 'var(--color-text-primary)',
             fontSize: '0.875rem',
+            boxShadow: 'var(--shadow-md)',
           }}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any) => {
+          formatter={(value: number | string) => {
             const n = typeof value === 'number' ? value : 0
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
           }}
