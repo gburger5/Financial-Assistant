@@ -1,4 +1,6 @@
+
 .landing {
+  /* Re-declare every var the landing page touches */
   --color-bg-body:      #F1F5F9;
   --color-bg-surface:   #FFFFFF;
   --color-bg-elevated:  #FFFFFF;

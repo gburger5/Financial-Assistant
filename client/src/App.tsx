@@ -20,23 +20,15 @@ import SettingsPage from './pages/SettingsPage'
 
 function App() {
   return (
-<<<<<<< HEAD
     <SettingsProvider>
-      <AuthProvider>
-        <Routes>
-          {/* Public */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-=======
     <AuthProvider>
       <Routes>
         {/* Public */}
+        <Route path="/" element={<Landing />}/>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/check-email" element={<CheckEmailPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
->>>>>>> ae6f013 (finalize changes)
 
           {/* Post-signup onboarding */}
           <Route
@@ -48,23 +40,6 @@ function App() {
             }
           />
 
-<<<<<<< HEAD
-          {/* Authenticated (inside AppShell) */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/budget" element={<BudgetPage />} />
-            <Route path="/savings" element={<SavingsPage />} />
-            <Route path="/proposals" element={<ProposalsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
-=======
         {/* Authenticated (inside AppShell) */}
         <Route
           element={
@@ -80,14 +55,13 @@ function App() {
           <Route path="/debts" element={<DebtsPage />} />
           <Route path="/proposals" element={<ProposalsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
->>>>>>> e7632d3 (create investments/debts pages)
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </AuthProvider>
-    </SettingsProvider>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </AuthProvider>
+  </SettingsProvider>
   )
 }
 
