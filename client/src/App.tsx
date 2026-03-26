@@ -10,6 +10,7 @@ import BudgetPage from './pages/BudgetPage'
 import SavingsPage from './pages/SavingsPage'
 import ProposalsPage from './pages/ProposalsPage'
 import ProfilePage from './pages/ProfilePage'
+import Landing from './pages/Landing'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/" element={<Landing />} />
 
         {/* Post-signup onboarding */}
         <Route
@@ -45,7 +47,7 @@ function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AuthProvider>
   )

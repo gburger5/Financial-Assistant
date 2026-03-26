@@ -11,8 +11,8 @@
 }
 
 .chart-card__title {
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
+  font-size: 0.90625rem;
+  font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   font-family: var(--font-heading);
 }

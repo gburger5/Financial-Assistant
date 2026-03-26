@@ -17,23 +17,23 @@
 
 .proposal-card__summary {
   font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  color: var(--color-text-dimmed);
   line-height: var(--leading-relaxed);
 }
 
 .proposal-card__rationale-toggle {
   background: transparent;
   border: none;
-  color: var(--color-purple-400);
+  color: var(--color-navy-400);
   font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
   padding: 0;
   transition: color var(--transition-fast);
 }
 
 .proposal-card__rationale-toggle:hover {
-  color: var(--color-purple-300);
+  color: var(--color-teal-500);
 }
 
 .proposal-card__rationale-toggle:focus-visible {
@@ -96,7 +96,6 @@
 }
 
 .proposal-card__delete-confirm-yes:hover {
-  color: var(--color-danger-light, var(--color-danger));
   text-decoration: underline;
 }
 
