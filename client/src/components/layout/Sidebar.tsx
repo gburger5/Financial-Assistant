@@ -5,6 +5,7 @@ import {
   PiggyBank,
   FileText,
   User,
+  Settings,
   LogOut,
 } from 'lucide-react'
 import './Sidebar.css'
@@ -21,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/savings', icon: <PiggyBank size={20} />, label: 'Savings' },
   { to: '/proposals', icon: <FileText size={20} />, label: 'Proposals' },
   { to: '/profile', icon: <User size={20} />, label: 'Profile' },
+  { to: '/settings', icon: <Settings size={20} />, label: 'Settings' },
 ]
 
 interface SidebarProps {
@@ -31,8 +33,8 @@ export default function Sidebar({ onLogout }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar__logo">
-        <span className="sidebar__logo-text">FinAssist</span>
-        <span className="sidebar__logo-dot" aria-hidden="true" />
+        <span className="sidebar__logo-icon" aria-hidden="true" />
+        <span className="sidebar__logo-text">FinanceAI</span>
       </div>
 
       <nav className="sidebar__nav" aria-label="Main navigation">
