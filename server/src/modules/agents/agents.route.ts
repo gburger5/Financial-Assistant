@@ -26,7 +26,7 @@ import {
   rejectProposal,
   executeProposal,
 } from './agents.controller.js';
-import type { RunDebtAgentBody, RunInvestingAgentBody } from './agents.types.js';
+import type { AgentType, RunDebtAgentBody, RunInvestingAgentBody } from './agents.types.js';
 
 /** JSON Schema for a proposal response body. Uses permissive result type. */
 const proposalResponseSchema = {
@@ -103,7 +103,7 @@ async function agentRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /proposals
    * Returns proposal history, optionally filtered by ?agentType=budget|debt|investing.
    */
-  fastify.get('/proposals', {
+  fastify.get<{ Querystring: { agentType?: AgentType } }>('/proposals', {
     preHandler: [verifyJWT],
     schema: {
       querystring: {

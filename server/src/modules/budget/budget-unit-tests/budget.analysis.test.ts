@@ -72,6 +72,7 @@ function makeInvestmentTransaction(overrides: Partial<InvestmentTransaction> = {
 function makeCreditLiability(minimumPaymentAmount: number | null): CreditLiability {
   return {
     userId: 'user-analysis-1',
+    sortKey: 'acc-credit-1#01TEST',
     plaidAccountId: 'acc-credit-1',
     liabilityType: 'credit',
     currentBalance: null,
@@ -90,6 +91,7 @@ function makeCreditLiability(minimumPaymentAmount: number | null): CreditLiabili
 function makeStudentLiability(minimumPaymentAmount: number | null): StudentLiability {
   return {
     userId: 'user-analysis-1',
+    sortKey: 'acc-student-1#01TEST',
     plaidAccountId: 'acc-student-1',
     liabilityType: 'student',
     currentBalance: null,
@@ -111,6 +113,7 @@ function makeStudentLiability(minimumPaymentAmount: number | null): StudentLiabi
 function makeMortgageLiability(nextMonthlyPayment: number | null): MortgageLiability {
   return {
     userId: 'user-analysis-1',
+    sortKey: 'acc-mortgage-1#01TEST',
     plaidAccountId: 'acc-mortgage-1',
     liabilityType: 'mortgage',
     currentBalance: null,

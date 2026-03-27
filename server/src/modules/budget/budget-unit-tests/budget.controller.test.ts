@@ -30,7 +30,7 @@ import {
   getHistory,
 } from '../budget.controller.js';
 import * as budgetService from '../budget.service.js';
-import type { Budget } from '../budget.types.js';
+import type { Budget, BudgetGoal } from '../budget.types.js';
 
 const mockCreateInitialBudget = vi.mocked(budgetService.createInitialBudget);
 const mockGetLatestBudget = vi.mocked(budgetService.getLatestBudget);
@@ -64,7 +64,7 @@ function makeReply(): any {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const testGoals = ['pay down debt', 'maximize investments'];
+const testGoals: BudgetGoal[] = ['pay down debt', 'maximize investments'];
 
 const sampleBudget: Budget = {
   userId: 'user-ctrl-1',

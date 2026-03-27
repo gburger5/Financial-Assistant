@@ -467,7 +467,7 @@ export function mapLiabilitiesToDebtAccounts(liabilities: Liability[], accounts:
     return {
       account_id: liability.plaidAccountId,
       name: account?.name ?? 'Unknown Account',
-      institution_name: account?.institutionName ?? null,
+      institution_name: null,
       type,
       current_balance: account?.currentBalance ?? liability.currentBalance ?? 0,
       interest_rate: interestRate,
@@ -516,7 +516,7 @@ export function mapToInvestmentAccounts(accounts: Account[], holdings: Holding[]
     return {
       account_id: account.plaidAccountId,
       name: account.name,
-      institution_name: account.institutionName ?? null,
+      institution_name: null,
       type,
       current_balance: account.currentBalance ?? 0,
       holdings: holdingsByAccount.get(account.plaidAccountId) ?? [],
