@@ -1,3 +1,7 @@
+/* ══════════════════════════════════════════════════════════════
+   Profile Page
+   ══════════════════════════════════════════════════════════════ */
+
 .profile-page {
   display: flex;
   flex-direction: column;
@@ -5,6 +9,7 @@
   max-width: 640px;
 }
 
+/* ── User info ────────────────────────────── */
 .profile-page__info {
   display: flex;
   flex-direction: column;
@@ -20,7 +25,7 @@
 .profile-page__name {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-extrabold);
   color: var(--color-text-primary);
   margin: 0 0 var(--space-1);
 }
@@ -30,8 +35,12 @@
   color: var(--color-text-muted);
 }
 
+<<<<<<< HEAD
 /* ── Fields ───────────────────────────────────────────────────────────────── */
 
+=======
+/* ── Fields ───────────────────────────────── */
+>>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
 .profile-page__fields {
   display: flex;
   flex-direction: column;
@@ -43,8 +52,12 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: var(--space-4) 0;
+<<<<<<< HEAD
   border-bottom: 1px solid var(--color-border);
   gap: var(--space-4);
+=======
+  border-bottom: 1px solid var(--color-border-light);
+>>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
 }
 
 .profile-page__field:last-child {
@@ -61,13 +74,16 @@
 .profile-page__field-value {
   font-size: var(--text-sm);
   color: var(--color-text-primary);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
 }
 
-.profile-page__field-value--mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+/* ── Section header (icon + title) ────────── */
+.profile-page__section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
 }
 
 .profile-page__field-row {
@@ -144,85 +160,12 @@
 .profile-page__section-title {
   font-family: var(--font-heading);
   font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   margin: 0;
 }
 
-.profile-page__section-title--danger {
-  color: var(--color-danger);
-}
-
-/* ── Change password form ─────────────────────────────────────────────────── */
-
-.profile-page__pw-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-}
-
-.profile-page__pw-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.profile-page__pw-wrap {
-  position: relative;
-}
-
-.profile-page__pw-toggle {
-  position: absolute;
-  right: var(--space-3);
-  bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  min-height: unset;
-  min-width: unset;
-}
-
-.profile-page__pw-toggle:hover {
-  color: var(--color-text-secondary);
-}
-
-.profile-page__pw-toggle:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-.profile-page__pw-strength {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.profile-page__pw-strength-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
-}
-
-.profile-page__pw-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.profile-page__pw-note {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-normal);
-}
-
-/* ── Linked accounts ──────────────────────────────────────────────────────── */
-
+/* ── Linked accounts ──────────────────────── */
 .profile-page__accounts {
   display: flex;
   flex-direction: column;
@@ -233,7 +176,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .profile-page__account-row:last-child {
@@ -246,9 +189,9 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
+  border-radius: 9px;
+  background: var(--color-bg-hover);
+  color: var(--color-text-dimmed);
   flex-shrink: 0;
 }
 
@@ -262,7 +205,7 @@
 
 .profile-page__account-name {
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -283,79 +226,200 @@
 
 .profile-page__account-balance {
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   white-space: nowrap;
 }
 
-/* ── Danger zone ──────────────────────────────────────────────────────────── */
-
-.profile-page__danger-card {
-  border: 1px solid var(--color-danger);
-}
-
-.profile-page__danger-desc {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  line-height: var(--leading-relaxed);
-  margin-bottom: var(--space-4);
-}
-
-/* ── Delete account modal ─────────────────────────────────────────────────── */
-
-.profile-page__delete-modal {
+/* ── Change password form ─────────────────── */
+.profile-page__pw-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.profile-page__delete-warning {
+.profile-page__pw-field {
+  max-width: 360px;
+}
+
+.profile-page__pw-show {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  min-height: unset;
+  min-width: unset;
+  transition: color 0.15s;
+}
+
+.profile-page__pw-show:hover {
+  color: var(--color-text-primary);
+}
+
+.profile-page__pw-actions {
+  padding-top: var(--space-1);
+}
+
+/* ── Success message ──────────────────────── */
+.profile-page__success {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-danger-bg);
+  background: var(--color-success-bg);
+  border: 1px solid rgba(0, 168, 132, 0.2);
   border-radius: var(--radius-md);
-  color: var(--color-danger);
+  padding: var(--space-4);
+  color: var(--color-success);
+}
+
+.profile-page__success strong {
+  display: block;
   font-size: var(--text-sm);
-  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-1);
 }
 
-.profile-page__delete-warning svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.profile-page__delete-warning p {
+.profile-page__success p {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
   margin: 0;
 }
 
-.profile-page__delete-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+/* ── Error message ────────────────────────── */
+.profile-page__error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════
+   Danger Zone
+   ══════════════════════════════════════════════ */
 
-@media (max-width: 767px) {
+.profile-page__danger-card {
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.profile-page__danger-icon {
+  color: var(--color-danger);
+}
+
+.profile-page__section-title--danger {
+  color: var(--color-danger);
+}
+
+/* Idle state — description + button */
+.profile-page__danger-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.profile-page__danger-text {
+  flex: 1;
+}
+
+.profile-page__danger-text strong {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.profile-page__danger-text p {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Confirm state — warning message */
+.profile-page__danger-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.profile-page__danger-warning {
+  display: flex;
+  gap: var(--space-3);
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  color: var(--color-danger);
+}
+
+.profile-page__danger-warning p {
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.profile-page__danger-warning strong {
+  color: var(--color-danger);
+}
+
+/* Password form state */
+.profile-page__danger-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 360px;
+}
+
+.profile-page__danger-prompt {
+  font-size: var(--text-sm);
+  color: var(--color-text-dimmed);
+  margin: 0;
+}
+
+/* Shared action row */
+.profile-page__danger-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* ── Responsive ───────────────────────────── */
+@media (max-width: 640px) {
   .profile-page__field {
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-2);
   }
 
-  .profile-page__field-label {
-    padding-top: 0;
-  }
-
-  .profile-page__pw-actions {
-    flex-direction: column;
-  }
-
-  .profile-page__section-header {
+  .profile-page__danger-content {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-3);
+  }
+
+  .profile-page__danger-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .profile-page__danger-actions .btn {
+    width: 100%;
+  }
+
+  .profile-page__pw-field {
+    max-width: none;
+  }
+
+  .profile-page__danger-form {
+    max-width: none;
   }
 }
