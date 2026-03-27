@@ -1,9 +1,55 @@
 /**
  * @module agents.types
  * @description Shared TypeScript interfaces for the agent modules (debt, investing).
- * Covers agent input shapes, scheduled payment/contribution outputs, and the
- * intermediate account representations used to bridge Plaid data into agent prompts.
+ * Covers agent input shapes, scheduled payment/contribution outputs, proposal
+ * persistence types, and the intermediate account representations used to bridge
+ * Plaid data into agent prompts.
  */
+
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js';
+
+// ---------------------------------------------------------------------------
+// Agent & proposal enums
+// ---------------------------------------------------------------------------
+
+/** Discriminant for the kind of agent that produced a proposal. */
+export type AgentType = 'budget' | 'debt' | 'investing';
+
+/** Status lifecycle: pending → approved → executed, or pending → rejected. */
+export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'executed';
+
+// ---------------------------------------------------------------------------
+// Proposal entity (stored in the Proposals DynamoDB table)
+// ---------------------------------------------------------------------------
+
+/**
+ * A persisted agent execution result. PK = userId, SK = proposalId (ULID).
+ * The `result` field holds the structured output from the agent, discriminated
+ * by `agentType`.
+ */
+export interface Proposal {
+  userId: string;
+  proposalId: string;
+  agentType: AgentType;
+  status: ProposalStatus;
+  result: BudgetProposal | DebtPaymentPlan | InvestmentPlan;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Request body types for agent invocation endpoints
+// ---------------------------------------------------------------------------
+
+/** POST /api/agent/debt request body. */
+export interface RunDebtAgentBody {
+  debtAllocation: number;
+}
+
+/** POST /api/agent/investing request body. */
+export interface RunInvestingAgentBody {
+  investingAllocation: number;
+}
 
 export interface DebtAccount {
   account_id: string;

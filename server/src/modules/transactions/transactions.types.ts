@@ -34,6 +34,20 @@ export interface PlaidTransaction {
   unofficial_currency_code: string | null;
 }
 
+/**
+ * @interface ManualTransactionInput
+ * @description Input for creating a manual transaction (not from Plaid).
+ * Used when executing an approved agent proposal that schedules debt payments.
+ */
+export interface ManualTransactionInput {
+  transactionId: string;
+  plaidAccountId: string;
+  amount: number;
+  name: string;
+  category: string;
+  detailedCategory: string;
+}
+
 export interface SyncResult {
   addedCount: number;
   modifiedCount: number;

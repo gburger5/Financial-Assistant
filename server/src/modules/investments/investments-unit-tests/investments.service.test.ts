@@ -66,6 +66,8 @@ import {
   getHoldingsSince,
   getTransactionsSince,
   getTransactionsInRange,
+  createManualInvestmentTransaction,
+  addToHolding,
 } from '../investments.service.js';
 import * as repo from '../investments.repository.js';
 import * as itemsService from '../../items/items.service.js';
@@ -887,5 +889,187 @@ describe('getTransactionsInRange', () => {
     const result = await getTransactionsInRange('user-123', '2025-01-01', '2025-01-31');
     expect(mockGetInvestmentTransactionsInRange).toHaveBeenCalledWith('user-123', '2025-01-01', '2025-01-31');
     expect(result).toEqual([sampleInvestmentTransaction]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createManualInvestmentTransaction
+// ---------------------------------------------------------------------------
+
+describe('createManualInvestmentTransaction', () => {
+  it('calls upsertInvestmentTransaction once', async () => {
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    await createManualInvestmentTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      amount: 500,
+      name: 'Roth IRA contribution',
+      price: 150,
+      quantity: 3.33,
+    });
+
+    expect(mockUpsertInvestmentTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the provided transactionId as the investmentTransactionId', async () => {
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    await createManualInvestmentTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      amount: 500,
+      name: 'Contribution',
+      price: 150,
+      quantity: 3.33,
+    });
+
+    const tx = mockUpsertInvestmentTransaction.mock.calls[0][0] as InvestmentTransaction;
+    expect(tx.investmentTransactionId).toBe('proposal_abc_0');
+  });
+
+  it('sets the type to buy', async () => {
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    await createManualInvestmentTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      amount: 500,
+      name: 'Contribution',
+      price: 150,
+      quantity: 3.33,
+    });
+
+    const tx = mockUpsertInvestmentTransaction.mock.calls[0][0] as InvestmentTransaction;
+    expect(tx.type).toBe('buy');
+  });
+
+  it('sets userId and plaidAccountId from the parameters', async () => {
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    await createManualInvestmentTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      amount: 500,
+      name: 'Contribution',
+      price: 150,
+      quantity: 3.33,
+    });
+
+    const tx = mockUpsertInvestmentTransaction.mock.calls[0][0] as InvestmentTransaction;
+    expect(tx.userId).toBe('user-123');
+    expect(tx.plaidAccountId).toBe('acct-xyz');
+    expect(tx.securityId).toBe('sec-123');
+  });
+
+  it('returns the created transaction', async () => {
+    mockUpsertInvestmentTransaction.mockResolvedValue(undefined);
+
+    const result = await createManualInvestmentTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      amount: 500,
+      name: 'Contribution',
+      price: 150,
+      quantity: 3.33,
+    });
+
+    expect(result.investmentTransactionId).toBe('proposal_abc_0');
+    expect(result.amount).toBe(500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addToHolding
+// ---------------------------------------------------------------------------
+
+describe('addToHolding', () => {
+  it('calls upsertHolding once', async () => {
+    mockGetLatestHoldingsByUser.mockResolvedValue([
+      { ...sampleHolding, plaidAccountId: 'acct-xyz', securityId: 'sec-123' } as Holding,
+    ]);
+    mockUpsertHolding.mockResolvedValue(undefined);
+
+    await addToHolding('user-123', {
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      additionalQuantity: 5,
+      price: 150,
+    });
+
+    expect(mockUpsertHolding).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds the additional quantity to the existing quantity', async () => {
+    mockGetLatestHoldingsByUser.mockResolvedValue([
+      {
+        ...sampleHolding,
+        plaidAccountId: 'acct-xyz',
+        securityId: 'sec-123',
+        quantity: 10,
+        institutionPrice: 150,
+        institutionValue: 1500,
+      } as Holding,
+    ]);
+    mockUpsertHolding.mockResolvedValue(undefined);
+
+    await addToHolding('user-123', {
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      additionalQuantity: 5,
+      price: 150,
+    });
+
+    const holding = mockUpsertHolding.mock.calls[0][0] as Holding;
+    expect(holding.quantity).toBe(15);
+  });
+
+  it('recalculates institutionValue at the new price', async () => {
+    mockGetLatestHoldingsByUser.mockResolvedValue([
+      {
+        ...sampleHolding,
+        plaidAccountId: 'acct-xyz',
+        securityId: 'sec-123',
+        quantity: 10,
+        institutionPrice: 150,
+        institutionValue: 1500,
+      } as Holding,
+    ]);
+    mockUpsertHolding.mockResolvedValue(undefined);
+
+    await addToHolding('user-123', {
+      plaidAccountId: 'acct-xyz',
+      securityId: 'sec-123',
+      additionalQuantity: 5,
+      price: 160,
+    });
+
+    const holding = mockUpsertHolding.mock.calls[0][0] as Holding;
+    // (10 + 5) * 160 = 2400
+    expect(holding.institutionValue).toBe(2400);
+    expect(holding.institutionPrice).toBe(160);
+  });
+
+  it('creates a new holding when none exists for the account/security', async () => {
+    mockGetLatestHoldingsByUser.mockResolvedValue([]);
+    mockUpsertHolding.mockResolvedValue(undefined);
+
+    await addToHolding('user-123', {
+      plaidAccountId: 'acct-new',
+      securityId: 'sec-new',
+      additionalQuantity: 5,
+      price: 100,
+    });
+
+    expect(mockUpsertHolding).toHaveBeenCalledTimes(1);
+    const holding = mockUpsertHolding.mock.calls[0][0] as Holding;
+    expect(holding.quantity).toBe(5);
+    expect(holding.institutionValue).toBe(500);
+    expect(holding.plaidAccountId).toBe('acct-new');
   });
 });

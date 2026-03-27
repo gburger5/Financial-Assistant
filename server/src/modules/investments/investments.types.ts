@@ -157,6 +157,37 @@ export interface InvestmentSyncResult {
   snapshotDate: string;
 }
 
+// ---------------------------------------------------------------------------
+// Manual transaction/holding input types (used by agents for autonomous execution)
+// ---------------------------------------------------------------------------
+
+/**
+ * @interface ManualInvestmentTransactionInput
+ * @description Input for creating a manual investment transaction (not from Plaid).
+ * Used when executing an approved agent proposal that schedules contributions.
+ */
+export interface ManualInvestmentTransactionInput {
+  transactionId: string;
+  plaidAccountId: string;
+  securityId: string;
+  amount: number;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+/**
+ * @interface HoldingUpdate
+ * @description Input for adding to an existing holding position.
+ * Used when executing an approved agent proposal that schedules contributions.
+ */
+export interface HoldingUpdate {
+  plaidAccountId: string;
+  securityId: string;
+  additionalQuantity: number;
+  price: number;
+}
+
 /** Allowed label values for high-yield savings accounts. */
 export type HysaLabel = 'emergency_fund' | 'other';
 

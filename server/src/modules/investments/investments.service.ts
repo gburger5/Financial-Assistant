@@ -30,9 +30,11 @@ import {
 } from './investments.repository.js';
 import type {
   Holding,
+  HoldingUpdate,
   InvestmentSyncResult,
   InvestmentTransaction,
   InvestmentTransactionType,
+  ManualInvestmentTransactionInput,
   PlaidHolding,
   PlaidInvestmentTransaction,
   PlaidSecurity,
@@ -428,4 +430,98 @@ export async function getTransactionsInRange(
   endDate: string,
 ): Promise<InvestmentTransaction[]> {
   return repoGetInvestmentTransactionsInRange(userId, startDate, endDate);
+}
+
+// ---------------------------------------------------------------------------
+// Manual transaction/holding methods (agent autonomous execution)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a manual investment transaction (not from Plaid).
+ * Used when executing an approved agent proposal that schedules contributions.
+ * The transactionId is deterministic (derived from the proposalId) so that
+ * retries after partial failure are idempotent.
+ *
+ * @param {string} userId - UUID of the user.
+ * @param {ManualInvestmentTransactionInput} params - Transaction details.
+ * @returns {Promise<InvestmentTransaction>} The created transaction.
+ */
+export async function createManualInvestmentTransaction(
+  userId: string,
+  params: ManualInvestmentTransactionInput,
+): Promise<InvestmentTransaction> {
+  const now = new Date();
+  const date = formatDate(now);
+  const tx: InvestmentTransaction = {
+    userId,
+    dateTransactionId: `${date}#${params.transactionId}`,
+    investmentTransactionId: params.transactionId,
+    plaidAccountId: params.plaidAccountId,
+    securityId: params.securityId,
+    date,
+    name: params.name,
+    quantity: params.quantity,
+    amount: params.amount,
+    price: params.price,
+    fees: null,
+    type: 'buy',
+    subtype: null,
+    isoCurrencyCode: 'USD',
+    unofficialCurrencyCode: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  await upsertInvestmentTransaction(tx);
+  return tx;
+}
+
+/**
+ * Adds to an existing holding position or creates a new one.
+ * Used when executing an approved agent proposal that schedules contributions.
+ * Fetches the latest holdings snapshot to find the existing position, then
+ * creates a new snapshot row with the updated quantity and value.
+ *
+ * @param {string} userId - UUID of the user.
+ * @param {HoldingUpdate} params - Holding update details.
+ * @returns {Promise<void>}
+ */
+export async function addToHolding(
+  userId: string,
+  params: HoldingUpdate,
+): Promise<void> {
+  const latestHoldings = await getLatestHoldingsByUser(userId);
+  const existing = latestHoldings.find(
+    (h) => h.plaidAccountId === params.plaidAccountId && h.securityId === params.securityId,
+  );
+
+  const now = new Date();
+  const snapshotDate = formatDate(now);
+  const newQuantity = (existing?.quantity ?? 0) + params.additionalQuantity;
+  const newValue = newQuantity * params.price;
+
+  const holding: Holding = {
+    userId,
+    snapshotDateAccountSecurity: `${snapshotDate}#${params.plaidAccountId}#${params.securityId}`,
+    plaidAccountId: params.plaidAccountId,
+    securityId: params.securityId,
+    snapshotDate,
+    quantity: newQuantity,
+    institutionPrice: params.price,
+    institutionValue: newValue,
+    costBasis: existing?.costBasis ?? null,
+    isoCurrencyCode: existing?.isoCurrencyCode ?? 'USD',
+    unofficialCurrencyCode: existing?.unofficialCurrencyCode ?? null,
+    securityName: existing?.securityName ?? null,
+    tickerSymbol: existing?.tickerSymbol ?? null,
+    securityType: existing?.securityType ?? 'other',
+    closePrice: existing?.closePrice ?? null,
+    closePriceAsOf: existing?.closePriceAsOf ?? null,
+    isin: existing?.isin ?? null,
+    cusip: existing?.cusip ?? null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  await upsertHolding(holding);
 }

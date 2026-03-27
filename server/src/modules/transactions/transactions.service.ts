@@ -32,7 +32,7 @@ import {
   getTransactionsInRange as repoGetTransactionsInRange,
   upsertTransaction,
 } from './transactions.repository.js';
-import type { PlaidTransaction, SyncResult, Transaction } from './transactions.types.js';
+import type { ManualTransactionInput, PlaidTransaction, SyncResult, Transaction } from './transactions.types.js';
 
 const logger = createLogger();
 
@@ -360,4 +360,47 @@ export async function getTransactionsInRange(
     return transactions;
   }
   return transactions.filter((tx) => !tx.pending);
+}
+
+// ---------------------------------------------------------------------------
+// Manual transaction methods (agent autonomous execution)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a manual transaction (not from Plaid).
+ * Used when executing an approved agent proposal that schedules debt payments.
+ * The transactionId is deterministic (derived from the proposalId) so that
+ * retries after partial failure are idempotent.
+ *
+ * @param {string} userId - UUID of the user.
+ * @param {ManualTransactionInput} params - Transaction details.
+ * @returns {Promise<Transaction>} The created transaction.
+ */
+export async function createManualTransaction(
+  userId: string,
+  params: ManualTransactionInput,
+): Promise<Transaction> {
+  const now = new Date();
+  const date = now.toISOString().split('T')[0];
+  const tx: Transaction = {
+    userId,
+    sortKey: `${date}#${params.transactionId}`,
+    plaidTransactionId: params.transactionId,
+    plaidAccountId: params.plaidAccountId,
+    amount: params.amount,
+    date,
+    name: params.name,
+    merchantName: null,
+    category: params.category,
+    detailedCategory: params.detailedCategory,
+    categoryIconUrl: null,
+    pending: false,
+    isoCurrencyCode: 'USD',
+    unofficialCurrencyCode: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  await upsertTransaction(tx);
+  return tx;
 }

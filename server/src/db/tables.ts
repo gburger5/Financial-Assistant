@@ -7,6 +7,7 @@ export const Tables = {
   InvestmentTransactions: "InvestmentTransactions",
   Holdings: "Holdings",
   Liabilities: "Liabilities",
+  Proposals: "Proposals",
 } as const;
 
 export const Indexes = {

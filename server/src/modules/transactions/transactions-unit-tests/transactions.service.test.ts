@@ -56,6 +56,7 @@ import {
   syncDebtTransactions,
   getTransactionsSince,
   getTransactionsInRange,
+  createManualTransaction,
 } from '../transactions.service.js';
 import * as repo from '../transactions.repository.js';
 import * as itemsService from '../../items/items.service.js';
@@ -1024,5 +1025,91 @@ describe('syncDebtTransactions', () => {
       'item-abc',
       expect.any(Array),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createManualTransaction
+// ---------------------------------------------------------------------------
+
+describe('createManualTransaction', () => {
+  it('calls upsertTransaction once', async () => {
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    await createManualTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      amount: 200,
+      name: 'Debt payment - Chase Sapphire',
+      category: 'LOAN_PAYMENTS',
+      detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    });
+
+    expect(mockUpsertTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the provided transactionId as the plaidTransactionId', async () => {
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    await createManualTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      amount: 200,
+      name: 'Debt payment',
+      category: 'LOAN_PAYMENTS',
+      detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    });
+
+    const tx = mockUpsertTransaction.mock.calls[0][0] as Transaction;
+    expect(tx.plaidTransactionId).toBe('proposal_abc_0');
+  });
+
+  it('sets userId and plaidAccountId from the parameters', async () => {
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    await createManualTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      amount: 200,
+      name: 'Payment',
+      category: 'LOAN_PAYMENTS',
+      detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    });
+
+    const tx = mockUpsertTransaction.mock.calls[0][0] as Transaction;
+    expect(tx.userId).toBe('user-123');
+    expect(tx.plaidAccountId).toBe('acct-xyz');
+  });
+
+  it('sets pending to false', async () => {
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    await createManualTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      amount: 200,
+      name: 'Payment',
+      category: 'LOAN_PAYMENTS',
+      detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    });
+
+    const tx = mockUpsertTransaction.mock.calls[0][0] as Transaction;
+    expect(tx.pending).toBe(false);
+  });
+
+  it('returns the created transaction', async () => {
+    mockUpsertTransaction.mockResolvedValue(undefined);
+
+    const result = await createManualTransaction('user-123', {
+      transactionId: 'proposal_abc_0',
+      plaidAccountId: 'acct-xyz',
+      amount: 200,
+      name: 'Debt payment',
+      category: 'LOAN_PAYMENTS',
+      detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    });
+
+    expect(result.plaidTransactionId).toBe('proposal_abc_0');
+    expect(result.amount).toBe(200);
   });
 });
