@@ -6,6 +6,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictError, NotFoundError, BadRequestError, ServiceUnavailableError } from '../../../lib/errors.js';
+import type { Budget } from '../../budget/budget.types.js';
+import type { PublicUser } from '../../auth/auth.service.js';
+import type { Transaction } from '../../transactions/transactions.types.js';
+import type { InvestmentTransaction } from '../../investments/investments.types.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -32,6 +36,7 @@ vi.mock('../../liabilities/liabilities.service.js', () => ({
 
 vi.mock('../../accounts/accounts.service.js', () => ({
   getAccountsForUser: vi.fn(),
+  adjustBalance: vi.fn(),
 }));
 
 vi.mock('../../investments/investments.service.js', () => ({
@@ -42,6 +47,10 @@ vi.mock('../../investments/investments.service.js', () => ({
 
 vi.mock('../../auth/auth.service.js', () => ({
   getUserById: vi.fn(),
+}));
+
+vi.mock('../../auth/auth.repository.js', () => ({
+  setAgentBudgetApproved: vi.fn(),
 }));
 
 vi.mock('../../transactions/transactions.service.js', () => ({
@@ -205,7 +214,7 @@ describe('runBudgetAgent', () => {
 
   it('saves the proposal with status pending', async () => {
     mockGetPendingProposal.mockResolvedValue(null);
-    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as any);
+    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
     mockInvokeBudgetAgent.mockResolvedValue(sampleBudgetProposal);
     mockSaveProposal.mockResolvedValue(undefined);
 
@@ -218,7 +227,7 @@ describe('runBudgetAgent', () => {
 
   it('wraps agent invocation errors in ServiceUnavailableError', async () => {
     mockGetPendingProposal.mockResolvedValue(null);
-    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as any);
+    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
     mockInvokeBudgetAgent.mockRejectedValue(new Error('LLM timeout'));
 
     await expect(runBudgetAgent('user-1')).rejects.toThrow(ServiceUnavailableError);
@@ -275,7 +284,7 @@ describe('runInvestingAgent', () => {
     mockGetPendingProposal.mockResolvedValue(null);
     mockGetAccountsForUser.mockResolvedValue([]);
     mockGetLatestHoldings.mockResolvedValue([]);
-    mockGetUserById.mockResolvedValue({ userId: 'user-1', firstName: 'Test', lastName: 'User', email: 'test@test.com', createdAt: '2024-01-01' } as any);
+    mockGetUserById.mockResolvedValue({ userId: 'user-1', firstName: 'Test', lastName: 'User', email: 'test@test.com', createdAt: '2024-01-01' } as unknown as PublicUser);
     mockInvokeInvestingAgent.mockResolvedValue(sampleInvestmentPlan);
     mockSaveProposal.mockResolvedValue(undefined);
 
@@ -289,7 +298,7 @@ describe('runInvestingAgent', () => {
     mockGetPendingProposal.mockResolvedValue(null);
     mockGetAccountsForUser.mockResolvedValue([]);
     mockGetLatestHoldings.mockResolvedValue([]);
-    mockGetUserById.mockResolvedValue({ userId: 'user-1' } as any);
+    mockGetUserById.mockResolvedValue({ userId: 'user-1' } as unknown as PublicUser);
     mockInvokeInvestingAgent.mockRejectedValue(new Error('Timeout'));
 
     await expect(runInvestingAgent('user-1', 500)).rejects.toThrow(ServiceUnavailableError);
@@ -431,7 +440,7 @@ describe('executeProposal', () => {
       result: sampleBudgetProposal,
     };
     mockGetProposalById.mockResolvedValue(budgetProposal);
-    mockUpdateBudget.mockResolvedValue({} as any);
+    mockUpdateBudget.mockResolvedValue({} as unknown as Budget);
     mockUpdateProposalStatus.mockResolvedValue(undefined);
 
     await executeProposal('user-1', '01ABC');
@@ -447,7 +456,7 @@ describe('executeProposal', () => {
       result: sampleDebtPlan,
     };
     mockGetProposalById.mockResolvedValue(debtProposal);
-    mockCreateManualTransaction.mockResolvedValue({} as any);
+    mockCreateManualTransaction.mockResolvedValue({} as unknown as Transaction);
     mockUpdateProposalStatus.mockResolvedValue(undefined);
 
     await executeProposal('user-1', '01ABC');
@@ -464,7 +473,7 @@ describe('executeProposal', () => {
       result: sampleDebtPlan,
     };
     mockGetProposalById.mockResolvedValue(debtProposal);
-    mockCreateManualTransaction.mockResolvedValue({} as any);
+    mockCreateManualTransaction.mockResolvedValue({} as unknown as Transaction);
     mockUpdateProposalStatus.mockResolvedValue(undefined);
 
     await executeProposal('user-1', '01ABC');
@@ -482,7 +491,7 @@ describe('executeProposal', () => {
       result: sampleInvestmentPlan,
     };
     mockGetProposalById.mockResolvedValue(investingProposal);
-    mockCreateManualInvestmentTransaction.mockResolvedValue({} as any);
+    mockCreateManualInvestmentTransaction.mockResolvedValue({} as unknown as InvestmentTransaction);
     mockAddToHolding.mockResolvedValue(undefined);
     mockUpdateProposalStatus.mockResolvedValue(undefined);
 
@@ -501,7 +510,7 @@ describe('executeProposal', () => {
       result: sampleInvestmentPlan,
     };
     mockGetProposalById.mockResolvedValue(investingProposal);
-    mockCreateManualInvestmentTransaction.mockResolvedValue({} as any);
+    mockCreateManualInvestmentTransaction.mockResolvedValue({} as unknown as InvestmentTransaction);
     mockAddToHolding.mockResolvedValue(undefined);
     mockUpdateProposalStatus.mockResolvedValue(undefined);
 

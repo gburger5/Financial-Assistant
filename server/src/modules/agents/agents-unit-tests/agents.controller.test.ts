@@ -6,6 +6,7 @@
  * reply with the correct status code and payload.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -55,22 +56,22 @@ const mockExecuteProposal = vi.mocked(agentsService.executeProposal);
 // ---------------------------------------------------------------------------
 
 /** Creates a minimal request stub with an authenticated user. */
-function makeRequest(overrides: Record<string, unknown> = {}): any {
+function makeRequest(overrides: Record<string, unknown> = {}): FastifyRequest {
   return {
     user: { userId: 'user-ctrl-1', email: 'test@test.com' },
     body: {},
     params: {},
     query: {},
     ...overrides,
-  };
+  } as unknown as FastifyRequest;
 }
 
 /** Creates a minimal reply stub that captures send/status calls. */
-function makeReply(): any {
+function makeReply(): FastifyReply {
   const reply: Record<string, unknown> = {};
   reply.send = vi.fn().mockReturnValue(reply);
   reply.status = vi.fn().mockReturnValue(reply);
-  return reply;
+  return reply as unknown as FastifyReply;
 }
 
 // ---------------------------------------------------------------------------

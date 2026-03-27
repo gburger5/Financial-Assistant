@@ -42,6 +42,9 @@ import type {
   InvestmentAccount,
   InvestmentHolding,
 } from './agents.types.js';
+import type { Liability, Apr } from '../liabilities/liabilities.types.js';
+import type { Account } from '../accounts/accounts.types.js';
+import type { Holding } from '../investments/investments.types.js';
 import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js';
 
 // ---------------------------------------------------------------------------
@@ -429,14 +432,14 @@ async function findCheckingAccount(userId: string): Promise<{ plaidAccountId: st
  * Maps liabilities and accounts into the DebtAccount[] shape expected by the debt agent.
  * Joins liabilities to accounts by plaidAccountId to get current balances.
  *
- * @param {any[]} liabilities - From liabilities.service.getLiabilitiesForUser.
- * @param {any[]} accounts - From accounts.service.getAccountsForUser.
+ * @param {Liability[]} liabilities - From liabilities.service.getLiabilitiesForUser.
+ * @param {Account[]} accounts - From accounts.service.getAccountsForUser.
  * @returns {DebtAccount[]}
  */
-export function mapLiabilitiesToDebtAccounts(liabilities: any[], accounts: any[]): DebtAccount[] {
-  const accountMap = new Map(accounts.map((a: any) => [a.plaidAccountId, a]));
+export function mapLiabilitiesToDebtAccounts(liabilities: Liability[], accounts: Account[]): DebtAccount[] {
+  const accountMap = new Map(accounts.map((a) => [a.plaidAccountId, a]));
 
-  return liabilities.map((liability: any) => {
+  return liabilities.map((liability) => {
     const account = accountMap.get(liability.plaidAccountId);
 
     let type: DebtAccount['type'] = 'other';
@@ -449,7 +452,7 @@ export function mapLiabilitiesToDebtAccounts(liabilities: any[], accounts: any[]
     let nextPaymentDueDate: string | null = null;
 
     if (liability.liabilityType === 'credit') {
-      const purchaseApr = liability.details?.aprs?.find((a: any) => a.aprType === 'purchase_apr');
+      const purchaseApr = liability.details?.aprs?.find((a: Apr) => a.aprType === 'purchase_apr');
       interestRate = purchaseApr?.aprPercentage ?? null;
       minimumPayment = liability.details?.minimumPaymentAmount ?? null;
       nextPaymentDueDate = liability.details?.nextPaymentDueDate ?? null;
@@ -478,11 +481,11 @@ export function mapLiabilitiesToDebtAccounts(liabilities: any[], accounts: any[]
  * Maps accounts and holdings into the InvestmentAccount[] shape expected
  * by the investing agent. Groups holdings by account.
  *
- * @param {any[]} accounts - From accounts.service.getAccountsForUser.
- * @param {any[]} holdings - From investments.service.getLatestHoldings.
+ * @param {Account[]} accounts - From accounts.service.getAccountsForUser.
+ * @param {Holding[]} holdings - From investments.service.getLatestHoldings.
  * @returns {InvestmentAccount[]}
  */
-export function mapToInvestmentAccounts(accounts: any[], holdings: any[]): InvestmentAccount[] {
+export function mapToInvestmentAccounts(accounts: Account[], holdings: Holding[]): InvestmentAccount[] {
   // Group holdings by account
   const holdingsByAccount = new Map<string, InvestmentHolding[]>();
   for (const h of holdings) {
@@ -500,10 +503,10 @@ export function mapToInvestmentAccounts(accounts: any[], holdings: any[]): Inves
 
   // Filter to investment accounts only
   const investmentAccounts = accounts.filter(
-    (a: any) => a.type === 'investment',
+    (a) => a.type === 'investment',
   );
 
-  return investmentAccounts.map((account: any) => {
+  return investmentAccounts.map((account) => {
     let type: InvestmentAccount['type'] = 'other';
     const subtype = account.subtype?.toLowerCase() ?? '';
     if (subtype.includes('401')) type = '401k';
