@@ -14,7 +14,7 @@ import {
   getUserProfile,
   type InvestmentPlan,
 } from './tools.js';
-import type { InvestingAgentInput } from '../../types.js';
+import type { InvestingAgentInput } from './agents.types.js';
 
 /**
  * System prompt that instructs the investing agent how to analyze the user's

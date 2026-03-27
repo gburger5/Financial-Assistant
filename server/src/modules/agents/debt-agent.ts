@@ -14,7 +14,7 @@ import {
   getUserProfile,
   type DebtPaymentPlan,
 } from './tools.js';
-import type { DebtAgentInput } from '../../types.js';
+import type { DebtAgentInput } from './agents.types.js';
 
 /**
  * System prompt that instructs the debt agent how to analyze liabilities and
