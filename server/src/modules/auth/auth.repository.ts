@@ -5,7 +5,7 @@
  * The service layer decides what to do with the results (e.g. whether
  * null means "not found" or "error").
  */
-import { QueryCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, GetCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables, Indexes } from '../../db/tables.js';
 
@@ -25,8 +25,14 @@ export interface UserRecord {
   email: string;
   /** Argon2id hash of the user's password. Never returned to callers. */
   password_hash: string;
-  /** ISO date string (YYYY-MM-DD). Set during onboarding, before budget creation. */
-  birthday?: string;
+  /** Indicates whether the user's email address has been verified. */
+  emailVerified: boolean;
+  /** A unique token for email verification. */
+  emailVerificationToken: string | null;
+  emailVerificationTokenExpires: number | null;
+  pendingEmail?: string | null;
+  passwordResetToken: string | null;
+  passwordResetTokenExpires: number | null;
   created_at: string;
   updated_at: string;
   /** Incremented on each failed login attempt; reset on success. */
@@ -104,10 +110,17 @@ export async function findUserById(userId: string): Promise<UserRecord | null> {
  * @returns {Promise<void>}
  */
 export async function createUser(user: UserRecord): Promise<void> {
+  // DynamoDB rejects null values for GSI partition keys (e.g. passwordResetToken-index).
+  // Strip all null/undefined attributes before writing so the item simply omits
+  // those fields rather than storing an explicit null that DynamoDB cannot index.
+  const item = Object.fromEntries(
+    Object.entries(user).filter(([, v]) => v !== null && v !== undefined)
+  );
+
   await db.send(
     new PutCommand({
       TableName: Tables.Users,
-      Item: user,
+      Item: item,
     })
   );
 }
@@ -216,3 +229,451 @@ export async function resetLockout(userId: string): Promise<void> {
     })
   );
 }
+
+/**
+ * Finds a user by their email verification token hash.
+ * Used when a user clicks the email verification link.
+ *
+ * NOTE:
+ * This requires a DynamoDB GSI on `emailVerificationToken`.
+ */
+export async function findUserByVerificationToken(
+  tokenHash: string
+): Promise<UserRecord | null> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Users,
+      IndexName: Indexes.Users.emailVerificationTokenIndex,
+      KeyConditionExpression: 'emailVerificationToken = :token',
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!result.Items || result.Items.length === 0) {
+    return null;
+  }
+
+  return result.Items[0] as UserRecord;
+}
+
+/**
+ * Marks a user's email as verified and clears the verification token.
+ */
+export async function markEmailVerified(userId: string): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET emailVerified = :true,
+            updated_at = :updated_at
+        REMOVE emailVerificationToken, emailVerificationTokenExpires
+      `,
+      ExpressionAttributeValues: {
+        ':true': true,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's email verification token and expiry.
+ * Called when generating a new token during registration or when resending the verification email.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} tokenHash - SHA-256 hash of the new verification token.
+ * @param {number} expires - Expiry time as a UNIX timestamp (seconds since epoch).
+ * @returns {Promise<void>}
+ */
+export async function updateVerificationToken(
+  userId: string,
+  tokenHash: string,
+  expires: number
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET emailVerificationToken = :token,
+            emailVerificationTokenExpires = :expires,
+            updated_at = :updated
+      `,
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+        ':expires': expires,
+        ':updated': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's first and last name.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} firstName - New first name.
+ * @param {string} lastName - New last name.
+ * @returns {Promise<void>}
+ */
+export async function updateName(
+  userId: string,
+  firstName: string,
+  lastName: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: 'SET firstName = :firstName, lastName = :lastName, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':firstName': firstName,
+        ':lastName': lastName,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's password hash.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} passwordHash - New argon2id password hash.
+ * @returns {Promise<void>}
+ */
+export async function updatePassword(
+  userId: string,
+  passwordHash: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: 'SET password_hash = :password_hash, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':password_hash': passwordHash,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates a user's pending email and sets a verification token for it.
+ * The email is not changed until verified.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} pendingEmail - New email address awaiting verification.
+ * @param {string} tokenHash - SHA-256 hash of the verification token.
+ * @param {number} expires - Expiry time as a UNIX timestamp.
+ * @returns {Promise<void>}
+ */
+export async function updatePendingEmail(
+  userId: string,
+  pendingEmail: string,
+  tokenHash: string,
+  expires: number
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET pendingEmail = :pendingEmail,
+            emailVerificationToken = :token,
+            emailVerificationTokenExpires = :expires,
+            updated_at = :updated_at
+      `,
+      ExpressionAttributeValues: {
+        ':pendingEmail': pendingEmail,
+        ':token': tokenHash,
+        ':expires': expires,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Applies a pending email change — swaps email with pendingEmail and clears pending state.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @returns {Promise<void>}
+ */
+export async function applyPendingEmail(
+  userId: string,
+  pendingEmail: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET email = :email,
+            updated_at = :updated_at
+        REMOVE pendingEmail, emailVerificationToken, emailVerificationTokenExpires
+      `,
+      ExpressionAttributeValues: {
+        ':email': pendingEmail,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Stores a password-reset token hash and its expiry on a user record.
+ * Uses UpdateExpression so no other fields are overwritten during a
+ * concurrent update.
+ *
+ * @param {string} userId - UUID of the user requesting a reset.
+ * @param {string} tokenHash - SHA-256 hash of the raw reset token.
+ * @param {number} expiresAt - Unix timestamp (seconds) when the token expires.
+ * @returns {Promise<void>}
+ */
+export async function updatePasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: number
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET passwordResetToken = :token,
+            passwordResetTokenExpires = :expires,
+            updated_at = :updated_at
+      `,
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+        ':expires': expiresAt,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Looks up a user by their password-reset token hash using a GSI.
+ * Returns null when no matching record is found.
+ *
+ * Requires a GSI on `passwordResetToken` on the Users table.
+ *
+ * @param {string} tokenHash - SHA-256 hash of the reset token to look up.
+ * @returns {Promise<import('./auth.repository.js').UserRecord | null>}
+ */
+export async function findUserByPasswordResetToken(
+  tokenHash: string
+): Promise<UserRecord | null> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Users,
+      IndexName: Indexes.Users.passwordResetTokenIndex,
+      KeyConditionExpression: 'passwordResetToken = :token',
+      ExpressionAttributeValues: {
+        ':token': tokenHash,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!result.Items || result.Items.length === 0) return null;
+  return result.Items[0] as UserRecord;
+}
+
+/**
+ * Atomically updates the password hash and removes the reset token in a
+ * single UpdateExpression. This prevents a second use of the same reset
+ * token even if the client retries the request.
+ *
+ * @param {string} userId - UUID of the user whose password is being reset.
+ * @param {string} newPasswordHash - Argon2id hash of the new password.
+ * @returns {Promise<void>}
+ */
+export async function updatePasswordAndClearResetToken(
+  userId: string,
+  newPasswordHash: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression: `
+        SET password_hash = :hash,
+            updated_at = :updated_at
+        REMOVE passwordResetToken, passwordResetTokenExpires
+      `,
+      ExpressionAttributeValues: {
+        ':hash': newPasswordHash,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Permanently deletes a user record from the Users table.
+ * Called only by the delete-account flow after all sessions have been revoked
+ * and the caller's password has been verified.
+ *
+ * @param {string} userId - UUID of the user to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteUser(userId: string): Promise<void> {
+  await db.send(
+    new DeleteCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+    })
+  );
+}
+
+/**
+ * Schema for POST /logout.
+ * No request body — the JWT to revoke is read from the Authorization header
+ * by the verifyJWT preHandler. Responds 200 with a success boolean.
+ */
+export const logoutSchema = {
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /refresh. */
+export interface RefreshRouteGeneric {
+  Body: {
+    refreshToken: string;
+  };
+}
+
+/**
+ * Schema for POST /refresh.
+ * Body requires the opaque refreshToken string issued at login.
+ * Responds 200 with a new access token and a rotated refresh token.
+ */
+export const refreshSchema = {
+  body: {
+    type: 'object',
+    required: ['refreshToken'],
+    additionalProperties: false,
+    properties: {
+      refreshToken: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        accessToken: { type: 'string' },
+        refreshToken: { type: 'string' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /forgot-password. */
+export interface ForgotPasswordRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/** Route generics for POST /reset-password. */
+export interface ResetPasswordRouteGeneric {
+  Body: {
+    token: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+/**
+ * Schema for POST /forgot-password.
+ * Accepts an email address and always responds 200 (to prevent enumeration).
+ */
+export const forgotPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    additionalProperties: false,
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/**
+ * Schema for POST /reset-password.
+ * Requires the reset token, the new password, and a confirmation field.
+ * Responds 200 with a success boolean on valid token + matching passwords.
+ */
+export const resetPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['token', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      token: { type: 'string', minLength: 1 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for DELETE /account. */
+export interface DeleteAccountRouteGeneric {
+  Body: {
+    currentPassword: string;
+  };
+}
+
+/**
+ * Schema for DELETE /account.
+ * Requires the user's current password as a confirmation step.
+ * Responds 200 with a success boolean.
+ */
+export const deleteAccountSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;

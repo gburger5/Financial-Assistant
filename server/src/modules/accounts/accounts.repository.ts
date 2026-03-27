@@ -12,7 +12,7 @@
  *   GSI: plaidAccountId-index  — plaidAccountId (HASH)
  *        Used when processing transactions to look up account context.
  */
-import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables, Indexes } from '../../db/tables.js';
 import type { Account } from './accounts.types.js';
@@ -165,5 +165,29 @@ export async function adjustBalance(
         ':now': new Date().toISOString(),
       },
     }),
+  );
+}
+
+/**
+ * Deletes all Account records for a user.
+ * Queries the base table by userId (HASH key) to enumerate all plaidAccountIds,
+ * then batch-deletes each record. Called during account deletion to ensure
+ * financial account data is not orphaned.
+ *
+ * @param {string} userId - UUID of the user whose accounts to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllAccountsForUser(userId: string): Promise<void> {
+  const accounts = await getAccountsByUserId(userId);
+
+  await Promise.all(
+    accounts.map((account) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.Accounts,
+          Key: { userId: account.userId, plaidAccountId: account.plaidAccountId },
+        }),
+      ),
+    ),
   );
 }

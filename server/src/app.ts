@@ -14,6 +14,7 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
 import errorHandlerPlugin from './plugins/errorHandler.plugin.js';
@@ -106,7 +107,11 @@ export function buildApp(): FastifyInstance {
   // including the /health probe and any future routes added below.
   registerHooks(app);
 
-  // Restrict CORS to the configured frontend origin (falls back to localhost for local dev).
+  // Security headers on every response.
+  app.register(helmet);
+
+  // Restrict CORS to the configured frontend origin. Falls back to localhost
+  // for local development when FRONTEND_URL is not set.
   const allowedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
   app.register(cors, {
@@ -117,7 +122,11 @@ export function buildApp(): FastifyInstance {
 
   // Graceful shutdown plugin — listens for SIGINT/SIGTERM and calls
   // app.close() to allow in-flight requests to complete before exit.
-  app.register(gracefulShutdown);
+  // Skipped in test mode: each test creates a fresh app instance in the same
+  // process, so the handlers accumulate and trigger MaxListenersExceededWarning.
+  if (process.env.NODE_ENV !== 'test') {
+    app.register(gracefulShutdown);
+  }
 
   // Global rate limiting — tightened per-route limits are applied in route plugins.
   // 200 per minute is generous enough for the onboarding flow (which polls

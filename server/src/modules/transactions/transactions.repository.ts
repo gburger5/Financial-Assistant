@@ -188,3 +188,36 @@ export async function getTransactionsInRange(
 
   return (result.Items ?? []) as Transaction[];
 }
+
+/**
+ * Deletes all Transaction records for a user.
+ * Queries the base table by userId (HASH key) projecting only sortKey,
+ * then batch-deletes each record. Called during account deletion to ensure
+ * transaction history is not orphaned.
+ *
+ * @param {string} userId - UUID of the user whose transactions to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllTransactionsForUser(userId: string): Promise<void> {
+  const result = await db.send(
+    new QueryCommand({
+      TableName: Tables.Transactions,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: { ':userId': userId },
+      // Project only the keys to avoid deserializing large transaction items.
+      ProjectionExpression: 'userId, sortKey',
+    }),
+  );
+
+  const items = result.Items ?? [];
+  await Promise.all(
+    items.map((item) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.Transactions,
+          Key: { userId: item.userId, sortKey: item.sortKey },
+        }),
+      ),
+    ),
+  );
+}

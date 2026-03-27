@@ -110,6 +110,7 @@ export const loginSchema = {
       properties: {
         user: publicUserSchema,
         token: { type: 'string' },
+        refreshToken: { type: 'string' },
       },
     },
   },
@@ -126,20 +127,291 @@ export const verifySchema = {
 } as const;
 
 /**
- * Schema for PATCH /profile.
- * Body requires a birthday string in YYYY-MM-DD format.
- * Responds 200 with the updated PublicUser.
+ * Schema for GET /verify-email.
+ * No request body. Expects a `token` query parameter. Responds 200 with a
+ * success boolean.
  */
-export const updateProfileSchema = {
+export const verifyEmailSchema = {
+  querystring: {
+    type: 'object',
+    required: ['token'],
+    properties: {
+      token: { type: 'string' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export interface ResendVerificationRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/**
+ * Schema for POST /resend-verification.
+ * Body requires email. Responds 200 with a success boolean.
+ */
+export const resendVerificationSchema = {
   body: {
     type: 'object',
-    required: ['birthday'],
+    required: ['email'],
     additionalProperties: false,
     properties: {
-      birthday: { type: 'string', format: 'date' },
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export interface UpdateNameRouteGeneric {
+  Body: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface UpdatePasswordRouteGeneric {
+  Body: {
+    currentPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+export interface UpdateEmailRouteGeneric {
+  Body: {
+    newEmail: string;
+    currentPassword: string;
+  };
+}
+
+export const updateNameSchema = {
+  body: {
+    type: 'object',
+    required: ['firstName', 'lastName'],
+    additionalProperties: false,
+    properties: {
+      firstName: { type: 'string', minLength: 1 },
+      lastName: { type: 'string', minLength: 1 },
     },
   },
   response: {
     200: publicUserSchema,
+  },
+} as const;
+
+export const updatePasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+export const updateEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['newEmail', 'currentPassword'],
+    additionalProperties: false,
+    properties: {
+      newEmail: { type: 'string', format: 'email' },
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /logout. */
+export interface LogoutRouteGeneric {
+  Body: {
+    refreshToken: string;
+  };
+}
+
+/**
+ * Schema for POST /logout.
+ * Body requires the opaque refreshToken so it can be deleted server-side,
+ * preventing token reuse after logout. The access token is revoked via the
+ * Authorization header (verifyJWT preHandler). Responds 200 with a success boolean.
+ */
+export const logoutSchema = {
+  body: {
+    type: 'object',
+    required: ['refreshToken'],
+    additionalProperties: false,
+    properties: {
+      refreshToken: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /refresh. */
+export interface RefreshRouteGeneric {
+  Body: {
+    refreshToken: string;
+  };
+}
+
+/**
+ * Schema for POST /refresh.
+ * Body requires the opaque refreshToken string issued at login.
+ * Responds 200 with a new access token and a rotated refresh token.
+ */
+export const refreshSchema = {
+  body: {
+    type: 'object',
+    required: ['refreshToken'],
+    additionalProperties: false,
+    properties: {
+      refreshToken: { type: 'string', minLength: 1 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        accessToken: { type: 'string' },
+        refreshToken: { type: 'string' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for POST /forgot-password. */
+export interface ForgotPasswordRouteGeneric {
+  Body: {
+    email: string;
+  };
+}
+
+/** Route generics for POST /reset-password. */
+export interface ResetPasswordRouteGeneric {
+  Body: {
+    token: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  };
+}
+
+/**
+ * Schema for POST /forgot-password.
+ * Accepts an email address and always responds 200 (to prevent enumeration).
+ */
+export const forgotPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    additionalProperties: false,
+    properties: {
+      email: { type: 'string', format: 'email' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/**
+ * Schema for POST /reset-password.
+ * Requires the reset token, the new password, and a confirmation field.
+ * Responds 200 with a success boolean on valid token + matching passwords.
+ */
+export const resetPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['token', 'newPassword', 'confirmNewPassword'],
+    additionalProperties: false,
+    properties: {
+      token: { type: 'string', minLength: 1 },
+      newPassword: { type: 'string', minLength: 10 },
+      confirmNewPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
+/** Route generics for DELETE /account. */
+export interface DeleteAccountRouteGeneric {
+  Body: {
+    currentPassword: string;
+  };
+}
+
+/**
+ * Schema for DELETE /account.
+ * Requires the user's current password as a confirmation step.
+ * Responds 200 with a success boolean.
+ */
+export const deleteAccountSchema = {
+  body: {
+    type: 'object',
+    required: ['currentPassword'],
+    additionalProperties: false,
+    properties: {
+      currentPassword: { type: 'string', minLength: 10 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+      },
+    },
   },
 } as const;

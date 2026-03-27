@@ -12,6 +12,17 @@ vi.mock('../auth.repository.js', () => ({
   createUser: vi.fn(),
   updateLoginFailure: vi.fn(),
   resetLockout: vi.fn(),
+  findUserByVerificationToken: vi.fn(),
+  markEmailVerified: vi.fn(),
+  updateVerificationToken: vi.fn(),
+  updateName: vi.fn(),
+  updatePassword: vi.fn(),
+  updatePendingEmail: vi.fn(),
+  applyPendingEmail: vi.fn(),
+  deleteUser: vi.fn().mockResolvedValue(undefined),
+  findUserByPasswordResetToken: vi.fn(),
+  updatePasswordAndClearResetToken: vi.fn().mockResolvedValue(undefined),
+  updatePasswordResetToken: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('argon2', () => ({
@@ -23,16 +34,74 @@ vi.mock('uuid', () => ({
   v4: vi.fn(() => 'generated-uuid'),
 }));
 
+vi.mock('../../../lib/email.js', () => ({
+  sendVerificationEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+  sendPasswordChangedEmail: vi.fn(),
+  sendAccountDeletedEmail: vi.fn(),
+}));
+
+vi.mock('../auth-tokens.repository.js', () => ({
+  createRefreshToken: vi.fn().mockResolvedValue(undefined),
+  deleteRefreshToken: vi.fn().mockResolvedValue(undefined),
+  deleteAllRefreshTokensForUser: vi.fn().mockResolvedValue(undefined),
+  revokeAccessToken: vi.fn().mockResolvedValue(undefined),
+  revokeAllAccessTokensForUser: vi.fn().mockResolvedValue(undefined),
+  isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  findRefreshToken: vi.fn(),
+  findRefreshTokensByUserId: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../budget/budget.repository.js', () => ({
+  deleteAllBudgetsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../items/items.repository.js', () => ({
+  deleteAllItemsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../accounts/accounts.repository.js', () => ({
+  deleteAllAccountsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../transactions/transactions.repository.js', () => ({
+  deleteAllTransactionsForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../liabilities/liabilities.repository.js', () => ({
+  deleteAllLiabilitiesForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../../investments/investments.repository.js', () => ({
+  deleteAllInvestmentDataForUser: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   validatePasswordComplexity,
   registerUser,
   loginUser,
   getUserById,
+  verifyEmail,
+  resendVerificationEmail,
+  updateName,
+  updatePassword,
+  initiateEmailChange,
+  deleteAccount,
+  resetPassword,
+  refreshAccessToken,
   MAX_LOGIN_ATTEMPTS,
   LOCKOUT_DURATION_MINUTES,
 } from '../auth.service.js';
 import * as repo from '../auth.repository.js';
+import * as authTokensRepo from '../auth-tokens.repository.js';
+import * as budgetRepo from '../../budget/budget.repository.js';
+import * as itemsRepo from '../../items/items.repository.js';
+import * as accountsRepo from '../../accounts/accounts.repository.js';
+import * as transactionsRepo from '../../transactions/transactions.repository.js';
+import * as liabilitiesRepo from '../../liabilities/liabilities.repository.js';
+import * as investmentsRepo from '../../investments/investments.repository.js';
 import { hash, verify } from 'argon2';
+import { sendVerificationEmail } from '../../../lib/email.js';
 import {
   BadRequestError,
   ConflictError,
@@ -45,8 +114,16 @@ const mockFindById = vi.mocked(repo.findUserById);
 const mockCreateUser = vi.mocked(repo.createUser);
 const mockUpdateFailure = vi.mocked(repo.updateLoginFailure);
 const mockResetLockout = vi.mocked(repo.resetLockout);
+const mockFindByVerificationToken = vi.mocked(repo.findUserByVerificationToken);
+const mockMarkEmailVerified = vi.mocked(repo.markEmailVerified);
+const mockUpdateVerificationToken = vi.mocked(repo.updateVerificationToken);
+const mockUpdateName = vi.mocked(repo.updateName);
+const mockUpdatePassword = vi.mocked(repo.updatePassword);
+const mockUpdatePendingEmail = vi.mocked(repo.updatePendingEmail);
+const mockApplyPendingEmail = vi.mocked(repo.applyPendingEmail);
 const mockHash = vi.mocked(hash);
 const mockVerify = vi.mocked(verify);
+const mockSendVerificationEmail = vi.mocked(sendVerificationEmail);
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -58,6 +135,12 @@ const sampleRecord: repo.UserRecord = {
   lastName: '',
   email: 'alice@example.com',
   password_hash: '$argon2id$hashed',
+  emailVerified: true,
+  emailVerificationToken: null,
+  emailVerificationTokenExpires: null,
+  pendingEmail: null,
+  passwordResetToken: null,
+  passwordResetTokenExpires: null,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
   failedLoginAttempts: 0,
@@ -66,9 +149,31 @@ const sampleRecord: repo.UserRecord = {
   onboarding: { plaidLinked: false, budgetAnalyzed: false, budgetConfirmed: false },
 };
 
+const unverifiedRecord: repo.UserRecord = {
+  ...sampleRecord,
+  emailVerified: false,
+  emailVerificationToken: 'hashed-token',
+  emailVerificationTokenExpires: Math.floor(Date.now() / 1000) + 3600,
+};
+
+const pendingEmailRecord: repo.UserRecord = {
+  ...sampleRecord,
+  emailVerificationToken: 'hashed-token',
+  emailVerificationTokenExpires: Math.floor(Date.now() / 1000) + 3600,
+  pendingEmail: 'new@example.com',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = 'test-jwt-secret';
+  mockSendVerificationEmail.mockResolvedValue(undefined);
+  mockCreateUser.mockResolvedValue(undefined);
+  mockMarkEmailVerified.mockResolvedValue(undefined);
+  mockUpdateVerificationToken.mockResolvedValue(undefined);
+  mockUpdateName.mockResolvedValue(undefined);
+  mockUpdatePassword.mockResolvedValue(undefined);
+  mockUpdatePendingEmail.mockResolvedValue(undefined);
+  mockApplyPendingEmail.mockResolvedValue(undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -88,8 +193,12 @@ describe('validatePasswordComplexity', () => {
     expect(() => validatePasswordComplexity('NoDigitHere!')).toThrow(BadRequestError);
   });
 
-  it('does not throw for a password containing uppercase, lowercase, and a digit', () => {
-    expect(() => validatePasswordComplexity('ValidPass1')).not.toThrow();
+  it('throws BadRequestError when password has no special character', () => {
+    expect(() => validatePasswordComplexity('ValidPass1')).toThrow(BadRequestError);
+  });
+
+  it('does not throw for a password containing uppercase, lowercase, digit, and special character', () => {
+    expect(() => validatePasswordComplexity('ValidPass1!')).not.toThrow();
   });
 
   it('does not throw when complexity is met even with special characters', () => {
@@ -105,19 +214,11 @@ describe('registerUser', () => {
   it('normalises the email to lowercase before querying and storing', async () => {
     mockFindByEmail.mockResolvedValue(null);
     mockHash.mockResolvedValue('$argon2id$hashed' as never);
-    mockCreateUser.mockResolvedValue(undefined);
 
     const result = await registerUser('Alice@EXAMPLE.COM', 'ValidPass1!', 'Alice', 'Smith');
 
     expect(mockFindByEmail).toHaveBeenCalledWith('alice@example.com');
     expect(result.email).toBe('alice@example.com');
-  });
-
-  it('throws ConflictError when the email is already registered', async () => {
-    mockFindByEmail.mockResolvedValue(sampleRecord);
-
-    await expect(registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith')).rejects.toThrow(ConflictError);
-    expect(mockCreateUser).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestError when the password fails complexity rules', async () => {
@@ -127,10 +228,27 @@ describe('registerUser', () => {
     expect(mockCreateUser).not.toHaveBeenCalled();
   });
 
+  it('resends verification email and returns existing user when email exists but is unverified', async () => {
+    mockFindByEmail.mockResolvedValue(unverifiedRecord);
+
+    const result = await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
+
+    expect(mockCreateUser).not.toHaveBeenCalled();
+    expect(mockUpdateVerificationToken).toHaveBeenCalled();
+    expect(mockSendVerificationEmail).toHaveBeenCalled();
+    expect(result.email).toBe('alice@example.com');
+  });
+
+  it('throws ConflictError when the email is already registered and verified', async () => {
+    mockFindByEmail.mockResolvedValue(sampleRecord);
+
+    await expect(registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith')).rejects.toThrow(ConflictError);
+    expect(mockCreateUser).not.toHaveBeenCalled();
+  });
+
   it('hashes the password with argon2 before persisting', async () => {
     mockFindByEmail.mockResolvedValue(null);
     mockHash.mockResolvedValue('$argon2id$hashed' as never);
-    mockCreateUser.mockResolvedValue(undefined);
 
     await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
 
@@ -142,7 +260,6 @@ describe('registerUser', () => {
   it('never stores the plaintext password', async () => {
     mockFindByEmail.mockResolvedValue(null);
     mockHash.mockResolvedValue('$argon2id$hashed' as never);
-    mockCreateUser.mockResolvedValue(undefined);
 
     await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
 
@@ -151,10 +268,40 @@ describe('registerUser', () => {
     expect(Object.values(storedUser)).not.toContain('ValidPass1!');
   });
 
+  it('stores emailVerified as false and sets a verification token on new user', async () => {
+    mockFindByEmail.mockResolvedValue(null);
+    mockHash.mockResolvedValue('$argon2id$hashed' as never);
+
+    await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
+
+    const storedUser = mockCreateUser.mock.calls[0][0];
+    expect(storedUser.emailVerified).toBe(false);
+    expect(storedUser.emailVerificationToken).toBeDefined();
+    expect(storedUser.emailVerificationTokenExpires).toBeDefined();
+  });
+
+  it('stores pendingEmail as null on new user', async () => {
+    mockFindByEmail.mockResolvedValue(null);
+    mockHash.mockResolvedValue('$argon2id$hashed' as never);
+
+    await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
+
+    const storedUser = mockCreateUser.mock.calls[0][0];
+    expect(storedUser.pendingEmail).toBeNull();
+  });
+
+  it('sends a verification email on successful registration', async () => {
+    mockFindByEmail.mockResolvedValue(null);
+    mockHash.mockResolvedValue('$argon2id$hashed' as never);
+
+    await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
+
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith('alice@example.com', expect.any(String));
+  });
+
   it('returns a PublicUser with userId, firstName, lastName, email, createdAt — no sensitive fields', async () => {
     mockFindByEmail.mockResolvedValue(null);
     mockHash.mockResolvedValue('$argon2id$hashed' as never);
-    mockCreateUser.mockResolvedValue(undefined);
 
     const result = await registerUser('alice@example.com', 'ValidPass1!', 'Alice', 'Smith');
 
@@ -203,6 +350,12 @@ describe('loginUser', () => {
     expect(mockVerify).toHaveBeenCalled();
   });
 
+  it('throws UnauthorizedError when the user exists but email is not verified', async () => {
+    mockFindByEmail.mockResolvedValue(unverifiedRecord);
+
+    await expect(loginUser('alice@example.com', 'ValidPass1!')).rejects.toThrow(UnauthorizedError);
+  });
+
   it('throws BadRequestError with minutes remaining when account is locked', async () => {
     const future = new Date(Date.now() + 14 * 60_000).toISOString();
     mockFindByEmail.mockResolvedValue({ ...sampleRecord, accountLockedUntil: future });
@@ -244,11 +397,10 @@ describe('loginUser', () => {
 
     const [, , lockedUntil] = mockUpdateFailure.mock.calls[0];
     expect(lockedUntil).not.toBeNull();
-    // Lock time should be ~LOCKOUT_DURATION_MINUTES in the future
     const lockMs = new Date(lockedUntil!).getTime();
     const expectedMs = Date.now() + LOCKOUT_DURATION_MINUTES * 60_000;
     expect(lockMs).toBeGreaterThan(Date.now());
-    expect(lockMs).toBeLessThanOrEqual(expectedMs + 1000); // 1s tolerance
+    expect(lockMs).toBeLessThanOrEqual(expectedMs + 1000);
   });
 
   it('calls resetLockout and returns user + token on correct password', async () => {
@@ -263,7 +415,7 @@ describe('loginUser', () => {
     expect(result.token).toBeDefined();
   });
 
-  it('issues a JWT that contains only userId and email', async () => {
+  it('issues a JWT that contains userId, email, and jti but no PII', async () => {
     mockFindByEmail.mockResolvedValue(sampleRecord);
     mockVerify.mockResolvedValue(true as never);
     mockResetLockout.mockResolvedValue(undefined);
@@ -273,15 +425,12 @@ describe('loginUser', () => {
 
     expect(decoded.userId).toBe('user-uuid');
     expect(decoded.email).toBe('alice@example.com');
+    expect(decoded.jti).toBeDefined();
     expect(decoded.firstName).toBeUndefined();
     expect(decoded.lastName).toBeUndefined();
-    expect(decoded.jti).toBeUndefined();
   });
 
-  // Bug 4: lockout was never thrown on the triggering attempt — only on subsequent ones.
-  // This test uses a stateful mock to simulate real DynamoDB across 5 sequential calls.
   it('throws BadRequestError with lockout message on the MAX_LOGIN_ATTEMPTS-th failed attempt', async () => {
-    // Simulate stateful DB: updateLoginFailure mutations are visible to the next findUserByEmail call
     let dbUser: repo.UserRecord = { ...sampleRecord, failedLoginAttempts: 0, accountLockedUntil: null };
     mockFindByEmail.mockImplementation(async () => ({ ...dbUser }));
     mockVerify.mockResolvedValue(false as never);
@@ -289,13 +438,10 @@ describe('loginUser', () => {
       dbUser = { ...dbUser, failedLoginAttempts: failures, accountLockedUntil: lockedUntil };
     });
 
-    // First MAX_LOGIN_ATTEMPTS - 1 failures should be UnauthorizedError
     for (let i = 0; i < MAX_LOGIN_ATTEMPTS - 1; i++) {
       await expect(loginUser('alice@example.com', 'WrongPass1!')).rejects.toThrow(UnauthorizedError);
     }
 
-    // The MAX_LOGIN_ATTEMPTS-th failure must immediately throw BadRequestError with the lockout message.
-    // Capture the 5th error directly so we assert both class and message on the same call.
     let lockError: Error | undefined;
     try {
       await loginUser('alice@example.com', 'WrongPass1!');
@@ -304,7 +450,6 @@ describe('loginUser', () => {
     }
     expect(lockError).toBeInstanceOf(BadRequestError);
     expect(lockError?.message).toMatch(/Account locked\. Try again in \d+ minutes\./);
-    // Verify the DB state was mutated so subsequent calls also see the lock
     expect(dbUser.accountLockedUntil).not.toBeNull();
   });
 
@@ -356,5 +501,442 @@ describe('getUserById', () => {
     expect(result).not.toHaveProperty('id');
     expect(result).not.toHaveProperty('plaidItems');
     expect(result).not.toHaveProperty('onboarding');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyEmail
+// ---------------------------------------------------------------------------
+
+describe('verifyEmail', () => {
+  it('throws BadRequestError when the token hash matches no user', async () => {
+    mockFindByVerificationToken.mockResolvedValue(null);
+
+    await expect(verifyEmail('sometoken')).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when the token is expired', async () => {
+    const expiredRecord: repo.UserRecord = {
+      ...unverifiedRecord,
+      emailVerificationTokenExpires: Math.floor(Date.now() / 1000) - 3600,
+    };
+    mockFindByVerificationToken.mockResolvedValue(expiredRecord);
+
+    await expect(verifyEmail('sometoken')).rejects.toThrow(BadRequestError);
+    await expect(verifyEmail('sometoken')).rejects.toThrow(/expired/);
+  });
+
+  it('calls markEmailVerified when the token is valid and user has no pendingEmail', async () => {
+    mockFindByVerificationToken.mockResolvedValue(unverifiedRecord);
+
+    await verifyEmail('sometoken');
+
+    expect(mockMarkEmailVerified).toHaveBeenCalledWith(unverifiedRecord.id);
+    expect(mockApplyPendingEmail).not.toHaveBeenCalled();
+  });
+
+  it('calls applyPendingEmail instead of markEmailVerified when pendingEmail is set', async () => {
+    mockFindByVerificationToken.mockResolvedValue(pendingEmailRecord);
+
+    await verifyEmail('sometoken');
+
+    expect(mockApplyPendingEmail).toHaveBeenCalledWith(pendingEmailRecord.id, 'new@example.com');
+    expect(mockMarkEmailVerified).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resendVerificationEmail
+// ---------------------------------------------------------------------------
+
+describe('resendVerificationEmail', () => {
+  it('does nothing when the email does not exist (prevents enumeration)', async () => {
+    mockFindByEmail.mockResolvedValue(null);
+
+    await resendVerificationEmail('nobody@example.com');
+
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+    expect(mockUpdateVerificationToken).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the user is already verified (prevents enumeration)', async () => {
+    mockFindByEmail.mockResolvedValue(sampleRecord);
+
+    await resendVerificationEmail('alice@example.com');
+
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+    expect(mockUpdateVerificationToken).not.toHaveBeenCalled();
+  });
+
+  it('generates a new token and resends the email for an unverified user', async () => {
+    mockFindByEmail.mockResolvedValue(unverifiedRecord);
+
+    await resendVerificationEmail('alice@example.com');
+
+    expect(mockUpdateVerificationToken).toHaveBeenCalledWith(
+      unverifiedRecord.id,
+      expect.any(String),
+      expect.any(Number)
+    );
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith('alice@example.com', expect.any(String));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateName
+// ---------------------------------------------------------------------------
+
+describe('updateName', () => {
+  it('throws NotFoundError when the user does not exist', async () => {
+    mockFindById.mockResolvedValue(null);
+
+    await expect(updateName('nonexistent-id', 'Alice', 'Smith')).rejects.toThrow(NotFoundError);
+    expect(mockUpdateName).not.toHaveBeenCalled();
+  });
+
+  it('calls repo.updateName with the correct arguments', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+
+    await updateName('user-uuid', 'Alice', 'Smith');
+
+    expect(mockUpdateName).toHaveBeenCalledWith('user-uuid', 'Alice', 'Smith');
+  });
+
+  it('returns a PublicUser with the updated name', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+
+    const result = await updateName('user-uuid', 'Alice', 'Smith');
+
+    expect(result.firstName).toBe('Alice');
+    expect(result.lastName).toBe('Smith');
+    expect(result.userId).toBe('user-uuid');
+  });
+
+  it('does not include sensitive fields in the returned PublicUser', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+
+    const result = await updateName('user-uuid', 'Alice', 'Smith');
+
+    expect(result).not.toHaveProperty('password_hash');
+    expect(result).not.toHaveProperty('id');
+    expect(result).not.toHaveProperty('plaidItems');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updatePassword
+// ---------------------------------------------------------------------------
+
+describe('updatePassword', () => {
+  it('throws NotFoundError when the user does not exist', async () => {
+    mockFindById.mockResolvedValue(null);
+
+    await expect(updatePassword('nonexistent-id', 'OldPass1!', 'NewPass1!', 'jti-x', 9999)).rejects.toThrow(NotFoundError);
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
+  });
+
+  it('throws UnauthorizedError when the current password is incorrect', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(false as never);
+
+    await expect(updatePassword('user-uuid', 'WrongPass1!', 'NewPass1!', 'jti-x', 9999)).rejects.toThrow(UnauthorizedError);
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestError when the new password fails complexity rules', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await expect(updatePassword('user-uuid', 'OldPass1!', 'weakpassword', 'jti-x', 9999)).rejects.toThrow(BadRequestError);
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
+  });
+
+  it('hashes the new password before persisting', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!', 'jti-x', 9999);
+
+    expect(mockHash).toHaveBeenCalledWith('NewPass1!');
+    expect(mockUpdatePassword).toHaveBeenCalledWith('user-uuid', '$argon2id$newhash');
+  });
+
+  it('never stores the plaintext new password', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await updatePassword('user-uuid', 'OldPass1!', 'NewPass1!', 'jti-x', 9999);
+
+    const [, storedHash] = mockUpdatePassword.mock.calls[0];
+    expect(storedHash).not.toBe('NewPass1!');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// initiateEmailChange
+// ---------------------------------------------------------------------------
+
+describe('initiateEmailChange', () => {
+  it('throws NotFoundError when the user does not exist', async () => {
+    mockFindById.mockResolvedValue(null);
+
+    await expect(initiateEmailChange('nonexistent-id', 'new@example.com', 'ValidPass1!')).rejects.toThrow(NotFoundError);
+  });
+
+  it('throws UnauthorizedError when the current password is incorrect', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(false as never);
+
+    await expect(initiateEmailChange('user-uuid', 'new@example.com', 'WrongPass1!')).rejects.toThrow(UnauthorizedError);
+    expect(mockUpdatePendingEmail).not.toHaveBeenCalled();
+  });
+
+  it('throws ConflictError when the new email is already registered', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockFindByEmail.mockResolvedValue(sampleRecord);
+
+    await expect(initiateEmailChange('user-uuid', 'alice@example.com', 'ValidPass1!')).rejects.toThrow(ConflictError);
+    expect(mockUpdatePendingEmail).not.toHaveBeenCalled();
+  });
+
+  it('normalises the new email to lowercase', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockFindByEmail.mockResolvedValue(null);
+
+    await initiateEmailChange('user-uuid', 'NEW@EXAMPLE.COM', 'ValidPass1!');
+
+    expect(mockFindByEmail).toHaveBeenCalledWith('new@example.com');
+    expect(mockUpdatePendingEmail).toHaveBeenCalledWith(
+      'user-uuid',
+      'new@example.com',
+      expect.any(String),
+      expect.any(Number)
+    );
+  });
+
+  it('stores the pending email and sends a verification email', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockFindByEmail.mockResolvedValue(null);
+
+    await initiateEmailChange('user-uuid', 'new@example.com', 'ValidPass1!');
+
+    expect(mockUpdatePendingEmail).toHaveBeenCalledWith(
+      'user-uuid',
+      'new@example.com',
+      expect.any(String),
+      expect.any(Number)
+    );
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith('new@example.com', expect.any(String));
+  });
+
+  it('does not change the email immediately', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    mockFindByEmail.mockResolvedValue(null);
+
+    await initiateEmailChange('user-uuid', 'new@example.com', 'ValidPass1!');
+
+    expect(mockApplyPendingEmail).not.toHaveBeenCalled();
+  });
+});
+
+it('sends the raw token to email but stores only its hash in the database', async () => {
+  mockFindById.mockResolvedValue(sampleRecord);
+  mockVerify.mockResolvedValue(true as never);
+  mockFindByEmail.mockResolvedValue(null);
+
+  await initiateEmailChange('user-uuid', 'new@example.com', 'ValidPass1!');
+
+  const [, , storedHash] = mockUpdatePendingEmail.mock.calls[0];
+  const [, rawToken] = mockSendVerificationEmail.mock.calls[0];
+
+  // The stored value must not equal the raw token
+  expect(storedHash).not.toBe(rawToken);
+
+  // The stored value must be the SHA-256 hash of the raw token
+  const { createHash } = await import('crypto');
+  const expectedHash = createHash('sha256').update(rawToken).digest('hex');
+  expect(storedHash).toBe(expectedHash);
+});
+
+// ---------------------------------------------------------------------------
+// deleteAccount
+// ---------------------------------------------------------------------------
+
+describe('deleteAccount', () => {
+  const mockDeleteUser = vi.mocked(repo.deleteUser);
+  const mockRevokeAccessToken = vi.mocked(authTokensRepo.revokeAccessToken);
+  const mockDeleteAllRefreshTokens = vi.mocked(authTokensRepo.deleteAllRefreshTokensForUser);
+  const mockDeleteTransactions = vi.mocked(transactionsRepo.deleteAllTransactionsForUser);
+  const mockDeleteLiabilities = vi.mocked(liabilitiesRepo.deleteAllLiabilitiesForUser);
+  const mockDeleteInvestments = vi.mocked(investmentsRepo.deleteAllInvestmentDataForUser);
+  const mockDeleteAccounts = vi.mocked(accountsRepo.deleteAllAccountsForUser);
+  const mockDeleteItems = vi.mocked(itemsRepo.deleteAllItemsForUser);
+  const mockDeleteBudgets = vi.mocked(budgetRepo.deleteAllBudgetsForUser);
+
+  it('throws NotFoundError when the user does not exist', async () => {
+    mockFindById.mockResolvedValue(null);
+
+    await expect(deleteAccount('nonexistent', 'Pass1!', 'jti-x', 9999)).rejects.toThrow(NotFoundError);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('throws UnauthorizedError when the current password is incorrect', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(false as never);
+
+    await expect(deleteAccount('user-uuid', 'WrongPass1!', 'jti-x', 9999)).rejects.toThrow(UnauthorizedError);
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('revokes the current access token before deletion', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockRevokeAccessToken).toHaveBeenCalledWith('jti-x', 'user-uuid', 9999);
+  });
+
+  it('deletes all refresh tokens before deletion', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockDeleteAllRefreshTokens).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('cascade-deletes all financial data before removing the user record', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(mockDeleteTransactions).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteLiabilities).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteInvestments).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteAccounts).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteItems).toHaveBeenCalledWith('user-uuid');
+    expect(mockDeleteBudgets).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('deletes the user record last', async () => {
+    mockFindById.mockResolvedValue(sampleRecord);
+    mockVerify.mockResolvedValue(true as never);
+    const callOrder: string[] = [];
+    mockDeleteTransactions.mockImplementation(async () => { callOrder.push('transactions'); });
+    mockDeleteUser.mockImplementation(async () => { callOrder.push('user'); });
+
+    await deleteAccount('user-uuid', 'ValidPass1!', 'jti-x', 9999);
+
+    expect(callOrder.indexOf('user')).toBeGreaterThan(callOrder.indexOf('transactions'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resetPassword
+// ---------------------------------------------------------------------------
+
+describe('resetPassword', () => {
+  const mockFindByResetToken = vi.mocked(repo.findUserByPasswordResetToken);
+  const mockUpdatePasswordAndClear = vi.mocked(repo.updatePasswordAndClearResetToken);
+  const mockDeleteAllRefreshTokens = vi.mocked(authTokensRepo.deleteAllRefreshTokensForUser);
+  const mockRevokeAllAccessTokens = vi.mocked(authTokensRepo.revokeAllAccessTokensForUser);
+
+  const resetRecord: repo.UserRecord = {
+    ...sampleRecord,
+    passwordResetToken: 'hashed-token',
+    passwordResetTokenExpires: Math.floor(Date.now() / 1000) + 3600,
+  };
+
+  it('throws BadRequestError when the token matches no user', async () => {
+    mockFindByResetToken.mockResolvedValue(null);
+
+    await expect(resetPassword('bad-token', 'NewPass1!')).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when the reset token is expired', async () => {
+    mockFindByResetToken.mockResolvedValue({
+      ...resetRecord,
+      passwordResetTokenExpires: Math.floor(Date.now() / 1000) - 60,
+    });
+
+    await expect(resetPassword('expired-token', 'NewPass1!')).rejects.toThrow(BadRequestError);
+  });
+
+  it('throws BadRequestError when the new password fails complexity', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+
+    await expect(resetPassword('good-token', 'weak')).rejects.toThrow(BadRequestError);
+    expect(mockUpdatePasswordAndClear).not.toHaveBeenCalled();
+  });
+
+  it('persists the new password hash and clears the reset token', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockUpdatePasswordAndClear).toHaveBeenCalledWith('user-uuid', '$argon2id$newhash');
+  });
+
+  it('invalidates all refresh tokens on success', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockDeleteAllRefreshTokens).toHaveBeenCalledWith('user-uuid');
+  });
+
+  it('revokes all access tokens on success to close the 15-min window', async () => {
+    mockFindByResetToken.mockResolvedValue(resetRecord);
+    mockHash.mockResolvedValue('$argon2id$newhash' as never);
+
+    await resetPassword('good-token', 'NewPass1!');
+
+    expect(mockRevokeAllAccessTokens).toHaveBeenCalledWith('user-uuid');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshAccessToken — rotation order
+// ---------------------------------------------------------------------------
+
+describe('refreshAccessToken — token rotation order', () => {
+  const mockDeleteRefreshToken = vi.mocked(authTokensRepo.deleteRefreshToken);
+  const mockCreateRefreshToken = vi.mocked(authTokensRepo.createRefreshToken);
+  const mockFindRefreshToken = vi.mocked(authTokensRepo.findRefreshToken);
+
+  it('issues new tokens before deleting the old one to prevent retry failures', async () => {
+    // Build a valid refresh token record
+    const { createHash } = await import('crypto');
+    const rawSecret = 'deadbeef'.repeat(8); // 64 hex chars
+    const tokenHash = createHash('sha256').update(rawSecret).digest('hex');
+    const tokenId = 'token-uuid-1';
+
+    mockFindRefreshToken.mockResolvedValue({
+      tokenId: `refresh#${tokenId}`,
+      userId: 'user-uuid',
+      tokenHash,
+      expiresAt: Math.floor(Date.now() / 1000) + 1800,
+      createdAt: new Date().toISOString(),
+    });
+    mockFindById.mockResolvedValue(sampleRecord);
+
+    const callOrder: string[] = [];
+    mockCreateRefreshToken.mockImplementation(async () => { callOrder.push('create'); });
+    mockDeleteRefreshToken.mockImplementation(async () => { callOrder.push('delete'); });
+
+    await refreshAccessToken(`${tokenId}.${rawSecret}`);
+
+    // create must happen before delete
+    expect(callOrder.indexOf('create')).toBeLessThan(callOrder.indexOf('delete'));
   });
 });

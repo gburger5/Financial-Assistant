@@ -28,6 +28,7 @@ import {
   updateTransactionCursor,
   markItemBad,
   markItemActive,
+  deleteAllItemsForUser,
 } from '../items.repository.js';
 import type { PlaidItem, CreatePlaidItemInput } from '../items.types.js';
 
@@ -410,5 +411,53 @@ describe('markItemActive', () => {
       .mockResolvedValueOnce({});
     const result = await markItemActive('item-abc');
     expect(result).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteAllItemsForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllItemsForUser', () => {
+  it('does nothing when the user has no items', async () => {
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllItemsForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues one DeleteCommand per item', async () => {
+    const secondItem: PlaidItem = { ...sampleItem, itemId: 'item-def' };
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleItem, secondItem] })
+      .mockResolvedValue({});
+
+    await deleteAllItemsForUser('user-123');
+
+    // 1 query + 2 deletes
+    expect(mockSend).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes from the PlaidItems table', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleItem] })
+      .mockResolvedValue({});
+
+    await deleteAllItemsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.TableName).toBe('PlaidItems');
+  });
+
+  it('uses the composite key { userId, itemId } for deletion', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleItem] })
+      .mockResolvedValue({});
+
+    await deleteAllItemsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.Key).toEqual({ userId: 'user-123', itemId: 'item-abc' });
   });
 });
