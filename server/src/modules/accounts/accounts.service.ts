@@ -13,6 +13,7 @@ import {
   getAccountsByUserId,
   getAccountsByItemId,
   getAccountByPlaidAccountId as repoGetAccountByPlaidAccountId,
+  adjustBalance as repoAdjustBalance,
 } from './accounts.repository.js';
 import { NotFoundError } from '../../lib/errors.js';
 import type { Account, AccountType, PlaidAccountData } from './accounts.types.js';
@@ -135,4 +136,22 @@ export async function getAccountByPlaidAccountId(plaidAccountId: string): Promis
     throw new NotFoundError(`Account not found: ${plaidAccountId}`);
   }
   return account;
+}
+
+/**
+ * Atomically adjusts an account's currentBalance by a delta amount.
+ * Positive delta = deposit/increase, negative delta = payment/decrease.
+ * Uses DynamoDB ADD for race-condition-safe concurrent updates.
+ *
+ * @param {string} userId - UUID of the user who owns the account.
+ * @param {string} plaidAccountId - Plaid account ID to adjust.
+ * @param {number} delta - Amount to add (positive) or subtract (negative).
+ * @returns {Promise<void>}
+ */
+export async function adjustBalance(
+  userId: string,
+  plaidAccountId: string,
+  delta: number,
+): Promise<void> {
+  await repoAdjustBalance(userId, plaidAccountId, delta);
 }

@@ -20,13 +20,14 @@ import { invokeDebtAgent } from './debt-agent.js';
 import { invokeInvestingAgent } from './investing-agent.js';
 import { getLatestBudget, updateBudget } from '../budget/budget.service.js';
 import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
-import { getAccountsForUser } from '../accounts/accounts.service.js';
+import { getAccountsForUser, adjustBalance } from '../accounts/accounts.service.js';
 import {
   getLatestHoldings,
   createManualInvestmentTransaction,
   addToHolding,
 } from '../investments/investments.service.js';
 import { getUserById } from '../auth/auth.service.js';
+import { setAgentBudgetApproved } from '../auth/auth.repository.js';
 import { createManualTransaction } from '../transactions/transactions.service.js';
 import {
   BadRequestError,
@@ -273,6 +274,9 @@ export async function executeProposal(userId: string, proposalId: string): Promi
   switch (proposal.agentType) {
     case 'budget':
       await executeBudgetProposal(userId, proposal.result as BudgetProposal);
+      // Mark the user's onboarding as complete so the frontend skips the
+      // agent step on subsequent logins.
+      await setAgentBudgetApproved(userId);
       break;
     case 'debt':
       await executeDebtProposal(userId, proposalId, proposal.result as DebtPaymentPlan);
@@ -327,6 +331,8 @@ async function executeDebtProposal(
   proposalId: string,
   plan: DebtPaymentPlan,
 ): Promise<void> {
+  const checkingAccount = await findCheckingAccount(userId);
+
   for (let i = 0; i < plan.scheduled_payments.length; i++) {
     const payment = plan.scheduled_payments[i];
     await createManualTransaction(userId, {
@@ -337,6 +343,13 @@ async function executeDebtProposal(
       category: 'LOAN_PAYMENTS',
       detailedCategory: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
     });
+
+    // Decrease debt account balance (payment reduces what is owed)
+    await adjustBalance(userId, payment.plaid_account_id, -payment.amount);
+    // Decrease checking account balance (money leaves checking)
+    if (checkingAccount) {
+      await adjustBalance(userId, checkingAccount.plaidAccountId, -payment.amount);
+    }
   }
 }
 
@@ -353,6 +366,8 @@ async function executeInvestingProposal(
   proposalId: string,
   plan: InvestmentPlan,
 ): Promise<void> {
+  const checkingAccount = await findCheckingAccount(userId);
+
   for (let i = 0; i < plan.scheduled_contributions.length; i++) {
     const contribution = plan.scheduled_contributions[i];
 
@@ -376,7 +391,34 @@ async function executeInvestingProposal(
       additionalQuantity: quantity,
       price,
     });
+
+    // Increase investment account balance (contribution adds to the account)
+    await adjustBalance(userId, contribution.plaid_account_id, contribution.amount);
+    // Decrease checking account balance (money leaves checking)
+    if (checkingAccount) {
+      await adjustBalance(userId, checkingAccount.plaidAccountId, -contribution.amount);
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Account lookup helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Finds the user's primary checking account for use as the source of
+ * debt payments and investment contributions. Returns null if no checking
+ * account exists. Never returns savings/emergency fund accounts.
+ *
+ * @param {string} userId
+ * @returns {Promise<{ plaidAccountId: string } | null>}
+ */
+async function findCheckingAccount(userId: string): Promise<{ plaidAccountId: string } | null> {
+  const accounts = await getAccountsForUser(userId);
+  const checking = accounts.find(
+    (a) => a.type === 'depository' && a.subtype === 'checking',
+  );
+  return checking ?? null;
 }
 
 // ---------------------------------------------------------------------------

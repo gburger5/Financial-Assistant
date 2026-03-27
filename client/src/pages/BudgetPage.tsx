@@ -18,6 +18,9 @@ import {
   Scissors,
   CreditCard,
   PiggyBank,
+  Shield,
+  Clapperboard,
+  HeartPulse,
 } from 'lucide-react'
 import './BudgetPage.css'
 
@@ -42,10 +45,19 @@ export default function BudgetPage() {
     budget.utilities.amount +
     budget.transportation.amount +
     budget.groceries.amount +
-    budget.personalCare.amount
+    budget.personalCare.amount +
+    budget.medical.amount
 
-  const wantsTotal = budget.takeout.amount + budget.shopping.amount
-  const savingsDebtTotal = budget.investments.amount + budget.debts.amount
+  const wantsTotal =
+    budget.takeout.amount +
+    budget.shopping.amount +
+    budget.entertainment.amount
+
+  const savingsDebtTotal =
+    budget.investments.amount +
+    budget.debts.amount +
+    budget.emergencyFund.amount
+
   const income = budget.income.amount
 
   const fmt = (v: number) =>
@@ -57,9 +69,12 @@ export default function BudgetPage() {
     { name: 'Utilities', icon: <Zap size={18} />, amount: budget.utilities.amount, color: 'var(--color-chart-2)' },
     { name: 'Transportation', icon: <Car size={18} />, amount: budget.transportation.amount, color: 'var(--color-chart-3)' },
     { name: 'Groceries', icon: <ShoppingCart size={18} />, amount: budget.groceries.amount, color: 'var(--color-chart-4)' },
+    { name: 'Medical', icon: <HeartPulse size={18} />, amount: budget.medical.amount, color: '#EC4899' },
     { name: 'Takeout', icon: <Utensils size={18} />, amount: budget.takeout.amount, color: 'var(--color-chart-5)' },
     { name: 'Shopping', icon: <ShoppingBag size={18} />, amount: budget.shopping.amount, color: 'var(--color-chart-6)' },
     { name: 'Personal Care', icon: <Scissors size={18} />, amount: budget.personalCare.amount, color: 'var(--color-chart-7)' },
+    { name: 'Entertainment', icon: <Clapperboard size={18} />, amount: budget.entertainment.amount, color: '#8B5CF6' },
+    { name: 'Emergency Fund', icon: <Shield size={18} />, amount: budget.emergencyFund.amount, color: '#06B6D4' },
     { name: 'Debts', icon: <CreditCard size={18} />, amount: budget.debts.amount, color: '#F97316' },
     { name: 'Investments', icon: <PiggyBank size={18} />, amount: budget.investments.amount, color: '#14B8A6' },
   ]

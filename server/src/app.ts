@@ -23,6 +23,7 @@ import plaidRoutes from './modules/plaid/plaid.route.js';
 import transactionRoutes from './modules/transactions/transactions.route.js';
 import accountRoutes from './modules/accounts/accounts.route.js';
 import agentRoutes from './modules/agents/agents.route.js';
+import investmentRoutes from './modules/investments/investments.route.js';
 import { createLogger } from './lib/logger.js';
 import { registerHooks } from './hooks/hooks.js';
 
@@ -119,9 +120,12 @@ export function buildApp(): FastifyInstance {
   app.register(gracefulShutdown);
 
   // Global rate limiting — tightened per-route limits are applied in route plugins.
+  // 200 per minute is generous enough for the onboarding flow (which polls
+  // sync-status every 2 s and fires multiple sequential API calls) while still
+  // protecting against abuse.
   app.register(rateLimit, {
-    max: 100,
-    timeWindow: '15 minutes',
+    max: 200,
+    timeWindow: '1 minute',
     cache: 10000,
   });
 
@@ -147,6 +151,9 @@ export function buildApp(): FastifyInstance {
 
   // Account routes: linked bank accounts.
   app.register(accountRoutes, { prefix: '/api/accounts' });
+
+  // Investment routes: investment transaction history.
+  app.register(investmentRoutes, { prefix: '/api/investments' });
 
   // Agent routes: run agents, manage proposals, execute autonomous actions.
   app.register(agentRoutes, { prefix: '/api/agent' });

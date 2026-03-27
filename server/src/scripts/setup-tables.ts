@@ -207,13 +207,17 @@ async function main() {
     ],
   });
 
-  await createTable("proposals", {
-    TableName: "proposals",
+  await createTable("Proposals", {
+    TableName: "Proposals",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
       { AttributeName: "proposalId", AttributeType: "S" },
     ],
-    KeySchema: [{ AttributeName: "proposalId", KeyType: "HASH" }],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "proposalId", KeyType: "RANGE" },
+    ],
   });
 
   console.log("Done.");

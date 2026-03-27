@@ -168,6 +168,32 @@ export async function updateUserBirthday(
 }
 
 /**
+ * Sets the agentBudgetApproved flag inside the user's onboarding map.
+ * Called from executeProposal when a budget-type proposal is executed,
+ * so the frontend can skip the onboarding agent step on subsequent logins.
+ *
+ * Uses a nested SET on the onboarding map attribute. DynamoDB treats the
+ * onboarding attribute as a Map, so dot-notation paths work.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @returns {Promise<void>}
+ */
+export async function setAgentBudgetApproved(userId: string): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression:
+        'SET onboarding.agentBudgetApproved = :val, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':val': true,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
  * Resets the login-failure counter and clears any active lockout on a user.
  * Called on successful login or when the lockout period has expired.
  * Uses UpdateExpression so no other fields are overwritten.

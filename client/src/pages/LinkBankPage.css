@@ -104,11 +104,127 @@
   display: flex;
 }
 
+/* ── Connected banks list ───────────────────────────────────── */
+
+.onboard__bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.onboard__bank-item {
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.onboard__bank-name {
+  margin-bottom: var(--space-2);
+}
+
+.onboard__bank-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.onboard__bank-account {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* ── Sync progress ──────────────────────────────────────────── */
 
 .onboard__sync-progress {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+/* ── Questionnaire (Step 3) ─────────────────────────────────── */
+
+.onboard__questionnaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.onboard__field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.onboard__field-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.onboard__date-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard__date-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.onboard__date-input:focus {
+  border-color: var(--color-purple-500);
+}
+
+.onboard__goals-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.onboard__goals-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.onboard__goal-card {
+  flex: 1 1 calc(50% - var(--space-3));
+  min-width: 140px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  text-align: center;
+}
+
+.onboard__goal-card:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+
+.onboard__goal-card--selected {
+  border-color: var(--color-purple-500);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-purple-500);
+}
+
+.onboard__validation-msg {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  margin: 0;
 }
 
 /* ── Agent proposal ─────────────────────────────────────────── */
