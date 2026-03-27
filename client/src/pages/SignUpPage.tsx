@@ -63,12 +63,7 @@ export default function SignUpPage() {
         password: form.password,
         confirmPassword: form.confirmPassword,
       })
-<<<<<<< HEAD
-      await login(form.email, form.password)
-      navigate('/link-bank')
-=======
       navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
->>>>>>> ae6f013 (finalize changes)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
