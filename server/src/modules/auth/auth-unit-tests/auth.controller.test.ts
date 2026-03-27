@@ -132,6 +132,7 @@ describe('login controller', () => {
         agentBudgetApproved: false,
       },
       token: 'some-jwt',
+      refreshToken: 'some-refresh-token',
     };
     mockLoginUser.mockResolvedValue(loginResult);
     app = await buildTestApp();

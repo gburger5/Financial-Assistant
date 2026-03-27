@@ -39,13 +39,17 @@ npm install
 #### Windows
 ```sh
 copy server/.env.example server/.env
-copy client/.env.example client/.env
 ```
 #### macOS/Linux
 ```sh
 cp server/.env.example server/.env
-cp client/.env.example client/.env
 ```
+
+#### Plaid Setup
+Preconfigured sandbox test users with checking, savings, investment, and debt accounts are documented in [`server/src/data/plaid-sandbox-users.md`](server/src/data/plaid-sandbox-users.md).
+
+#### Email Setup
+The server sends emails via Brevo. Ensure you have a Brevo API key and set `BREVO_API_KEY`, `EMAIL_FROM`, and `EMAIL_FROM_NAME` in `server/.env`.
 
 #### AWS Setup
 An IAM user role may be required depending on what features you are working on. Once you receive your access and secret keys, configure your AWS credentials:
@@ -145,7 +149,7 @@ npm run test
 ```sh
 git checkout main
 git pull
-git checkout -b features/<short-description>
+git checkout -b feature/<short-description>
 ```
 
 2. Make changes and commit:
@@ -165,6 +169,6 @@ git push -u origin feature/<short-description>
 
 2. Mention any relevant context
 
-3. Confirm npm run lint and npm run build pass
+3. Confirm npm run lint, npm run test, and npm run build pass
 
 4. After approval, merge into main.

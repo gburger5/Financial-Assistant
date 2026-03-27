@@ -36,6 +36,7 @@ import {
   getHoldingsSince,
   getAllHoldingsByUser,
   getHoldingsByAccountId,
+  deleteAllInvestmentDataForUser,
 } from '../investments.repository.js';
 import type { InvestmentTransaction, Holding } from '../investments.types.js';
 
@@ -647,5 +648,74 @@ describe('getHoldingsByAccountId', () => {
     const cmd = mockSend.mock.calls[0][0];
     const values = Object.values(cmd.input.ExpressionAttributeValues as Record<string, unknown>);
     expect(values).toContain('acct-xyz');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteAllInvestmentDataForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllInvestmentDataForUser', () => {
+  it('does nothing when the user has no investment data', async () => {
+    // Two queries (InvestmentTransactions + Holdings) both return empty
+    mockSend
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllInvestmentDataForUser('user-123');
+
+    // Only the 2 queries — no deletes
+    expect(mockSend).toHaveBeenCalledTimes(2);
+  });
+
+  it('issues one DeleteCommand per investment transaction', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', dateTransactionId: '2025-01-15#inv-txn-abc' }] })
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValue({});
+
+    await deleteAllInvestmentDataForUser('user-123');
+
+    // 2 queries + 1 delete
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    const deleteCall = mockSend.mock.calls[2][0];
+    expect(deleteCall.input.TableName).toBe('InvestmentTransactions');
+    expect(deleteCall.input.Key).toEqual({
+      userId: 'user-123',
+      dateTransactionId: '2025-01-15#inv-txn-abc',
+    });
+  });
+
+  it('issues one DeleteCommand per holding', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [] })
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', snapshotDateAccountSecurity: '2025-01-15#acct-xyz#sec-123' }] })
+      .mockResolvedValue({});
+
+    await deleteAllInvestmentDataForUser('user-123');
+
+    // 2 queries + 1 delete
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    const deleteCall = mockSend.mock.calls[2][0];
+    expect(deleteCall.input.TableName).toBe('Holdings');
+    expect(deleteCall.input.Key).toEqual({
+      userId: 'user-123',
+      snapshotDateAccountSecurity: '2025-01-15#acct-xyz#sec-123',
+    });
+  });
+
+  it('deletes both investment transactions and holdings in a single call', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', dateTransactionId: '2025-01-15#inv-txn-abc' }] })
+      .mockResolvedValueOnce({ Items: [{ userId: 'user-123', snapshotDateAccountSecurity: '2025-01-15#acct-xyz#sec-123' }] })
+      .mockResolvedValue({});
+
+    await deleteAllInvestmentDataForUser('user-123');
+
+    // 2 queries + 2 deletes
+    expect(mockSend).toHaveBeenCalledTimes(4);
+    const tables = mockSend.mock.calls.slice(2).map((c) => c[0].input.TableName);
+    expect(tables).toContain('InvestmentTransactions');
+    expect(tables).toContain('Holdings');
   });
 });

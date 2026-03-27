@@ -221,3 +221,55 @@ describe('getBudgetHistory', () => {
     expect(result).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// deleteAllBudgetsForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllBudgetsForUser', () => {
+  it('does nothing when the user has no budgets', async () => {
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllBudgetsForUser('user-repo-1');
+
+    // Only the query — no deletes
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues one DeleteCommand per budget', async () => {
+    const second: Budget = { ...sampleBudget, budgetId: '02ARZ3NDEKTSV4RRFFQ69G5FAV' };
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleBudget, second] })
+      .mockResolvedValue({});
+
+    await deleteAllBudgetsForUser('user-repo-1');
+
+    // 1 query + 2 deletes
+    expect(mockSend).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes from the Budgets table', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleBudget] })
+      .mockResolvedValue({});
+
+    await deleteAllBudgetsForUser('user-repo-1');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.TableName).toBe('Budgets');
+  });
+
+  it('uses the composite key { userId, budgetId } for deletion', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleBudget] })
+      .mockResolvedValue({});
+
+    await deleteAllBudgetsForUser('user-repo-1');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.Key).toEqual({
+      userId: 'user-repo-1',
+      budgetId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+    });
+  });
+});

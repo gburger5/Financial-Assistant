@@ -23,6 +23,7 @@ import {
   getAccountsByUserId,
   getAccountsByItemId,
   getAccountByPlaidAccountId,
+  deleteAllAccountsForUser,
 } from '../accounts.repository.js';
 import type { Account } from '../accounts.types.js';
 
@@ -218,5 +219,52 @@ describe('getAccountByPlaidAccountId', () => {
     const cmd = mockSend.mock.calls[0][0];
     const values = Object.values(cmd.input.ExpressionAttributeValues as Record<string, unknown>);
     expect(values).toContain('plaid-acct-abc');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteAllAccountsForUser
+// ---------------------------------------------------------------------------
+
+describe('deleteAllAccountsForUser', () => {
+  it('does nothing when the user has no accounts', async () => {
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    await deleteAllAccountsForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues one DeleteCommand per account', async () => {
+    const second: Account = { ...sampleAccount, plaidAccountId: 'plaid-acct-def' };
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleAccount, second] })
+      .mockResolvedValue({});
+
+    await deleteAllAccountsForUser('user-123');
+
+    expect(mockSend).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes from the Accounts table', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleAccount] })
+      .mockResolvedValue({});
+
+    await deleteAllAccountsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.TableName).toBe('Accounts');
+  });
+
+  it('uses the composite key { userId, plaidAccountId } for deletion', async () => {
+    mockSend
+      .mockResolvedValueOnce({ Items: [sampleAccount] })
+      .mockResolvedValue({});
+
+    await deleteAllAccountsForUser('user-123');
+
+    const deleteCall = mockSend.mock.calls[1][0];
+    expect(deleteCall.input.Key).toEqual({ userId: 'user-123', plaidAccountId: 'plaid-acct-abc' });
   });
 });

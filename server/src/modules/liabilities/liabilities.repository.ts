@@ -13,7 +13,7 @@
  * is the one with the highest sort key for a given plaidAccountId prefix.
  * saveSnapshot uses PutCommand — each call creates a new historical record.
  */
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables } from '../../db/tables.js';
 import type { Liability } from './liabilities.types.js';
@@ -85,4 +85,28 @@ export async function getAllByUserId(userId: string): Promise<Liability[]> {
   );
 
   return (result.Items ?? []) as Liability[];
+}
+
+/**
+ * Deletes all Liability records for a user.
+ * Queries the base table by userId (HASH key) to enumerate all plaidAccountIds,
+ * then batch-deletes each record. Called during account deletion to ensure
+ * liability snapshots are not orphaned.
+ *
+ * @param {string} userId - UUID of the user whose liabilities to delete.
+ * @returns {Promise<void>}
+ */
+export async function deleteAllLiabilitiesForUser(userId: string): Promise<void> {
+  const liabilities = await getByUserId(userId);
+
+  await Promise.all(
+    liabilities.map((liability) =>
+      db.send(
+        new DeleteCommand({
+          TableName: Tables.Liabilities,
+          Key: { userId: liability.userId, plaidAccountId: liability.plaidAccountId },
+        }),
+      ),
+    ),
+  );
 }

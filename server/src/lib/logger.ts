@@ -32,10 +32,14 @@ import pino, { type DestinationStream, type LoggerOptions } from 'pino';
 export function createLogger(destination?: DestinationStream): pino.Logger {
   // Evaluate isDev at call time (not module load time) so tests can control
   // NODE_ENV before calling createLogger() and get predictable behaviour.
-  const isDev = process.env.NODE_ENV !== 'production';
+  const isDev = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test';
+
+  // Silence output during tests unless the caller provides an explicit
+  // destination stream (the logger unit tests do this to capture JSON output).
+  const isTest = process.env.NODE_ENV === 'test' && !destination;
 
   const options: LoggerOptions = {
-    level: 'info',
+    level: isTest ? 'warn' : 'info',
 
     // Remove pid and hostname from every log line. In a containerised environment
     // these fields are redundant — the orchestrator tracks per-container context
@@ -122,8 +126,8 @@ export function createLogger(destination?: DestinationStream): pino.Logger {
     return pino(options, destination);
   }
 
-  // In development, add pino-pretty as a transport for human-readable stdout.
-  // In production, write structured JSON directly to stdout.
+  // Tests use level: silent above, so no output reaches any transport.
+  // isDev is already false in test mode, so pino-pretty is never spawned.
   if (isDev) {
     return pino({
       ...options,
