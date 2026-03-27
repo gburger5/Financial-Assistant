@@ -46,7 +46,7 @@ export default function BarChart({ data, color, showValues = true }: BarChartPro
 
   return (
     <div className="bar-chart">
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={360}>
         <ReBarChart data={data} margin={{ top: 24, right: 4, bottom: 4, left: 4 }}>
           <CartesianGrid
             stroke="var(--color-border)"
