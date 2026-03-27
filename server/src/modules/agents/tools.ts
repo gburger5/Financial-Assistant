@@ -103,6 +103,86 @@ export const debtPaymentPlanSchema = z.object({
 /** TypeScript type inferred from the debt payment plan schema. */
 export type DebtPaymentPlan = z.infer<typeof debtPaymentPlanSchema>;
 
+/**
+ * Zod schema for the investment plan output. Used as structuredOutputSchema
+ * by the investing agent so responses are automatically validated.
+ */
+export const investmentPlanSchema = z.object({
+  summary: z
+    .string()
+    .describe(
+      'Two to three short plain-text sentences. No headers, bullets, dashes, or ALL CAPS. ' +
+      'Focus only on the key allocation decisions: where the money goes and why.'
+    ),
+
+  rationale: z
+    .string()
+    .describe(
+      'One to two sentences explaining the overall priority order chosen for this user.'
+    ),
+
+  scheduled_contributions: z
+    .array(
+      z.object({
+        plaid_account_id: z.string().describe('The Plaid account ID for this investment account.'),
+        account_name: z.string().describe('Human-readable name of the account (e.g. "Fidelity Roth IRA").'),
+        amount: z.number().describe('Dollar amount to contribute this period.'),
+        contribution_type: z
+          .enum(['401k', 'roth_ira', 'traditional_ira', 'brokerage'])
+          .describe('The type of account receiving the contribution.'),
+        fund_ticker: z
+          .string()
+          .nullable()
+          .describe('Ticker symbol of the target fund (e.g. "SWTSX"), or null if not applicable.'),
+        fund_name: z
+          .string()
+          .nullable()
+          .describe('Human-readable fund name (e.g. "Schwab Total Stock Market Index"), or null if not applicable.'),
+      })
+    )
+    .describe(
+      'One contribution object per account receiving money this period. ' +
+      'The sum of all amounts must equal the investingAllocation exactly.'
+    ),
+
+  projections: z.object({
+    retirement_age: z.number().describe('The target retirement age used for projections (60).'),
+    years_to_retirement: z.number().describe('Years remaining until retirement age.'),
+    assumed_annual_return: z.number().describe('The annual return rate used for projections (0.07 for 7%).'),
+    total_projected_contributions: z
+      .number()
+      .describe('Total dollar amount the user will contribute between now and retirement at the current monthly rate.'),
+    total_projected_growth: z
+      .number()
+      .describe('Total investment growth (returns minus contributions) projected by retirement.'),
+    total_at_retirement: z
+      .number()
+      .describe('Total portfolio value at retirement (contributions plus growth).'),
+    holdings: z
+      .array(
+        z.object({
+          fund_ticker: z.string().describe('Ticker symbol of the holding.'),
+          fund_name: z.string().describe('Human-readable fund name.'),
+          current_value: z.number().describe('Current market value of this holding.'),
+          projected_value_at_retirement: z
+            .number()
+            .describe('Projected value of this holding at retirement assuming continued contributions and 7% annual return.'),
+        })
+      )
+      .describe('Per-holding projections showing current value and projected retirement value.'),
+  }),
+
+  positive_outcome: z
+    .string()
+    .describe(
+      'One to two short plain-text sentences highlighting the single highest-impact positive outcome. ' +
+      'No headers, bullets, or dashes.'
+    ),
+});
+
+/** TypeScript type inferred from the investment plan schema. */
+export type InvestmentPlan = z.infer<typeof investmentPlanSchema>;
+
 /** Input schema shared by all user-data retrieval tools. */
 const userIdSchema = z.object({
   userId: z.string().describe('UUID of the user whose data to retrieve'),
