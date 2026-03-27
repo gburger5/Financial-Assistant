@@ -1,46 +1,33 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Check, X } from 'lucide-react'
 import { api } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import ProgressBar from '../components/ui/ProgressBar'
 import './SignUpPage.css'
 
-function getPasswordStrength(pw: string): number {
-  let score = 0
-  if (pw.length >= 10) score += 20
-  if (/[A-Z]/.test(pw)) score += 20
-  if (/[a-z]/.test(pw)) score += 20
-  if (/\d/.test(pw)) score += 20
-  if (/[^A-Za-z0-9]/.test(pw)) score += 20
-  return score
+/* ── Password rules ─────────────────────────────────────── */
+
+interface PwRule {
+  label: string
+  test: (pw: string, confirm: string) => boolean
 }
 
-function strengthLabel(score: number): string {
-  if (score <= 20) return 'Weak'
-  if (score <= 40) return 'Fair'
-  if (score <= 60) return 'Good'
-  if (score <= 80) return 'Strong'
-  return 'Excellent'
+const PW_RULES: PwRule[] = [
+  { label: 'At least 10 characters',  test: (pw) => pw.length >= 10 },
+  { label: 'One uppercase letter',    test: (pw) => /[A-Z]/.test(pw) },
+  { label: 'One lowercase letter',    test: (pw) => /[a-z]/.test(pw) },
+  { label: 'One number',              test: (pw) => /\d/.test(pw) },
+  { label: 'One special character',   test: (pw) => /[^A-Za-z0-9]/.test(pw) },
+  { label: 'Passwords match',         test: (pw, c) => pw.length > 0 && c.length > 0 && pw === c },
+]
+
+function allRulesPass(pw: string, confirm: string): boolean {
+  return PW_RULES.every((r) => r.test(pw, confirm))
 }
 
-function strengthColor(score: number): string {
-  if (score <= 20) return '#EF4444'
-  if (score <= 40) return '#F59E0B'
-  if (score <= 60) return '#F59E0B'
-  return '#00A884'
-}
-
-function validatePassword(pw: string): string | null {
-  if (pw.length < 10) return 'Password must be at least 10 characters'
-  if (!/[A-Z]/.test(pw)) return 'Password must contain an uppercase letter'
-  if (!/[a-z]/.test(pw)) return 'Password must contain a lowercase letter'
-  if (!/\d/.test(pw)) return 'Password must contain a number'
-  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain a special character'
-  return null
-}
+/* ── Component ─────────────────────────────────────────── */
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -56,8 +43,6 @@ export default function SignUpPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const strength = getPasswordStrength(form.password)
-
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
@@ -66,10 +51,8 @@ export default function SignUpPage() {
     e.preventDefault()
     setError('')
 
-    const pwError = validatePassword(form.password)
-    if (pwError) { setError(pwError); return }
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match')
+    if (!allRulesPass(form.password, form.confirmPassword)) {
+      setError('Password does not meet all requirements')
       return
     }
 
@@ -90,6 +73,8 @@ export default function SignUpPage() {
       setLoading(false)
     }
   }
+
+  const showChecklist = form.password.length > 0 || form.confirmPassword.length > 0
 
   return (
     <div className="signup-page">
@@ -133,45 +118,49 @@ export default function SignUpPage() {
             required
           />
 
-          <div className="signup-page__pw-group">
-            <div className="signup-page__pw-wrap">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={form.password}
-                onChange={(e) => update('password', e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="signup-page__pw-toggle"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            {form.password.length > 0 && (
-              <div className="signup-page__strength">
-                <ProgressBar value={strength} color={strengthColor(strength)} />
-                <span className="signup-page__strength-label" style={{ color: strengthColor(strength) }}>
-                  {strengthLabel(strength)}
-                </span>
-              </div>
-            )}
+          <div className="signup-page__pw-wrap">
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={(e) => update('password', e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="signup-page__pw-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
 
           <Input
             label="Confirm password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={form.confirmPassword}
             onChange={(e) => update('confirmPassword', e.target.value)}
             required
           />
 
-          <p className="signup-page__pw-requirements">
-            At least 10 characters with uppercase, lowercase, number, and special character.
-          </p>
+          {/* Live password checklist — below both password fields */}
+          {showChecklist && (
+            <ul className="pw-checklist">
+              {PW_RULES.map((rule) => {
+                const passed = rule.test(form.password, form.confirmPassword)
+                return (
+                  <li
+                    key={rule.label}
+                    className={`pw-checklist__rule ${passed ? 'pw-checklist__rule--pass' : ''}`}
+                  >
+                    {passed ? <Check size={14} /> : <X size={14} />}
+                    {rule.label}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
 
           {error && <p className="signup-page__error" role="alert">{error}</p>}
 

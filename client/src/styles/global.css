@@ -67,3 +67,30 @@ button, a, [role="button"], [role="switch"] {
   min-height: unset;
   min-width: unset;
 }
+
+.pw-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pw-checklist__rule {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #94A3B8;
+  transition: color 0.15s;
+}
+
+.pw-checklist__rule--pass {
+  color: #00A884;
+}
+
+.pw-checklist__rule svg {
+  flex-shrink: 0;
+}

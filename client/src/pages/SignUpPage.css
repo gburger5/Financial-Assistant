@@ -184,26 +184,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* ── Strength meter ───────────────────────── */
-.signup-page__strength {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.signup-page__strength-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* ── Password requirements hint ───────────── */
-.signup-page__pw-requirements {
-  font-size: 0.75rem;
-  color: #94A3B8;
-  line-height: 1.5;
-  margin: -0.25rem 0 0;
-}
+/* ── Password checklist is in global.css (shared with ProfilePage) ── */
 
 /* ── Error ─────────────────────────────────── */
 .signup-page__error {
