@@ -13,6 +13,12 @@ import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
 // Module mocks
 // ---------------------------------------------------------------------------
 
+// Mock revocation check so verifyJWT doesn't hit DynamoDB
+vi.mock('../../../modules/auth/auth-tokens.repository.js', () => ({
+  isAccessTokenRevoked: vi.fn().mockResolvedValue(false),
+  isSessionsInvalidatedForUser: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock('../agents.service.js', () => ({
   runBudgetAgent: vi.fn(),
   runDebtAgent: vi.fn(),
@@ -52,7 +58,7 @@ const TEST_USER_ID = 'user-route-agent-1';
 
 /** Signs a JWT matching the production auth plugin's expected shape. */
 function signToken(userId = TEST_USER_ID): string {
-  return jwt.sign({ userId, email: 'test@example.com' }, TEST_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId, email: 'test@example.com', jti: 'test-jti' }, TEST_SECRET, { expiresIn: '15m' });
 }
 
 // ---------------------------------------------------------------------------

@@ -97,7 +97,7 @@ export async function getAllByUserId(userId: string): Promise<Liability[]> {
  * @returns {Promise<void>}
  */
 export async function deleteAllLiabilitiesForUser(userId: string): Promise<void> {
-  const liabilities = await getByUserId(userId);
+  const liabilities = await getAllByUserId(userId);
 
   await Promise.all(
     liabilities.map((liability) =>

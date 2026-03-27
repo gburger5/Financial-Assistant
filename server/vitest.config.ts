@@ -12,6 +12,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     exclude: ['node_modules', 'dist'],
+    globalSetup: ['src/tests/vitest.global-setup.ts'],
     setupFiles: ['src/tests/vitest.setup.ts'],
     coverage: {
       reporter: ['text', 'json', 'html'],

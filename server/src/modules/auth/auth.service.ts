@@ -108,7 +108,7 @@ function toPublicUser(user: repo.UserRecord): PublicUser {
     email: user.email,
     createdAt: user.created_at,
     agentBudgetApproved: (user.onboarding as Record<string, unknown>)?.agentBudgetApproved === true,
-    birthday: user.birthday,
+    birthday: user.birthday ?? undefined,
   };
 }
 
@@ -350,6 +350,8 @@ export async function updateBirthday(userId: string, birthday: string): Promise<
   user.birthday = birthday;
   return toPublicUser(user);
 }
+
+/**
  * Verifies a user's email address using a verification token.
  * The token is a random string that was emailed to the user; the hash of the
  * token is stored in the database. This function hashes the provided token and

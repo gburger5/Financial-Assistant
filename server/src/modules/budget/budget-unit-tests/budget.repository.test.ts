@@ -21,7 +21,7 @@ vi.mock('../../../db/index.js', () => ({ db: { send: mockSend } }));
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
 
-import { saveBudget, getLatestBudget, getBudgetHistory } from '../budget.repository.js';
+import { saveBudget, getLatestBudget, getBudgetHistory, deleteAllBudgetsForUser } from '../budget.repository.js';
 import { BadRequestError } from '../../../lib/errors.js';
 import type { Budget } from '../budget.types.js';
 

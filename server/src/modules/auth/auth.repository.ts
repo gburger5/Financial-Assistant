@@ -39,6 +39,8 @@ export interface UserRecord {
   failedLoginAttempts: number;
   /** ISO timestamp until which logins are blocked. null when not locked. */
   accountLockedUntil: string | null;
+  /** ISO date string (YYYY-MM-DD) for the user's date of birth. */
+  birthday?: string | null;
   plaidItems: Array<{
     accessToken: string;
     itemId: string;
