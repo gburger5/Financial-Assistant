@@ -90,9 +90,50 @@ async function waitForDynamo(): Promise<void> {
 }
 
 /**
+ * Returns true if DynamoDB Local is already reachable (e.g. started by CI services).
+ */
+async function isDynamoReachable(): Promise<boolean> {
+  try {
+    const res = await fetch(ENDPOINT);
+    return res.status === 400 || res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true if Docker is available on this machine.
+ */
+function isDockerAvailable(): boolean {
+  try {
+    execSync('docker info', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Vitest globalSetup hook — runs once before all test files.
+ *
+ * Three scenarios:
+ *   1. DynamoDB already reachable (CI service container) — create tables, skip Docker.
+ *   2. Docker available (local dev) — start container, wait, create tables.
+ *   3. Neither — skip gracefully; integration tests will fail but unit tests still run.
  */
 export async function setup(): Promise<void> {
+  if (await isDynamoReachable()) {
+    console.log('[global-setup] DynamoDB already reachable — skipping Docker');
+    process.env.DYNAMODB_ENDPOINT = ENDPOINT;
+    await setupTables(ENDPOINT);
+    return;
+  }
+
+  if (!isDockerAvailable()) {
+    console.warn('[global-setup] Docker not available and DynamoDB not reachable — integration tests will fail');
+    return;
+  }
+
   if (!isContainerRunning()) {
     startContainer();
     weStartedContainer = true;
@@ -102,9 +143,7 @@ export async function setup(): Promise<void> {
 
   await waitForDynamo();
 
-  // Ensure DYNAMODB_ENDPOINT is set for setup-tables and for test workers
   process.env.DYNAMODB_ENDPOINT = ENDPOINT;
-
   await setupTables(ENDPOINT);
 }
 
