@@ -119,8 +119,15 @@ jobs:
             --platform=node \
             --target=node20 \
             --outfile=dist/lambda.js \
-            --external:@aws-sdk/*
-          cd dist && zip ../lambda.zip lambda.js
+            --external:@aws-sdk/* \
+            --external:argon2
+
+          mkdir -p dist/node_modules/@phc
+          cp -r ../node_modules/argon2 dist/node_modules/argon2
+          cp -r ../node_modules/node-gyp-build dist/node_modules/node-gyp-build
+          cp -r ../node_modules/@phc/format dist/node_modules/@phc/format
+
+          cd dist && zip -r ../lambda.zip lambda.js node_modules/
 
       - name: Deploy Lambda function code
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
