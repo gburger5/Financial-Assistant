@@ -41,13 +41,30 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
         "dynamodb:GetItem",
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
       ]
       Resource = [
-        aws_dynamodb_table.users.arn,
-        "${aws_dynamodb_table.users.arn}/index/email-index",
-        aws_dynamodb_table.auth_tokens.arn,
-        aws_dynamodb_table.budgets.arn,
-        aws_dynamodb_table.proposals.arn,
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users/index/email-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users/index/EmailVerificationTokenIndex",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users/index/passwordResetToken-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/auth_tokens",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/auth_tokens/index/userId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Budgets",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Proposals",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/PlaidItems",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/PlaidItems/index/itemId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Accounts",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Accounts/index/itemId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Accounts/index/plaidAccountId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Transactions",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Transactions/index/plaidTransactionId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Transactions/index/accountId-date-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/InvestmentTransactions",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/InvestmentTransactions/index/plaidInvestmentTransactionId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Holdings",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Holdings/index/plaidAccountId-index",
+        "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Liabilities",
       ]
     }]
   })
@@ -99,11 +116,10 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      NODE_ENV          = "production"
-      JWT_SECRET        = data.aws_ssm_parameter.jwt_secret.value
-      FRONTEND_URL      = data.aws_ssm_parameter.frontend_url.value
-      ENCRYPTION_KEY    = data.aws_ssm_parameter.encryption_key.value
-      AGENT_SERVICE_URL = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.agents.dns_name}"
+      NODE_ENV       = "production"
+      JWT_SECRET     = data.aws_ssm_parameter.jwt_secret.value
+      FRONTEND_URL   = data.aws_ssm_parameter.frontend_url.value
+      ENCRYPTION_KEY = data.aws_ssm_parameter.encryption_key.value
     }
   }
 
