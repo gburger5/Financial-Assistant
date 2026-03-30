@@ -93,6 +93,7 @@ resource "aws_lambda_function" "api" {
   runtime          = "nodejs20.x"
   handler          = "lambda.handler"
   timeout          = 29
+  memory_size      = 512
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
 
