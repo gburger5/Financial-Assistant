@@ -418,11 +418,11 @@ export default function LinkBankPage() {
     setLoading(true)
     try {
       // Fire debt/investing agents only if allocations are nonzero
-      if (budget && budget.debts.amount > 0) {
-        api.post('/api/agent/debt', { debtAllocation: budget.debts.amount }).catch(() => {})
+      if (budget && (budget.debts?.amount ?? 0) > 0) {
+        api.post('/api/agent/debt', { debtAllocation: budget.debts?.amount ?? 0 }).catch(() => {})
       }
-      if (budget && budget.investments.amount > 0) {
-        api.post('/api/agent/investing', { investingAllocation: budget.investments.amount }).catch(() => {})
+      if (budget && (budget.investments?.amount ?? 0) > 0) {
+        api.post('/api/agent/investing', { investingAllocation: budget.investments?.amount ?? 0 }).catch(() => {})
       }
       setStep(6)
     } finally {
