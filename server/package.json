@@ -26,7 +26,6 @@
     "@getbrevo/brevo": "^5.0.3",
     "@strands-agents/sdk": "^0.7.0",
     "argon2": "^0.44.0",
-    "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",
     "fastify": "^5.7.4",
     "fastify-graceful-shutdown": "^5.0.0",
@@ -42,7 +41,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/aws-lambda": "^8.10.160",
-    "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.2.0",
     "@types/uuid": "^10.0.0",
