@@ -84,41 +84,41 @@ export default function DashboardPage() {
   // Build chart data from real budget
   const donutSlices: DonutSlice[] = budget
     ? [
-        { name: 'Housing', value: budget.housing.amount, color: 'var(--color-chart-1)' },
-        { name: 'Utilities', value: budget.utilities.amount, color: 'var(--color-chart-2)' },
-        { name: 'Transportation', value: budget.transportation.amount, color: 'var(--color-chart-3)' },
-        { name: 'Groceries', value: budget.groceries.amount, color: 'var(--color-chart-4)' },
-        { name: 'Takeout', value: budget.takeout.amount, color: 'var(--color-chart-5)' },
-        { name: 'Shopping', value: budget.shopping.amount, color: 'var(--color-chart-6)' },
-        { name: 'Personal Care', value: budget.personalCare.amount, color: 'var(--color-chart-7)' },
-        { name: 'Entertainment', value: budget.entertainment.amount, color: '#8B5CF6' },
-        { name: 'Medical', value: budget.medical.amount, color: '#EC4899' },
-        { name: 'Emergency Fund', value: budget.emergencyFund.amount, color: '#06B6D4' },
-        { name: 'Debts', value: budget.debts.amount, color: '#F97316' },
-        { name: 'Investments', value: budget.investments.amount, color: '#14B8A6' },
+        { name: 'Housing', value: budget.housing?.amount ?? 0, color: 'var(--color-chart-1)' },
+        { name: 'Utilities', value: budget.utilities?.amount ?? 0, color: 'var(--color-chart-2)' },
+        { name: 'Transportation', value: budget.transportation?.amount ?? 0, color: 'var(--color-chart-3)' },
+        { name: 'Groceries', value: budget.groceries?.amount ?? 0, color: 'var(--color-chart-4)' },
+        { name: 'Takeout', value: budget.takeout?.amount ?? 0, color: 'var(--color-chart-5)' },
+        { name: 'Shopping', value: budget.shopping?.amount ?? 0, color: 'var(--color-chart-6)' },
+        { name: 'Personal Care', value: budget.personalCare?.amount ?? 0, color: 'var(--color-chart-7)' },
+        { name: 'Entertainment', value: budget.entertainment?.amount ?? 0, color: '#8B5CF6' },
+        { name: 'Medical', value: budget.medical?.amount ?? 0, color: '#EC4899' },
+        { name: 'Emergency Fund', value: budget.emergencyFund?.amount ?? 0, color: '#06B6D4' },
+        { name: 'Debts', value: budget.debts?.amount ?? 0, color: '#F97316' },
+        { name: 'Investments', value: budget.investments?.amount ?? 0, color: '#14B8A6' },
       ].filter((s) => s.value > 0)
     : []
 
   const barData: BarDataPoint[] = budget
     ? [
-        { label: 'Income', value: budget.income.amount },
+        { label: 'Income', value: budget.income?.amount ?? 0 },
         {
           label: 'Expenses',
           value:
-            budget.housing.amount +
-            budget.utilities.amount +
-            budget.transportation.amount +
-            budget.groceries.amount +
-            budget.takeout.amount +
-            budget.shopping.amount +
-            budget.personalCare.amount +
-            budget.entertainment.amount +
-            budget.medical.amount +
-            budget.debts.amount,
+            (budget.housing?.amount ?? 0) +
+            (budget.utilities?.amount ?? 0) +
+            (budget.transportation?.amount ?? 0) +
+            (budget.groceries?.amount ?? 0) +
+            (budget.takeout?.amount ?? 0) +
+            (budget.shopping?.amount ?? 0) +
+            (budget.personalCare?.amount ?? 0) +
+            (budget.entertainment?.amount ?? 0) +
+            (budget.medical?.amount ?? 0) +
+            (budget.debts?.amount ?? 0),
         },
         {
           label: 'Savings',
-          value: budget.investments.amount + budget.emergencyFund.amount,
+          value: (budget.investments?.amount ?? 0) + (budget.emergencyFund?.amount ?? 0),
         },
       ]
     : []
@@ -133,7 +133,7 @@ export default function DashboardPage() {
       <div className="dashboard-page__charts">
         <ChartCard
           title="Income vs Expenses"
-          subtitle={budget ? `Monthly income: $${budget.income.amount.toLocaleString()}` : ''}
+          subtitle={budget ? `Monthly income: $${(budget.income?.amount ?? 0).toLocaleString()}` : ''}
         >
           {budget && barData.some((d) => d.value > 0) ? (
             <BarChart data={barData} color="var(--color-chart-1)" />
@@ -151,20 +151,20 @@ export default function DashboardPage() {
         </ChartCard>
 
         <ChartCard title="Savings & Investments" subtitle="Monthly allocation">
-          {budget && budget.investments.amount > 0 ? (
+          {budget && (budget.investments?.amount ?? 0) > 0 ? (
             <div className="dashboard-page__invest-stat">
               <span className="dashboard-page__invest-amount">
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(budget.investments.amount)}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(budget.investments?.amount ?? 0)}
               </span>
               <span className="dashboard-page__invest-sub">
-                {budget.income.amount > 0
-                  ? `${((budget.investments.amount / budget.income.amount) * 100).toFixed(1)}% of monthly income`
+                {(budget.income?.amount ?? 0) > 0
+                  ? `${(((budget.investments?.amount ?? 0) / (budget.income?.amount ?? 1)) * 100).toFixed(1)}% of monthly income`
                   : 'per month'}
               </span>
               <div className="dashboard-page__invest-bar-bg">
                 <div
                   className="dashboard-page__invest-bar-fill"
-                  style={{ width: `${Math.min((budget.investments.amount / budget.income.amount) * 100, 100)}%` }}
+                  style={{ width: `${Math.min(((budget.investments?.amount ?? 0) / (budget.income?.amount ?? 1)) * 100, 100)}%` }}
                 />
               </div>
             </div>
