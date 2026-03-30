@@ -93,6 +93,8 @@ NODE_ENV=development
 JWT_SECRET=                 # any random string
 FRONTEND_URL=http://localhost:5173
 
+ANTHROPIC_API_KEY=          # required for AI agent proposals
+
 BREVO_API_KEY=              # required for password reset emails
 EMAIL_FROM=
 EMAIL_FROM_NAME=
