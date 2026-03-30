@@ -14,7 +14,7 @@ import { execSync } from 'node:child_process';
 import { setupTables } from '../scripts/setup-tables.js';
 
 const CONTAINER_NAME = 'dynamodb-vitest';
-const HOST_PORT = '8000';
+const HOST_PORT = '8001';
 const ENDPOINT = `http://localhost:${HOST_PORT}`;
 
 /** Maximum time (ms) to wait for DynamoDB Local to accept connections. */
