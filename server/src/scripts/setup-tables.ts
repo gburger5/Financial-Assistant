@@ -1,4 +1,9 @@
-/** To run this script: npx tsx src/scripts/setup-tables.ts 2>&1 */
+/**
+ * @module setup-tables
+ * @description Creates all DynamoDB tables and GSIs required by the application.
+ * Exported as a callable function for use in test globalSetup, and also runnable
+ * directly as a script: npx tsx src/scripts/setup-tables.ts
+ */
 
 import "dotenv/config";
 import {
@@ -7,17 +12,14 @@ import {
   ResourceInUseException,
 } from "@aws-sdk/client-dynamodb";
 
-const client = new DynamoDBClient(
-  process.env.DYNAMODB_ENDPOINT
-    ? {
-        endpoint: process.env.DYNAMODB_ENDPOINT,
-        region: "us-east-1",
-        credentials: { accessKeyId: "local", secretAccessKey: "local" },
-      }
-    : {}
-);
-
-async function createTable(name: string, params: object) {
+/**
+ * Creates a single DynamoDB table, ignoring "already exists" errors.
+ *
+ * @param {DynamoDBClient} client - The DynamoDB client to use.
+ * @param {string} name - Human-readable table name for logging.
+ * @param {object} params - CreateTableCommand input.
+ */
+async function createTable(client: DynamoDBClient, name: string, params: object) {
   try {
     await client.send(new CreateTableCommand(params as never));
     console.log(`✓ Created table: ${name}`);
@@ -30,8 +32,27 @@ async function createTable(name: string, params: object) {
   }
 }
 
-async function main() {
-  await createTable("Users", {
+/**
+ * Creates all application tables and GSIs in DynamoDB.
+ * Safe to call repeatedly — existing tables are silently skipped.
+ *
+ * @param {string} [endpoint] - Optional DynamoDB endpoint override.
+ *   Defaults to DYNAMODB_ENDPOINT env var.
+ */
+export async function setupTables(endpoint?: string): Promise<void> {
+  const resolvedEndpoint = endpoint ?? process.env.DYNAMODB_ENDPOINT;
+
+  const client = new DynamoDBClient(
+    resolvedEndpoint
+      ? {
+          endpoint: resolvedEndpoint,
+          region: "us-east-1",
+          credentials: { accessKeyId: "local", secretAccessKey: "local" },
+        }
+      : {}
+  );
+
+  await createTable(client, "Users", {
     TableName: "Users",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -60,7 +81,7 @@ async function main() {
     ],
   });
 
-  await createTable("Budgets", {
+  await createTable(client, "Budgets", {
     TableName: "Budgets",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -73,7 +94,7 @@ async function main() {
     ],
   });
 
-  await createTable("auth_tokens", {
+  await createTable(client, "auth_tokens", {
     TableName: "auth_tokens",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -90,7 +111,7 @@ async function main() {
     ],
   });
 
-  await createTable("PlaidItems", {
+  await createTable(client, "PlaidItems", {
     TableName: "PlaidItems",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -110,7 +131,7 @@ async function main() {
     ],
   });
 
-  await createTable("Accounts", {
+  await createTable(client, "Accounts", {
     TableName: "Accounts",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -139,7 +160,7 @@ async function main() {
     ],
   });
 
-  await createTable("Transactions", {
+  await createTable(client, "Transactions", {
     TableName: "Transactions",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -170,7 +191,7 @@ async function main() {
     ],
   });
 
-  await createTable("InvestmentTransactions", {
+  await createTable(client, "InvestmentTransactions", {
     TableName: "InvestmentTransactions",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -193,7 +214,7 @@ async function main() {
     ],
   });
 
-  await createTable("Holdings", {
+  await createTable(client, "Holdings", {
     TableName: "Holdings",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -214,7 +235,7 @@ async function main() {
     ],
   });
 
-  await createTable("Liabilities", {
+  await createTable(client, "Liabilities", {
     TableName: "Liabilities",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
@@ -227,28 +248,27 @@ async function main() {
     ],
   });
 
-  await createTable("proposals", {
-    TableName: "proposals",
-    BillingMode: "PAY_PER_REQUEST",
-    AttributeDefinitions: [
-      { AttributeName: "proposalId", AttributeType: "S" },
-    ],
-    KeySchema: [{ AttributeName: "proposalId", KeyType: "HASH" }],
-  });
-
-  await createTable("goals", {
-    TableName: "goals",
+  await createTable(client, "Proposals", {
+    TableName: "Proposals",
     BillingMode: "PAY_PER_REQUEST",
     AttributeDefinitions: [
       { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "proposalId", AttributeType: "S" },
     ],
-    KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "proposalId", KeyType: "RANGE" },
+    ],
   });
 
   console.log("Done.");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Run directly as a script: npx tsx src/scripts/setup-tables.ts
+const isDirectRun = process.argv[1]?.endsWith('setup-tables.ts');
+if (isDirectRun) {
+  setupTables().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

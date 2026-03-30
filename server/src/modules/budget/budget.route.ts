@@ -21,7 +21,7 @@
 import type { FastifyInstance } from 'fastify';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
 import { getBudget, initializeBudget, patchBudget, getHistory } from './budget.controller.js';
-import { BUDGET_GOALS, type BudgetUpdateInput } from './budget.types.js';
+import { BUDGET_GOALS, type BudgetGoal, type BudgetUpdateInput } from './budget.types.js';
 
 /** JSON Schema for a single BudgetAmount object. */
 const budgetAmountSchema = {
@@ -54,6 +54,9 @@ const budgetResponseSchema = {
     takeout: budgetAmountSchema,
     shopping: budgetAmountSchema,
     personalCare: budgetAmountSchema,
+    emergencyFund: budgetAmountSchema,
+    entertainment: budgetAmountSchema,
+    medical: budgetAmountSchema,
     debts: budgetAmountSchema,
     investments: budgetAmountSchema,
     goals: goalsSchema,
@@ -73,13 +76,21 @@ async function budgetRoutes(
   /**
    * POST /initialize
    * Generates the user's initial budget from their full transaction and
-   * liability history. Idempotent — returns the existing budget unchanged
-   * if one already exists (e.g. user linking a second bank account).
-   * Called by the frontend once triggerInitialSync completes.
+   * liability history, using user-selected goals from onboarding.
+   * Idempotent — returns the existing budget unchanged if one already exists.
+   * Body requires a non-empty goals array.
    */
-  fastify.post('/initialize', {
+  fastify.post<{ Body: { goals: BudgetGoal[] } }>('/initialize', {
     preHandler: [verifyJWT],
     schema: {
+      body: {
+        type: 'object',
+        required: ['goals'],
+        additionalProperties: false,
+        properties: {
+          goals: { ...goalsSchema, minItems: 1 },
+        },
+      },
       response: {
         201: budgetResponseSchema,
       },
@@ -121,6 +132,9 @@ async function budgetRoutes(
           takeout: budgetAmountSchema,
           shopping: budgetAmountSchema,
           personalCare: budgetAmountSchema,
+          emergencyFund: budgetAmountSchema,
+          entertainment: budgetAmountSchema,
+          medical: budgetAmountSchema,
           debts: budgetAmountSchema,
           investments: budgetAmountSchema,
           goals: goalsSchema,

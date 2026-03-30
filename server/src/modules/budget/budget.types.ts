@@ -5,15 +5,19 @@
 export type BudgetGoal =
   | 'pay down debt'
   | 'maximize investments'
-  | 'save for goals'
-  | 'build up emergency fund';
+  | 'build a strong emergency fund'
+  | 'save for big purchase'
+  | 'lower overall spending'
+  | 'have more fun money';
 
 /** All valid BudgetGoal values, used for runtime validation. */
 export const BUDGET_GOALS: BudgetGoal[] = [
   'pay down debt',
   'maximize investments',
-  'save for goals',
-  'build up emergency fund',
+  'build a strong emergency fund',
+  'save for big purchase',
+  'lower overall spending',
+  'have more fun money',
 ];
 
 export interface Budget {
@@ -28,6 +32,9 @@ export interface Budget {
   takeout: BudgetAmount;
   shopping: BudgetAmount;
   personalCare: BudgetAmount;
+  emergencyFund: BudgetAmount;
+  entertainment: BudgetAmount;
+  medical: BudgetAmount;
   debts: BudgetAmount;
   investments: BudgetAmount;
   goals: BudgetGoal[];
@@ -46,6 +53,9 @@ export type BudgetUpdateInput = Partial<{
   shopping: BudgetAmount;
   takeout: BudgetAmount;
   personalCare: BudgetAmount;
+  emergencyFund: BudgetAmount;
+  entertainment: BudgetAmount;
+  medical: BudgetAmount;
   debts: BudgetAmount;
   investments: BudgetAmount;
   goals: BudgetGoal[];
@@ -57,8 +67,11 @@ export type BudgetUpdateInput = Partial<{
  * dot-separated paths into the Budget object where that amount should
  * be accumulated (e.g. 'groceries.amount').
  *
- * Debt-related categories (LOAN_PAYMENTS_*) are intentionally absent —
- * debts are sourced from liabilities (minimum payments), not transactions.
+ * Intentionally absent categories:
+ * - LOAN_PAYMENTS_* — debts are sourced from liabilities (minimum payments), not transactions.
+ * - TRANSFER_OUT_ACCOUNT_TRANSFER — too generic (catches credit card payments, inter-account moves).
+ * - TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS — investments come from investmentTransactions
+ *   to avoid double-counting the same money leaving checking and arriving in the investment account.
  */
 export const CATEGORY_MAP: Record<string, string[]> = {
   // Income
@@ -69,6 +82,8 @@ export const CATEGORY_MAP: Record<string, string[]> = {
   'INCOME_RENTAL': ['income.amount'],
   'INCOME_LONG_TERM_DISABILITY': ['income.amount'],
   'INCOME_UNEMPLOYMENT': ['income.amount'],
+  'INCOME_INTEREST_EARNED': ['income.amount'],
+  'INCOME_DIVIDENDS': ['income.amount'],
 
   // Housing
   'RENT_AND_UTILITIES_RENT': ['housing.amount'],
@@ -120,6 +135,26 @@ export const CATEGORY_MAP: Record<string, string[]> = {
   'PERSONAL_CARE_HAIR_AND_BEAUTY': ['personalCare.amount'],
   'PERSONAL_CARE_LAUNDRY_AND_DRY_CLEANING': ['personalCare.amount'],
   'PERSONAL_CARE_OTHER_PERSONAL_CARE': ['personalCare.amount'],
+
+  // Emergency Fund (explicit savings transfers only — not generic account transfers)
+  'TRANSFER_OUT_SAVINGS': ['emergencyFund.amount'],
+
+  // Entertainment
+  'ENTERTAINMENT_CASINOS_AND_GAMBLING': ['entertainment.amount'],
+  'ENTERTAINMENT_MUSIC_AND_AUDIO': ['entertainment.amount'],
+  'ENTERTAINMENT_SPORTING_EVENTS_AMUSEMENT_PARKS_AND_MUSEUMS': ['entertainment.amount'],
+  'ENTERTAINMENT_TV_AND_MOVIES': ['entertainment.amount'],
+  'ENTERTAINMENT_VIDEO_GAMES': ['entertainment.amount'],
+  'ENTERTAINMENT_OTHER_ENTERTAINMENT': ['entertainment.amount'],
+
+  // Medical
+  'MEDICAL_DENTAL_CARE': ['medical.amount'],
+  'MEDICAL_EYE_CARE': ['medical.amount'],
+  'MEDICAL_HOSPITAL_AND_NURSING_CARE': ['medical.amount'],
+  'MEDICAL_PHARMACIES_AND_SUPPLEMENTS': ['medical.amount'],
+  'MEDICAL_PRIMARY_CARE': ['medical.amount'],
+  'MEDICAL_VETERINARY_SERVICES': ['medical.amount'],
+  'MEDICAL_OTHER_MEDICAL': ['medical.amount'],
 };
 
 /**
@@ -130,5 +165,5 @@ export const CATEGORY_MAP: Record<string, string[]> = {
 export const INCOME_CATEGORIES = new Set([
   'INCOME_SALARY', 'INCOME_GIG_ECONOMY', 'INCOME_OTHER',
   'INCOME_MILITARY', 'INCOME_RENTAL', 'INCOME_LONG_TERM_DISABILITY',
-  'INCOME_UNEMPLOYMENT',
+  'INCOME_UNEMPLOYMENT', 'INCOME_INTEREST_EARNED', 'INCOME_DIVIDENDS',
 ]);

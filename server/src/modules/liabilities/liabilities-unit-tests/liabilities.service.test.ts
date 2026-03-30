@@ -20,8 +20,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../liabilities.repository.js', () => ({
-  upsertSnapshot: vi.fn(),
-  getByUserId: vi.fn(),
+  saveSnapshot: vi.fn(),
+  getLatestByUserId: vi.fn(),
+  getAllByUserId: vi.fn(),
 }));
 
 vi.mock('../../items/items.service.js', () => ({
@@ -76,8 +77,8 @@ import type {
   PlaidMortgage,
 } from '../liabilities.types.js';
 
-const mockUpsertSnapshot = vi.mocked(repo.upsertSnapshot);
-const mockGetByUserId = vi.mocked(repo.getByUserId);
+const mockSaveSnapshot = vi.mocked(repo.saveSnapshot);
+const mockGetLatestByUserId = vi.mocked(repo.getLatestByUserId);
 const mockGetItemForSync = vi.mocked(itemsService.getItemForSync);
 const mockSyncAccounts = vi.mocked(accountsService.syncAccounts);
 
@@ -175,6 +176,7 @@ function makeLiabilitiesResponse(opts: {
 
 const sampleCredit: CreditLiability = {
   userId: 'user-123',
+  sortKey: 'acct-credit#01ABCDEF',
   plaidAccountId: 'acct-credit',
   liabilityType: 'credit',
   currentBalance: null,
@@ -198,6 +200,7 @@ const sampleCredit: CreditLiability = {
 
 const sampleStudent: StudentLiability = {
   userId: 'user-123',
+  sortKey: 'acct-student#01ABCDEF',
   plaidAccountId: 'acct-student',
   liabilityType: 'student',
   currentBalance: null,
@@ -223,6 +226,7 @@ const sampleStudent: StudentLiability = {
 
 const sampleMortgage: MortgageLiability = {
   userId: 'user-123',
+  sortKey: 'acct-mortgage#01ABCDEF',
   plaidAccountId: 'acct-mortgage',
   liabilityType: 'mortgage',
   currentBalance: null,
@@ -305,6 +309,14 @@ describe('mapCreditLiability', () => {
   it('sets plaidAccountId from account_id', () => {
     const result = mapCreditLiability('user-123', samplePlaidCredit);
     expect(result.plaidAccountId).toBe('acct-credit');
+  });
+
+  it('sets sortKey as plaidAccountId#ULID', () => {
+    const result = mapCreditLiability('user-123', samplePlaidCredit);
+    expect(result.sortKey).toMatch(/^acct-credit#/);
+    // ULID suffix should be 26 chars
+    const ulidPart = result.sortKey.split('#')[1];
+    expect(ulidPart).toHaveLength(26);
   });
 
   it('sets liabilityType to "credit"', () => {
@@ -572,11 +584,11 @@ describe('updateLiabilities', () => {
       makeLiabilitiesResponse({ credit: [samplePlaidCredit] }),
     );
     mockSyncAccounts.mockResolvedValue(undefined);
-    mockUpsertSnapshot.mockResolvedValue(undefined);
+    mockSaveSnapshot.mockResolvedValue(undefined);
 
     await updateLiabilities('item-abc');
 
-    const creditUpserts = mockUpsertSnapshot.mock.calls.filter(
+    const creditUpserts = mockSaveSnapshot.mock.calls.filter(
       ([l]) => l.liabilityType === 'credit',
     );
     expect(creditUpserts).toHaveLength(1);
@@ -588,11 +600,11 @@ describe('updateLiabilities', () => {
       makeLiabilitiesResponse({ student: [samplePlaidStudent] }),
     );
     mockSyncAccounts.mockResolvedValue(undefined);
-    mockUpsertSnapshot.mockResolvedValue(undefined);
+    mockSaveSnapshot.mockResolvedValue(undefined);
 
     await updateLiabilities('item-abc');
 
-    const studentUpserts = mockUpsertSnapshot.mock.calls.filter(
+    const studentUpserts = mockSaveSnapshot.mock.calls.filter(
       ([l]) => l.liabilityType === 'student',
     );
     expect(studentUpserts).toHaveLength(1);
@@ -604,11 +616,11 @@ describe('updateLiabilities', () => {
       makeLiabilitiesResponse({ mortgage: [samplePlaidMortgage] }),
     );
     mockSyncAccounts.mockResolvedValue(undefined);
-    mockUpsertSnapshot.mockResolvedValue(undefined);
+    mockSaveSnapshot.mockResolvedValue(undefined);
 
     await updateLiabilities('item-abc');
 
-    const mortgageUpserts = mockUpsertSnapshot.mock.calls.filter(
+    const mortgageUpserts = mockSaveSnapshot.mock.calls.filter(
       ([l]) => l.liabilityType === 'mortgage',
     );
     expect(mortgageUpserts).toHaveLength(1);
@@ -624,7 +636,7 @@ describe('updateLiabilities', () => {
       }),
     );
     mockSyncAccounts.mockResolvedValue(undefined);
-    mockUpsertSnapshot.mockResolvedValue(undefined);
+    mockSaveSnapshot.mockResolvedValue(undefined);
 
     const result = await updateLiabilities('item-abc');
 
@@ -646,7 +658,7 @@ describe('updateLiabilities', () => {
     expect(result.creditCount).toBe(0);
     expect(result.studentCount).toBe(0);
     expect(result.mortgageCount).toBe(0);
-    expect(mockUpsertSnapshot).not.toHaveBeenCalled();
+    expect(mockSaveSnapshot).not.toHaveBeenCalled();
   });
 
   it('continues syncing remaining liabilities when one individual upsert fails', async () => {
@@ -656,13 +668,13 @@ describe('updateLiabilities', () => {
     );
     mockSyncAccounts.mockResolvedValue(undefined);
     // First upsert fails, second succeeds
-    mockUpsertSnapshot
+    mockSaveSnapshot
       .mockRejectedValueOnce(new Error('DynamoDB timeout'))
       .mockResolvedValueOnce(undefined);
 
     // Must not throw — Promise.allSettled absorbs individual failures
     await expect(updateLiabilities('item-abc')).resolves.not.toThrow();
-    expect(mockUpsertSnapshot).toHaveBeenCalledTimes(2);
+    expect(mockSaveSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('logs an error when an individual upsert fails', async () => {
@@ -671,7 +683,7 @@ describe('updateLiabilities', () => {
       makeLiabilitiesResponse({ credit: [samplePlaidCredit] }),
     );
     mockSyncAccounts.mockResolvedValue(undefined);
-    mockUpsertSnapshot.mockRejectedValue(new Error('DynamoDB timeout'));
+    mockSaveSnapshot.mockRejectedValue(new Error('DynamoDB timeout'));
 
     await updateLiabilities('item-abc');
 
@@ -684,10 +696,10 @@ describe('updateLiabilities', () => {
 // ---------------------------------------------------------------------------
 
 describe('getLiabilitiesForUser', () => {
-  it('delegates to repository getByUserId with the provided userId', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleStudent]);
+  it('delegates to repository getLatestByUserId with the provided userId', async () => {
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleStudent]);
     const result = await getLiabilitiesForUser('user-123');
-    expect(mockGetByUserId).toHaveBeenCalledWith('user-123');
+    expect(mockGetLatestByUserId).toHaveBeenCalledWith('user-123');
     expect(result).toHaveLength(2);
   });
 });
@@ -698,22 +710,22 @@ describe('getLiabilitiesForUser', () => {
 
 describe('getCreditLiabilities', () => {
   it('returns only credit liabilities from the full list', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
     const result = await getCreditLiabilities('user-123');
     expect(result).toHaveLength(1);
     expect(result[0].liabilityType).toBe('credit');
   });
 
   it('returns an empty array when there are no credit liabilities', async () => {
-    mockGetByUserId.mockResolvedValue([sampleStudent, sampleMortgage]);
+    mockGetLatestByUserId.mockResolvedValue([sampleStudent, sampleMortgage]);
     const result = await getCreditLiabilities('user-123');
     expect(result).toHaveLength(0);
   });
 
-  it('calls getByUserId with the provided userId', async () => {
-    mockGetByUserId.mockResolvedValue([]);
+  it('calls getLatestByUserId with the provided userId', async () => {
+    mockGetLatestByUserId.mockResolvedValue([]);
     await getCreditLiabilities('user-456');
-    expect(mockGetByUserId).toHaveBeenCalledWith('user-456');
+    expect(mockGetLatestByUserId).toHaveBeenCalledWith('user-456');
   });
 });
 
@@ -723,22 +735,22 @@ describe('getCreditLiabilities', () => {
 
 describe('getStudentLiabilities', () => {
   it('returns only student liabilities from the full list', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
     const result = await getStudentLiabilities('user-123');
     expect(result).toHaveLength(1);
     expect(result[0].liabilityType).toBe('student');
   });
 
   it('returns an empty array when there are no student liabilities', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleMortgage]);
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleMortgage]);
     const result = await getStudentLiabilities('user-123');
     expect(result).toHaveLength(0);
   });
 
-  it('calls getByUserId with the provided userId', async () => {
-    mockGetByUserId.mockResolvedValue([]);
+  it('calls getLatestByUserId with the provided userId', async () => {
+    mockGetLatestByUserId.mockResolvedValue([]);
     await getStudentLiabilities('user-456');
-    expect(mockGetByUserId).toHaveBeenCalledWith('user-456');
+    expect(mockGetLatestByUserId).toHaveBeenCalledWith('user-456');
   });
 });
 
@@ -748,21 +760,21 @@ describe('getStudentLiabilities', () => {
 
 describe('getMortgageLiabilities', () => {
   it('returns only mortgage liabilities from the full list', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleStudent, sampleMortgage]);
     const result = await getMortgageLiabilities('user-123');
     expect(result).toHaveLength(1);
     expect(result[0].liabilityType).toBe('mortgage');
   });
 
   it('returns an empty array when there are no mortgage liabilities', async () => {
-    mockGetByUserId.mockResolvedValue([sampleCredit, sampleStudent]);
+    mockGetLatestByUserId.mockResolvedValue([sampleCredit, sampleStudent]);
     const result = await getMortgageLiabilities('user-123');
     expect(result).toHaveLength(0);
   });
 
-  it('calls getByUserId with the provided userId', async () => {
-    mockGetByUserId.mockResolvedValue([]);
+  it('calls getLatestByUserId with the provided userId', async () => {
+    mockGetLatestByUserId.mockResolvedValue([]);
     await getMortgageLiabilities('user-456');
-    expect(mockGetByUserId).toHaveBeenCalledWith('user-456');
+    expect(mockGetLatestByUserId).toHaveBeenCalledWith('user-456');
   });
 });

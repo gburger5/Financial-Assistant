@@ -27,6 +27,13 @@ export interface RegisterRouteGeneric {
   };
 }
 
+/** Route generics for PATCH /profile. */
+export interface UpdateProfileRouteGeneric {
+  Body: {
+    birthday: string;
+  };
+}
+
 /** Route generics for POST /login. */
 export interface LoginRouteGeneric {
   Body: {
@@ -52,6 +59,7 @@ export const publicUserSchema = {
     email: { type: 'string' },
     createdAt: { type: 'string' },
     agentBudgetApproved: { type: 'boolean' },
+    birthday: { type: 'string' },
   },
 } as const;
 

@@ -14,17 +14,26 @@
 import { DeleteCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables } from '../../db/tables.js';
+import { BadRequestError } from '../../lib/errors.js';
 import type { Budget } from './budget.types.js';
 
 /**
  * Persists a budget snapshot.
  * Always inserts a new record — never updates an existing one.
  * The ULID budgetId guarantees uniqueness and natural chronological order.
+ * Rejects budgets with an empty goals array as a safety net — the service
+ * layer validates this too, but the repository enforces it as a last line
+ * of defence so no code path can persist a goalless budget.
  *
  * @param {Budget} budget - The budget snapshot to store.
  * @returns {Promise<void>}
+ * @throws {BadRequestError} If the budget has no goals.
  */
 export async function saveBudget(budget: Budget): Promise<void> {
+  if (!budget.goals || budget.goals.length === 0) {
+    throw new BadRequestError('Budget must have at least one goal');
+  }
+
   await db.send(
     new PutCommand({
       TableName: Tables.Budgets,

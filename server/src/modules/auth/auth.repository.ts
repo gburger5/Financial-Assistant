@@ -39,6 +39,8 @@ export interface UserRecord {
   failedLoginAttempts: number;
   /** ISO timestamp until which logins are blocked. null when not locked. */
   accountLockedUntil: string | null;
+  /** ISO date string (YYYY-MM-DD) for the user's date of birth. */
+  birthday?: string | null;
   plaidItems: Array<{
     accessToken: string;
     itemId: string;
@@ -148,6 +150,58 @@ export async function updateLoginFailure(
       ExpressionAttributeValues: {
         ':failedLoginAttempts': failedLoginAttempts,
         ':accountLockedUntil': lockedUntil,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Updates the birthday field on a user record.
+ * Uses UpdateExpression so no other concurrently-updated fields are overwritten.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @param {string} birthday - ISO date string (YYYY-MM-DD).
+ * @returns {Promise<void>}
+ */
+export async function updateUserBirthday(
+  userId: string,
+  birthday: string
+): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression:
+        'SET birthday = :birthday, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':birthday': birthday,
+        ':updated_at': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+/**
+ * Sets the agentBudgetApproved flag inside the user's onboarding map.
+ * Called from executeProposal when a budget-type proposal is executed,
+ * so the frontend can skip the onboarding agent step on subsequent logins.
+ *
+ * Uses a nested SET on the onboarding map attribute. DynamoDB treats the
+ * onboarding attribute as a Map, so dot-notation paths work.
+ *
+ * @param {string} userId - UUID of the user to update.
+ * @returns {Promise<void>}
+ */
+export async function setAgentBudgetApproved(userId: string): Promise<void> {
+  await db.send(
+    new UpdateCommand({
+      TableName: Tables.Users,
+      Key: { id: userId },
+      UpdateExpression:
+        'SET onboarding.agentBudgetApproved = :val, updated_at = :updated_at',
+      ExpressionAttributeValues: {
+        ':val': true,
         ':updated_at': new Date().toISOString(),
       },
     })

@@ -89,8 +89,11 @@
 
     /* Connected bank items */
     .banks-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-    .bank-item { display: flex; align-items: center; gap: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; font-weight: 500; color: #15803d; }
+    .bank-item { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; color: #15803d; }
+    .bank-item-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
     .bank-check { font-size: 1rem; color: #16a34a; font-weight: 700; }
+    .bank-accounts { font-size: 0.8rem; color: #166534; padding-left: 24px; }
+    .bank-account { padding: 2px 0; }
 
     /* Budget form */
     .budget-section { margin-bottom: 20px; }
@@ -98,6 +101,11 @@
     .budget-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
     .budget-row label { flex: 1; margin: 0; font-weight: 400; font-size: 0.9rem; }
     .budget-row input { width: 120px; margin: 0; text-align: right; }
+
+    /* ── Syncing overlay ── */
+    .sync-overlay { text-align: center; padding: 40px 0; }
+    .sync-overlay h2 { font-size: 1.25rem; margin-bottom: 8px; }
+    .sync-overlay p { color: #6b7280; font-size: 0.9rem; }
 
     /* ── Dashboard ── */
     .dash-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
@@ -119,7 +127,7 @@
 
     /* Spending breakdown */
     .dash-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.875rem; }
-    .dash-label { width: 120px; flex-shrink: 0; color: #374151; }
+    .dash-label { width: 130px; flex-shrink: 0; color: #374151; }
     .dash-bar-wrap { flex: 1; height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; }
     .dash-bar { height: 100%; background: #a5b4fc; border-radius: 3px; transition: width 0.4s ease; }
     .dash-amount { width: 64px; text-align: right; flex-shrink: 0; color: #374151; font-weight: 500; }
@@ -138,6 +146,7 @@
       border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle;
     }
     .spinner-dark { border-color: rgba(0,0,0,0.12); border-top-color: #6b7280; }
+    .spinner-lg { width: 32px; height: 32px; border-width: 3px; margin-bottom: 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -164,9 +173,9 @@
       <!-- Login form -->
       <div id="form-login">
         <label>Email</label>
-        <input type="email"    id="login-email"    placeholder="you@example.com" />
+        <input type="email"    id="login-email"    value="steph@gmail.com" />
         <label>Password</label>
-        <input type="password" id="login-password" placeholder="••••••••" />
+        <input type="password" id="login-password" value="Tester1234!" />
         <button class="btn-primary" onclick="doLogin()">Sign in</button>
       </div>
 
@@ -175,19 +184,19 @@
         <div class="row">
           <div>
             <label>First name</label>
-            <input type="text" id="reg-first" placeholder="Jane" />
+            <input type="text" id="reg-first" value="Steph" />
           </div>
           <div>
             <label>Last name</label>
-            <input type="text" id="reg-last" placeholder="Doe" />
+            <input type="text" id="reg-last" value="Anie" />
           </div>
         </div>
         <label>Email</label>
-        <input type="email"    id="reg-email"    placeholder="you@example.com" />
+        <input type="email"    id="reg-email"    value="steph@gmail.com" />
         <label>Password</label>
-        <input type="password" id="reg-password" placeholder="Min 8 chars, upper, lower, number" />
+        <input type="password" id="reg-password" value="Tester1234!" />
         <label>Confirm password</label>
-        <input type="password" id="reg-confirm"  placeholder="••••••••" />
+        <input type="password" id="reg-confirm"  value="Tester1234!" />
         <button class="btn-primary" onclick="doRegister()">Create account</button>
       </div>
     </div>
@@ -209,22 +218,24 @@
       <!-- Populated by renderConnectedBanks() -->
       <div class="banks-list" id="banks-list"></div>
 
-      <div class="info">
-        Sandbox credentials: <strong>user_good</strong> / <strong>pass_good</strong>
-      </div>
-      <div id="sync-status" class="loading" style="display:none">
-        <span class="spinner spinner-dark"></span>
-        Syncing transactions&hellip; this may take a minute.
-      </div>
       <div id="plaid-error" class="error" style="display:none"></div>
 
       <button class="btn-primary" id="btn-link" onclick="openPlaidLink()">
-        Link bank account
+        Link Bank Account
       </button>
       <button class="btn-success" id="btn-continue" onclick="goToBudgetReview()" disabled style="margin-top:8px;opacity:0.4">
         Continue to budget review &rarr;
       </button>
       <button class="btn-secondary" onclick="doLogout()">Sign out</button>
+    </div>
+
+    <!-- ── Step 1.5: Syncing (loading screen) ────────────────────────────── -->
+    <div class="section" id="step-syncing">
+      <div class="sync-overlay">
+        <div class="spinner spinner-dark spinner-lg"></div>
+        <h2>Syncing your financial data...</h2>
+        <p>We're pulling your transactions, investments, and liabilities.<br>This usually takes 10&ndash;30 seconds.</p>
+      </div>
     </div>
 
     <!-- ── Step 2: Review budget ──────────────────────────────────────────── -->
@@ -272,8 +283,8 @@
           <div class="summary-value" id="dash-expenses">—</div>
         </div>
         <div class="summary-card">
-          <div class="summary-label">Investing</div>
-          <div class="summary-value blue" id="dash-investing">—</div>
+          <div class="summary-label">Savings</div>
+          <div class="summary-value blue" id="dash-savings">—</div>
         </div>
         <div class="summary-card">
           <div class="summary-label">Surplus / Deficit</div>
@@ -300,10 +311,6 @@
           <span>Portfolio balance</span>
           <span class="placeholder-badge">Syncing&hellip;</span>
         </div>
-        <div class="placeholder-row muted">
-          <span>Return (YTD)</span>
-          <span class="placeholder-badge">Syncing&hellip;</span>
-        </div>
       </div>
 
       <!-- Debt tracker placeholder -->
@@ -315,10 +322,6 @@
         </div>
         <div class="placeholder-row muted">
           <span>Total outstanding balance</span>
-          <span class="placeholder-badge">Syncing&hellip;</span>
-        </div>
-        <div class="placeholder-row muted">
-          <span>Payoff timeline</span>
           <span class="placeholder-badge">Syncing&hellip;</span>
         </div>
       </div>

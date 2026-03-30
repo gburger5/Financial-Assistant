@@ -21,7 +21,7 @@ import { ulid } from 'ulid';
 import type { Transaction } from '../transactions/transactions.types.js';
 import type { Liability } from '../liabilities/liabilities.types.js';
 import type { InvestmentTransaction } from '../investments/investments.types.js';
-import { CATEGORY_MAP, INCOME_CATEGORIES, type Budget } from './budget.types.js';
+import { CATEGORY_MAP, INCOME_CATEGORIES, type Budget, type BudgetGoal } from './budget.types.js';
 
 /**
  * Rounds a number to 2 decimal places.
@@ -97,6 +97,7 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: numbe
  * @param {Liability[]} params.liabilities
  * @param {InvestmentTransaction[]} [params.investmentTransactions] - When provided,
  *   investment contribution is computed from actual investment activity.
+ * @param {BudgetGoal[]} params.goals - User-selected financial goals.
  * @returns {Budget}
  */
 export function generateBudgetFromHistory({
@@ -104,11 +105,13 @@ export function generateBudgetFromHistory({
   transactions,
   liabilities,
   investmentTransactions,
+  goals,
 }: {
   userId: string;
   transactions: Transaction[];
   liabilities: Liability[];
   investmentTransactions?: InvestmentTransaction[];
+  goals: BudgetGoal[];
 }): Budget {
   const budget: Budget = {
     userId,
@@ -122,9 +125,12 @@ export function generateBudgetFromHistory({
     takeout:        { amount: 0 },
     shopping:       { amount: 0 },
     personalCare:   { amount: 0 },
+    emergencyFund:  { amount: 0 },
+    entertainment:  { amount: 0 },
+    medical:        { amount: 0 },
     debts:          { amount: 0 },
     investments:    { amount: 0 },
-    goals:          [],
+    goals,
   };
 
   // Single pass: accumulate totals by budget field path

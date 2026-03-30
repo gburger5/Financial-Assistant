@@ -3,18 +3,19 @@
  * @description Business logic layer for the Liabilities module.
  * All other modules import from here — never from the repository directly.
  *
- * Unlike transactions (append-only) and holdings (accumulating snapshots),
- * liabilities are a current-state overwrite model. What matters for financial
- * planning is what you owe right now: minimum payments, interest rates, balances.
- * Each sync replaces the previous record entirely via upsertSnapshot (PutCommand).
+ * Liabilities are an append-only historical model. Each sync creates new
+ * snapshot records (sortKey = plaidAccountId#ULID) so historical data is
+ * preserved. Read methods return only the latest snapshot per account by
+ * default; full history is available via getLiabilityHistory.
  *
  * This module has no HTTP routes — internal only.
  */
+import { ulid } from 'ulid';
 import { plaidClient } from '../../lib/plaidClient.js';
 import { createLogger } from '../../lib/logger.js';
 import { getItemForSync } from '../items/items.service.js';
 import { syncAccounts } from '../accounts/accounts.service.js';
-import { upsertSnapshot, getByUserId } from './liabilities.repository.js';
+import { saveSnapshot, getLatestByUserId, getAllByUserId } from './liabilities.repository.js';
 import type { PlaidAccountData } from '../accounts/accounts.types.js';
 import type {
   Address,
@@ -90,6 +91,7 @@ export function mapCreditLiability(userId: string, credit: PlaidCreditLiability)
 
   return {
     userId,
+    sortKey: `${credit.account_id}#${ulid()}`,
     plaidAccountId: credit.account_id,
     liabilityType: 'credit',
     currentBalance: null,
@@ -122,6 +124,7 @@ export function mapStudentLiability(userId: string, loan: PlaidStudentLoan): Stu
 
   return {
     userId,
+    sortKey: `${loan.account_id}#${ulid()}`,
     plaidAccountId: loan.account_id,
     liabilityType: 'student',
     currentBalance: null,
@@ -159,6 +162,7 @@ export function mapMortgageLiability(userId: string, mortgage: PlaidMortgage): M
 
   return {
     userId,
+    sortKey: `${mortgage.account_id}#${ulid()}`,
     plaidAccountId: mortgage.account_id,
     liabilityType: 'mortgage',
     currentBalance: null,
@@ -184,17 +188,19 @@ export function mapMortgageLiability(userId: string, mortgage: PlaidMortgage): M
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches current liabilities for a bank connection and overwrites all records.
+ * Fetches current liabilities for a bank connection and saves new snapshots.
  * Makes a single call to liabilitiesGet (no pagination — liabilities returns
  * complete current state in one response). Calls syncAccounts first to upsert
  * balance data from the same response.
+ *
+ * Each call creates new historical records (append-only). The sortKey
+ * (plaidAccountId#ULID) ensures each snapshot is a distinct record.
  *
  * All three liability type arrays may be null — an item may have credit cards
  * but no student loans. Each is null-checked with `?? []` before mapping.
  *
  * Writes are issued in parallel via Promise.allSettled. Individual failures are
- * logged and do not abort the sync — the next sync will retry since every write
- * is a full overwrite and position in the batch doesn't matter.
+ * logged and do not abort the sync — the next sync will create fresh snapshots.
  *
  * @param {string} itemId - Plaid item ID of the bank connection to sync.
  * @returns {Promise<LiabilitySyncResult>} Counts of each liability type processed.
@@ -222,14 +228,13 @@ export async function updateLiabilities(itemId: string): Promise<LiabilitySyncRe
 
   const allLiabilities: Liability[] = [...creditLiabilities, ...studentLiabilities, ...mortgageLiabilities];
 
-  const results = await Promise.allSettled(allLiabilities.map((l) => upsertSnapshot(l)));
+  const results = await Promise.allSettled(allLiabilities.map((l) => saveSnapshot(l)));
 
-  // Log any failures — the next sync will retry since upsertSnapshot is a full overwrite.
   results.forEach((result, i) => {
     if (result.status === 'rejected') {
       logger.error(
         { err: result.reason, liability: allLiabilities[i] },
-        'Failed to upsert liability snapshot — will retry on next sync',
+        'Failed to save liability snapshot — will retry on next sync',
       );
     }
   });
@@ -246,17 +251,29 @@ export async function updateLiabilities(itemId: string): Promise<LiabilitySyncRe
 // ---------------------------------------------------------------------------
 
 /**
- * Returns all liabilities for a user across all types.
+ * Returns the latest liability snapshot for each account belonging to a user.
+ * Consumers (budget.service, agent.ts) need current state for calculations.
  *
  * @param {string} userId - UUID of the user whose liabilities to fetch.
  * @returns {Promise<Liability[]>}
  */
 export async function getLiabilitiesForUser(userId: string): Promise<Liability[]> {
-  return getByUserId(userId);
+  return getLatestByUserId(userId);
 }
 
 /**
- * Returns only credit card liabilities for a user.
+ * Returns all historical liability snapshots for a user.
+ * Useful for tracking how liabilities change over time (balance trends, rate changes).
+ *
+ * @param {string} userId - UUID of the user whose liability history to fetch.
+ * @returns {Promise<Liability[]>}
+ */
+export async function getLiabilityHistory(userId: string): Promise<Liability[]> {
+  return getAllByUserId(userId);
+}
+
+/**
+ * Returns only credit card liabilities for a user (latest snapshot per account).
  * Filters in memory — a user has at most a handful of accounts, making an
  * in-memory filter negligible compared to a GSI on liabilityType.
  * The discriminated union narrows the return type to CreditLiability[].
@@ -265,12 +282,12 @@ export async function getLiabilitiesForUser(userId: string): Promise<Liability[]
  * @returns {Promise<CreditLiability[]>}
  */
 export async function getCreditLiabilities(userId: string): Promise<CreditLiability[]> {
-  const all = await getByUserId(userId);
+  const all = await getLatestByUserId(userId);
   return all.filter((l): l is CreditLiability => l.liabilityType === 'credit');
 }
 
 /**
- * Returns only student loan liabilities for a user.
+ * Returns only student loan liabilities for a user (latest snapshot per account).
  * Filters in memory — same rationale as getCreditLiabilities.
  * The discriminated union narrows the return type to StudentLiability[].
  *
@@ -278,12 +295,12 @@ export async function getCreditLiabilities(userId: string): Promise<CreditLiabil
  * @returns {Promise<StudentLiability[]>}
  */
 export async function getStudentLiabilities(userId: string): Promise<StudentLiability[]> {
-  const all = await getByUserId(userId);
+  const all = await getLatestByUserId(userId);
   return all.filter((l): l is StudentLiability => l.liabilityType === 'student');
 }
 
 /**
- * Returns only mortgage liabilities for a user.
+ * Returns only mortgage liabilities for a user (latest snapshot per account).
  * Filters in memory — same rationale as getCreditLiabilities.
  * The discriminated union narrows the return type to MortgageLiability[].
  *
@@ -291,6 +308,6 @@ export async function getStudentLiabilities(userId: string): Promise<StudentLiab
  * @returns {Promise<MortgageLiability[]>}
  */
 export async function getMortgageLiabilities(userId: string): Promise<MortgageLiability[]> {
-  const all = await getByUserId(userId);
+  const all = await getLatestByUserId(userId);
   return all.filter((l): l is MortgageLiability => l.liabilityType === 'mortgage');
 }

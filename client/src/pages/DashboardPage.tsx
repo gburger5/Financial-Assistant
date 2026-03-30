@@ -12,7 +12,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import Card from '../components/ui/Card'
 import TransactionRow from '../components/features/TransactionRow'
-import type { Transaction } from '../types/transaction'
+import type { Transaction, InvestmentTransaction } from '../types/transaction'
 import { LayoutDashboard, Receipt, RefreshCw } from 'lucide-react'
 import './DashboardPage.css'
 
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { budget, loading, error } = useBudget()
   const { data: txData, refetch: refetchTx } = useApi<{ transactions: Transaction[] }>('/api/transactions?limit=20')
+  const { data: invTxData, refetch: refetchInvTx } = useApi<{ transactions: InvestmentTransaction[] }>('/api/investments/transactions?limit=20')
   const [syncing, setSyncing] = useState(false)
 
   const handleSync = useCallback(async () => {
@@ -27,10 +28,38 @@ export default function DashboardPage() {
     try {
       await api.post('/api/plaid/sync')
       refetchTx()
+      refetchInvTx()
     } finally {
       setSyncing(false)
     }
-  }, [refetchTx])
+  }, [refetchTx, refetchInvTx])
+
+  // Merge regular and investment transactions, sorted newest-first
+  const allTransactions: Array<{ key: string; name: string; category: string; date: string; amount: number }> = []
+  if (txData?.transactions) {
+    for (const tx of txData.transactions) {
+      allTransactions.push({
+        key: tx.plaidTransactionId,
+        name: tx.merchantName ?? tx.name,
+        category: tx.category ?? 'Uncategorized',
+        date: tx.date,
+        amount: tx.amount,
+      })
+    }
+  }
+  if (invTxData?.transactions) {
+    for (const tx of invTxData.transactions) {
+      allTransactions.push({
+        key: tx.investmentTransactionId,
+        name: tx.name,
+        category: tx.type.charAt(0).toUpperCase() + tx.type.slice(1),
+        date: tx.date,
+        amount: tx.amount,
+      })
+    }
+  }
+  allTransactions.sort((a, b) => b.date.localeCompare(a.date))
+  const recentTransactions = allTransactions.slice(0, 20)
 
   const firstName = user?.firstName ?? user?.email.split('@')[0] ?? 'there'
 
@@ -62,6 +91,9 @@ export default function DashboardPage() {
         { name: 'Takeout', value: budget.takeout.amount, color: 'var(--color-chart-5)' },
         { name: 'Shopping', value: budget.shopping.amount, color: 'var(--color-chart-6)' },
         { name: 'Personal Care', value: budget.personalCare.amount, color: 'var(--color-chart-7)' },
+        { name: 'Entertainment', value: budget.entertainment.amount, color: '#8B5CF6' },
+        { name: 'Medical', value: budget.medical.amount, color: '#EC4899' },
+        { name: 'Emergency Fund', value: budget.emergencyFund.amount, color: '#06B6D4' },
         { name: 'Debts', value: budget.debts.amount, color: '#F97316' },
         { name: 'Investments', value: budget.investments.amount, color: '#14B8A6' },
       ].filter((s) => s.value > 0)
@@ -80,9 +112,14 @@ export default function DashboardPage() {
             budget.takeout.amount +
             budget.shopping.amount +
             budget.personalCare.amount +
+            budget.entertainment.amount +
+            budget.medical.amount +
             budget.debts.amount,
         },
-        { label: 'Investments', value: budget.investments.amount },
+        {
+          label: 'Savings',
+          value: budget.investments.amount + budget.emergencyFund.amount,
+        },
       ]
     : []
 
@@ -147,15 +184,15 @@ export default function DashboardPage() {
             aria-label="Sync transactions"
           >
             <RefreshCw size={14} className={syncing ? 'dashboard-page__sync-icon--spinning' : ''} />
-            {syncing ? 'Syncing…' : 'Sync'}
+            {syncing ? 'Syncing...' : 'Sync'}
           </button>
         </div>
-        {txData?.transactions && txData.transactions.length > 0 ? (
-          txData.transactions.map((tx) => (
+        {recentTransactions.length > 0 ? (
+          recentTransactions.map((tx) => (
             <TransactionRow
-              key={tx.plaidTransactionId}
-              name={tx.merchantName ?? tx.name}
-              category={tx.category ?? 'Uncategorized'}
+              key={tx.key}
+              name={tx.name}
+              category={tx.category}
               date={tx.date}
               amount={tx.amount}
             />

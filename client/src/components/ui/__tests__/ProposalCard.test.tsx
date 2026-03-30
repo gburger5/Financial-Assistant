@@ -2,21 +2,26 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import ProposalCard from '../../features/ProposalCard'
-import type { Proposal } from '../../features/ProposalCard'
+import type { Proposal } from '../../../types/proposal'
 
 const pendingProposal: Proposal = {
+  userId: 'u1',
   proposalId: 'p1',
-  type: 'budget',
+  agentType: 'budget',
   status: 'pending',
-  summary: 'Reduce dining out by $100',
-  rationale: 'Based on your spending patterns',
+  result: { summary: 'Reduce dining out by $100', rationale: 'Based on your spending patterns' },
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
 }
 
 const executedProposal: Proposal = {
+  userId: 'u1',
   proposalId: 'p2',
-  type: 'investing',
+  agentType: 'investing',
   status: 'executed',
-  summary: 'Increase 401k contribution',
+  result: { summary: 'Increase 401k contribution' },
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
 }
 
 describe('ProposalCard', () => {
@@ -25,6 +30,7 @@ describe('ProposalCard', () => {
       <ProposalCard
         proposal={pendingProposal}
         onApprove={vi.fn()}
+        onExecute={vi.fn()}
         onReject={vi.fn()}
       />,
     )
@@ -37,6 +43,7 @@ describe('ProposalCard', () => {
       <ProposalCard
         proposal={executedProposal}
         onApprove={vi.fn()}
+        onExecute={vi.fn()}
         onReject={vi.fn()}
       />,
     )
@@ -50,6 +57,7 @@ describe('ProposalCard', () => {
       <ProposalCard
         proposal={pendingProposal}
         onApprove={onApprove}
+        onExecute={vi.fn()}
         onReject={vi.fn()}
       />,
     )
@@ -62,6 +70,7 @@ describe('ProposalCard', () => {
       <ProposalCard
         proposal={pendingProposal}
         onApprove={vi.fn()}
+        onExecute={vi.fn()}
         onReject={vi.fn()}
       />,
     )

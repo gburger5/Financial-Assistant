@@ -13,8 +13,8 @@ import { generateBudgetFromHistory } from './budget.analysis.js';
 import { getTransactionsSince } from '../transactions/transactions.service.js';
 import { getTransactionsSince as getInvestmentTransactionsSince } from '../investments/investments.service.js';
 import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
-import { NotFoundError } from '../../lib/errors.js';
-import type { Budget, BudgetUpdateInput } from './budget.types.js';
+import { BadRequestError, NotFoundError } from '../../lib/errors.js';
+import type { Budget, BudgetGoal, BudgetUpdateInput } from './budget.types.js';
 
 /**
  * Creates the initial budget for a user from their full financial history.
@@ -26,9 +26,15 @@ import type { Budget, BudgetUpdateInput } from './budget.types.js';
  * liabilities, then delegates computation to generateBudgetFromHistory.
  *
  * @param {string} userId
+ * @param {BudgetGoal[]} goals - User-selected financial goals. Must not be empty.
  * @returns {Promise<Budget>} The existing or newly generated budget.
+ * @throws {BadRequestError} If goals is empty.
  */
-export async function createInitialBudget(userId: string): Promise<Budget> {
+export async function createInitialBudget(userId: string, goals: BudgetGoal[]): Promise<Budget> {
+  if (goals.length === 0) {
+    throw new BadRequestError('At least one goal is required');
+  }
+
   const existing = await budgetRepository.getLatestBudget(userId);
 
   if (existing) {
@@ -43,7 +49,7 @@ export async function createInitialBudget(userId: string): Promise<Budget> {
     getLiabilitiesForUser(userId),
   ]);
 
-  const budget = generateBudgetFromHistory({ userId, transactions, liabilities, investmentTransactions });
+  const budget = generateBudgetFromHistory({ userId, transactions, liabilities, investmentTransactions, goals });
 
   await budgetRepository.saveBudget(budget);
 

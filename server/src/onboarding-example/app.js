@@ -4,8 +4,7 @@ const API = "http://localhost:3000/api";
 
 let token = localStorage.getItem("token") || null;
 let currentBudget = null;
-let connectedBanks = []; // { name: string }[]
-let isSyncing = false;
+let connectedBanks = []; // { name: string, accounts: { name, type, subtype }[] }[]
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -26,6 +25,8 @@ let isSyncing = false;
 
   const budget = await fetchBudget();
   if (!budget) {
+    // No budget yet — check if banks are already linked
+    await loadLinkedAccounts();
     goToStep(1);
     return;
   }
@@ -63,6 +64,21 @@ function goToStep(n) {
   }
 }
 
+/** Shows the syncing loading screen (between step 1 and step 2). */
+function showSyncingScreen() {
+  document.querySelectorAll(".section").forEach((el) => el.classList.remove("visible"));
+  document.getElementById("step-syncing").classList.add("visible");
+
+  // Update dots: step 1 done, step 2 active
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    if (!dot) continue;
+    dot.classList.remove("active", "done");
+    if (i === 0) dot.classList.add("done");
+    if (i === 1) dot.classList.add("active");
+  }
+}
+
 // ─── Auth tab toggle ──────────────────────────────────────────────────────────
 
 function switchTab(tab) {
@@ -94,6 +110,8 @@ async function doLogin() {
     currentBudget = budget;
 
     if (!budget) {
+      // No budget — check for linked accounts
+      await loadLinkedAccounts();
       goToStep(1);
     } else if (localStorage.getItem("onboarding_done") === "true") {
       renderDashboard(budget);
@@ -126,9 +144,6 @@ async function doRegister() {
       body: { firstName, lastName, email, password, confirmPassword },
     });
 
-    // Register returns a PublicUser, not a token — acquire the token with a
-    // separate login call. New users have no budget yet, so skip fetchBudget
-    // and go directly to the Plaid step.
     const data = await apiFetch("/auth/login", { method: "POST", body: { email, password } });
     token = data.token;
     localStorage.setItem("token", token);
@@ -144,8 +159,42 @@ function doLogout() {
   localStorage.removeItem("onboarding_done");
   currentBudget = null;
   connectedBanks = [];
-  renderConnectedBanks(); // reset the bank list UI
+  renderConnectedBanks();
   goToStep(0);
+}
+
+// ─── Load linked accounts from server ─────────────────────────────────────────
+
+/**
+ * Fetches already-linked accounts from GET /accounts and groups them by itemId.
+ * Called on login/init when no budget exists yet, so the user sees their
+ * previously linked banks even if they navigate away and come back.
+ */
+async function loadLinkedAccounts() {
+  try {
+    const data = await apiFetch("/accounts");
+    const accounts = data.accounts || [];
+
+    // Group by itemId to determine unique bank connections
+    const byItem = new Map();
+    for (const acct of accounts) {
+      const list = byItem.get(acct.itemId) || [];
+      list.push(acct);
+      byItem.set(acct.itemId, list);
+    }
+
+    connectedBanks = [];
+    for (const [, accts] of byItem) {
+      connectedBanks.push({
+        name: accts[0]?.name?.split(" ")[0] || "Bank",
+        accounts: accts.map((a) => ({ name: a.name, type: a.type, subtype: a.subtype })),
+      });
+    }
+
+    renderConnectedBanks();
+  } catch {
+    // No accounts yet — that's fine
+  }
 }
 
 // ─── Plaid Link ───────────────────────────────────────────────────────────────
@@ -153,11 +202,10 @@ function doLogout() {
 async function openPlaidLink() {
   clearError("plaid-error");
   const btn = document.getElementById("btn-link");
-  setLoading(btn, true);
+  setLoading(btn, true, "Connecting...");
 
   let linkToken;
   try {
-    // Link token is fetched via GET — no body needed
     const data = await apiFetch("/plaid/link-token");
     linkToken = data.linkToken;
   } catch (err) {
@@ -169,10 +217,8 @@ async function openPlaidLink() {
   const handler = Plaid.create({
     token: linkToken,
     onSuccess: async (publicToken, metadata) => {
-      setLoading(btn, true);
+      setLoading(btn, true, "Linking...");
       try {
-        // Exchange token requires institutionId and institutionName from the
-        // Plaid Link metadata. The initial sync runs fire-and-forget on the server.
         await apiFetch("/plaid/exchange-token", {
           method: "POST",
           body: {
@@ -181,24 +227,10 @@ async function openPlaidLink() {
             institutionName: metadata.institution.name,
           },
         });
-        connectedBanks.push({ name: metadata.institution.name });
 
-        // Lock the UI while the server syncs transactions in the background.
-        // The user cannot link another bank or proceed until sync completes.
-        isSyncing = true;
-        renderConnectedBanks();
-        setLoading(btn, false);
-        showSyncingStatus();
-
-        await pollSyncStatus();
-
-        isSyncing = false;
-        renderConnectedBanks();
-        hideSyncingStatus();
+        // Refresh the accounts list from the server to show all linked accounts
+        await loadLinkedAccounts();
       } catch (err) {
-        isSyncing = false;
-        renderConnectedBanks();
-        hideSyncingStatus();
         showError("plaid-error", err.message);
       } finally {
         setLoading(btn, false);
@@ -221,84 +253,52 @@ function renderConnectedBanks() {
     .map(
       (bank) => `
         <div class="bank-item">
-          <span class="bank-check">&#10003;</span>
-          <span>${bank.name}</span>
+          <div class="bank-item-header">
+            <span class="bank-check">&#10003;</span>
+            <span>${bank.name}</span>
+          </div>
+          ${
+            bank.accounts && bank.accounts.length > 0
+              ? `<div class="bank-accounts">${bank.accounts
+                  .map((a) => `<div class="bank-account">${a.name} (${a.subtype || a.type})</div>`)
+                  .join("")}</div>`
+              : ""
+          }
         </div>
       `
     )
     .join("");
 
   const count = connectedBanks.length;
-  const canProceed = count > 0 && !isSyncing;
+  const canProceed = count > 0;
 
   continueBtn.disabled = !canProceed;
   continueBtn.style.opacity = canProceed ? "1" : "0.4";
 
-  linkBtn.disabled = isSyncing;
-  linkBtn.style.opacity = isSyncing ? "0.4" : "1";
-  linkBtn.textContent = count > 0 ? "Link another bank" : "Link bank account";
+  linkBtn.textContent = count > 0 ? "Link another bank" : "Link Bank Account";
 }
 
 /**
- * Polls GET /plaid/sync-status until ready === true or a timeout is reached.
- * Used after linking a bank to wait for the server's fire-and-forget initial
- * sync to finish. Gives up after 2 minutes (24 x 5 s) so the UI never hangs
- * indefinitely — the budget will just use whatever data is available.
+ * Called when the user clicks "Continue to budget review".
+ * Triggers POST /sync to sync all data, then creates the budget.
+ * Syncing is decoupled from linking — it only happens when the user is ready.
  */
-async function pollSyncStatus() {
-  const MAX_POLLS = 24;
-  const POLL_INTERVAL_MS = 5000;
-  for (let i = 0; i < MAX_POLLS; i++) {
-    try {
-      const status = await apiFetch("/plaid/sync-status");
-      if (status.ready) return;
-    } catch {
-      // Ignore transient fetch errors — just keep polling.
-    }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  }
-}
-
 async function goToBudgetReview() {
-  goToStep(2);
-  showBudgetLoading();
+  showSyncingScreen();
 
-  // If sync already completed during the Plaid step polling, this is a no-op.
-  // Otherwise it acts as a safety net (e.g. if the user somehow skipped polling).
-  await pollSyncStatus();
-
-  // POST /budget/initialize generates the budget from the transactions and
-  // liabilities that syncTransactions + updateLiabilities just populated.
-  // Idempotent — safe to call if a budget already exists (e.g. second bank link).
   try {
+    // Sync all data: transactions, debt transactions, investments, liabilities
+    await apiFetch("/plaid/sync", { method: "POST" });
+
+    // Create the initial budget from synced data
     const budget = await apiFetch("/budget/initialize", { method: "POST" });
     currentBudget = budget;
     renderBudgetForm(budget);
+    goToStep(2);
   } catch (err) {
-    showError("budget-error", err.message);
-  } finally {
-    hideBudgetLoading();
+    goToStep(1);
+    showError("plaid-error", "Sync failed: " + err.message);
   }
-}
-
-function showSyncingStatus() {
-  const el = document.getElementById("sync-status");
-  if (el) el.style.display = "flex";
-}
-
-function hideSyncingStatus() {
-  const el = document.getElementById("sync-status");
-  if (el) el.style.display = "none";
-}
-
-function showBudgetLoading() {
-  const el = document.getElementById("budget-loading");
-  if (el) el.style.display = "flex";
-}
-
-function hideBudgetLoading() {
-  const el = document.getElementById("budget-loading");
-  if (el) el.style.display = "none";
 }
 
 // ─── Budget form ──────────────────────────────────────────────────────────────
@@ -307,18 +307,20 @@ function renderBudgetForm(budget) {
   const container = document.getElementById("budget-form");
   container.innerHTML = "";
 
-  // Budget is a flat structure — every category is { amount: number }.
   const sections = [
-    { title: "Income",         path: "income.amount",         label: "Monthly net" },
-    { title: "Housing",        path: "housing.amount",        label: "Rent / mortgage" },
-    { title: "Utilities",      path: "utilities.amount",      label: "Gas, electric, internet, phone" },
-    { title: "Transportation", path: "transportation.amount", label: "Car payment, gas, transit" },
-    { title: "Groceries",      path: "groceries.amount",      label: "Groceries" },
-    { title: "Takeout",        path: "takeout.amount",        label: "Restaurants, coffee, delivery" },
-    { title: "Shopping",       path: "shopping.amount",       label: "General merchandise" },
-    { title: "Personal care",  path: "personalCare.amount",   label: "Gym, hair, laundry" },
-    { title: "Investments",    path: "investments.amount",    label: "Monthly contribution" },
-    { title: "Debts",          path: "debts.amount",          label: "Minimum monthly payments" },
+    { title: "Income",          path: "income.amount",         label: "Monthly net" },
+    { title: "Housing",         path: "housing.amount",        label: "Rent / mortgage" },
+    { title: "Utilities",       path: "utilities.amount",      label: "Gas, electric, internet, phone" },
+    { title: "Transportation",  path: "transportation.amount", label: "Car payment, gas, transit" },
+    { title: "Groceries",       path: "groceries.amount",      label: "Groceries" },
+    { title: "Medical",         path: "medical.amount",        label: "Doctor, dental, pharmacy" },
+    { title: "Takeout",         path: "takeout.amount",        label: "Restaurants, coffee, delivery" },
+    { title: "Shopping",        path: "shopping.amount",       label: "General merchandise" },
+    { title: "Entertainment",   path: "entertainment.amount",  label: "Subscriptions, movies, games" },
+    { title: "Personal care",   path: "personalCare.amount",   label: "Gym, hair, laundry" },
+    { title: "Emergency fund",  path: "emergencyFund.amount",  label: "Savings transfers" },
+    { title: "Investments",     path: "investments.amount",    label: "Monthly contribution" },
+    { title: "Debts",           path: "debts.amount",          label: "Minimum monthly payments" },
   ];
 
   for (const section of sections) {
@@ -348,7 +350,6 @@ async function saveBudget() {
   clearError("budget-error");
   if (!currentBudget) return;
 
-  // Collect values as { category: { amount }, ... } matching BudgetUpdateInput.
   const updates = {};
   document.querySelectorAll("#budget-form [data-path]").forEach((input) => {
     const [category] = input.dataset.path.split(".");
@@ -374,24 +375,28 @@ async function saveBudget() {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function renderDashboard(budget) {
-  const income    = budget.income?.amount        ?? 0;
-  const housing   = budget.housing?.amount       ?? 0;
-  const utilities = budget.utilities?.amount     ?? 0;
-  const transport = budget.transportation?.amount ?? 0;
-  const groceries = budget.groceries?.amount     ?? 0;
-  const takeout   = budget.takeout?.amount       ?? 0;
-  const shopping  = budget.shopping?.amount      ?? 0;
-  const care      = budget.personalCare?.amount  ?? 0;
-  const investing = budget.investments?.amount   ?? 0;
-  const debts     = budget.debts?.amount         ?? 0;
+  const income        = budget.income?.amount         ?? 0;
+  const housing       = budget.housing?.amount        ?? 0;
+  const utilities     = budget.utilities?.amount      ?? 0;
+  const transport     = budget.transportation?.amount ?? 0;
+  const groceries     = budget.groceries?.amount      ?? 0;
+  const takeout       = budget.takeout?.amount        ?? 0;
+  const shopping      = budget.shopping?.amount       ?? 0;
+  const care          = budget.personalCare?.amount   ?? 0;
+  const medical       = budget.medical?.amount        ?? 0;
+  const entertainment = budget.entertainment?.amount  ?? 0;
+  const emergencyFund = budget.emergencyFund?.amount  ?? 0;
+  const investing     = budget.investments?.amount    ?? 0;
+  const debts         = budget.debts?.amount          ?? 0;
 
-  const expenses = housing + utilities + transport + groceries + takeout + shopping + care + debts;
-  const surplus  = income - expenses - investing;
+  const expenses = housing + utilities + transport + groceries + takeout + shopping + care + medical + entertainment + debts;
+  const savings  = investing + emergencyFund;
+  const surplus  = income - expenses - savings;
 
   // Summary cards
   document.getElementById("dash-income").textContent = fmt(income);
   document.getElementById("dash-expenses").textContent = fmt(expenses);
-  document.getElementById("dash-investing").textContent = fmt(investing);
+  document.getElementById("dash-savings").textContent = fmt(savings);
 
   const surplusEl = document.getElementById("dash-surplus");
   surplusEl.textContent = (surplus >= 0 ? "+" : "-") + fmt(Math.abs(surplus));
@@ -403,9 +408,12 @@ function renderDashboard(budget) {
     { label: "Utilities",      amount: utilities },
     { label: "Transportation", amount: transport },
     { label: "Groceries",      amount: groceries },
+    { label: "Medical",        amount: medical },
     { label: "Takeout",        amount: takeout },
     { label: "Shopping",       amount: shopping },
+    { label: "Entertainment",  amount: entertainment },
     { label: "Personal care",  amount: care },
+    { label: "Emergency fund", amount: emergencyFund },
     { label: "Debts (min)",    amount: debts },
   ];
 
@@ -461,7 +469,6 @@ async function apiFetch(path, { method = "GET", body } = {}) {
 async function fetchBudget() {
   if (!token) return null;
   try {
-    // GET /api/budget returns the budget object directly (404 if none exists yet)
     return await apiFetch("/budget");
   } catch {
     return null;
@@ -482,14 +489,19 @@ function clearError(id) {
   el.style.display = "none";
 }
 
-function setLoading(btn, loading) {
+/**
+ * Sets a button to a loading state with a spinner and custom text.
+ * Restores the original text when loading is false.
+ */
+function setLoading(btn, loading, text) {
   if (loading) {
     btn.disabled = true;
-    btn.dataset.originalText = btn.textContent;
-    btn.innerHTML = `<span class="spinner"></span>Working…`;
+    btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
+    btn.innerHTML = `<span class="spinner"></span>${text || "Working..."}`;
   } else {
     btn.disabled = false;
-    btn.textContent = btn.dataset.originalText || "Connect bank account";
+    btn.textContent = btn.dataset.originalText || "Link Bank Account";
+    delete btn.dataset.originalText;
   }
 }
 

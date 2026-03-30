@@ -36,8 +36,12 @@ const mockBudget: Budget = {
   takeout: { amount: 200 },
   shopping: { amount: 300 },
   personalCare: { amount: 100 },
+  emergencyFund: { amount: 0 },
+  entertainment: { amount: 0 },
+  medical: { amount: 0 },
   debts: { amount: 500 },
   investments: { amount: 700 },
+  goals: ['lower overall spending'],
 }
 
 const authValue = {

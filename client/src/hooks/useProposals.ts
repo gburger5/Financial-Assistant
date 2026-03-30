@@ -7,20 +7,36 @@ interface UseProposalsResult {
   proposals: Proposal[]
   loading: boolean
   error: ApiError | null
-  respond: (proposalId: string, type: string, approved: boolean, reason?: string) => Promise<void>
+  approve: (proposalId: string) => Promise<void>
+  execute: (proposalId: string) => Promise<void>
+  reject: (proposalId: string) => Promise<void>
   remove: (proposalId: string) => Promise<void>
   refetch: () => void
 }
 
 export function useProposals(): UseProposalsResult {
-  const { data, loading, error, refetch } = useApi<{ proposals: Proposal[] }>('/api/agent/proposals')
+  const { data, loading, error, refetch } = useApi<Proposal[]>('/api/agent/proposals')
 
-  const respond = useCallback(
-    async (proposalId: string, type: string, approved: boolean, reason?: string): Promise<void> => {
-      await api.post(`/api/agent/${type}/${proposalId}/respond`, {
-        approved,
-        ...(reason ? { rejectionReason: reason } : {}),
-      })
+  const approve = useCallback(
+    async (proposalId: string): Promise<void> => {
+      await api.post(`/api/agent/proposals/${proposalId}/approve`)
+      await api.post(`/api/agent/proposals/${proposalId}/execute`)
+      refetch()
+    },
+    [refetch],
+  )
+
+  const execute = useCallback(
+    async (proposalId: string): Promise<void> => {
+      await api.post(`/api/agent/proposals/${proposalId}/execute`)
+      refetch()
+    },
+    [refetch],
+  )
+
+  const reject = useCallback(
+    async (proposalId: string): Promise<void> => {
+      await api.post(`/api/agent/proposals/${proposalId}/reject`)
       refetch()
     },
     [refetch],
@@ -34,9 +50,9 @@ export function useProposals(): UseProposalsResult {
     [refetch],
   )
 
+  const proposals = data ?? []
   // Agent routes not yet registered — gracefully return empty array on 404
-  const proposals = data?.proposals ?? []
   const safeError = error?.status === 404 ? null : error
 
-  return { proposals, loading, error: safeError, respond, remove, refetch }
+  return { proposals, loading, error: safeError, approve, execute, reject, remove, refetch }
 }

@@ -5,13 +5,11 @@
  * Each test verifies the correct command type and input fields are sent.
  *
  * Liabilities table schema:
- *   PK: userId (HASH), SK: plaidAccountId (RANGE)
+ *   PK: userId (HASH), SK: sortKey (RANGE) — format: "plaidAccountId#ULID"
  *
- * Key design distinction from every other repository in this codebase:
- *   upsertSnapshot uses PutCommand (full overwrite) — NOT UpdateCommand.
- *   Liabilities are current state, not historical records. There is no
- *   analytical value in preserving previous field values; only current state matters.
- *   No ConditionExpression: the entire record is always replaced.
+ * Each sync creates a new historical record via saveSnapshot (PutCommand).
+ * getLatestByUserId returns only the most recent snapshot per account.
+ * getAllByUserId returns the full history.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -22,7 +20,7 @@ vi.mock('../../../db/index.js', () => ({
   db: { send: mockSend },
 }));
 
-import { upsertSnapshot, getByUserId, deleteAllLiabilitiesForUser } from '../liabilities.repository.js';
+import { saveSnapshot, getLatestByUserId, getAllByUserId } from '../liabilities.repository.js';
 import type { CreditLiability, StudentLiability, MortgageLiability } from '../liabilities.types.js';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +29,7 @@ import type { CreditLiability, StudentLiability, MortgageLiability } from '../li
 
 const sampleCredit: CreditLiability = {
   userId: 'user-123',
+  sortKey: 'acct-credit#01ABCDEF',
   plaidAccountId: 'acct-credit',
   liabilityType: 'credit',
   currentBalance: null,
@@ -54,6 +53,7 @@ const sampleCredit: CreditLiability = {
 
 const sampleStudent: StudentLiability = {
   userId: 'user-123',
+  sortKey: 'acct-student#01ABCDEF',
   plaidAccountId: 'acct-student',
   liabilityType: 'student',
   currentBalance: null,
@@ -79,6 +79,7 @@ const sampleStudent: StudentLiability = {
 
 const sampleMortgage: MortgageLiability = {
   userId: 'user-123',
+  sortKey: 'acct-mortgage#01ABCDEF',
   plaidAccountId: 'acct-mortgage',
   liabilityType: 'mortgage',
   currentBalance: null,
@@ -106,13 +107,13 @@ const sampleMortgage: MortgageLiability = {
 beforeEach(() => vi.clearAllMocks());
 
 // ---------------------------------------------------------------------------
-// upsertSnapshot
+// saveSnapshot
 // ---------------------------------------------------------------------------
 
-describe('upsertSnapshot', () => {
-  it('uses PutCommand (not UpdateCommand) — liabilities are full-overwrite current state, not historical records', async () => {
+describe('saveSnapshot', () => {
+  it('uses PutCommand to create a new historical record', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     // PutCommand uses Item; UpdateCommand uses Key + UpdateExpression
     expect(cmd.input.Item).toBeDefined();
@@ -121,36 +122,43 @@ describe('upsertSnapshot', () => {
 
   it('targets the Liabilities table', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.TableName).toBe('Liabilities');
   });
 
-  it('writes userId and plaidAccountId into the item (PK and SK)', async () => {
+  it('writes userId and sortKey into the item (PK and SK)', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.userId).toBe('user-123');
+    expect(cmd.input.Item.sortKey).toBe('acct-credit#01ABCDEF');
+  });
+
+  it('writes plaidAccountId as a regular attribute for grouping', async () => {
+    mockSend.mockResolvedValue({});
+    await saveSnapshot(sampleCredit);
+    const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.plaidAccountId).toBe('acct-credit');
   });
 
-  it('has no ConditionExpression — intentional full overwrite with no guards', async () => {
+  it('has no ConditionExpression — always creates a new record', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.ConditionExpression).toBeUndefined();
   });
 
   it('includes liabilityType in the item so the discriminant is queryable', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.liabilityType).toBe('credit');
   });
 
   it('includes the details object nested under details', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.details).toBeDefined();
     expect(typeof cmd.input.Item.details).toBe('object');
@@ -158,28 +166,28 @@ describe('upsertSnapshot', () => {
 
   it('includes currentBalance as null — balances live in the Accounts table', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.currentBalance).toBeNull();
   });
 
   it('includes updatedAt in the item', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.updatedAt).toBe('2025-01-15T00:00:00.000Z');
   });
 
   it('includes createdAt in the item', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleCredit);
+    await saveSnapshot(sampleCredit);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.createdAt).toBe('2025-01-01T00:00:00.000Z');
   });
 
   it('correctly stores a student liability with liabilityType: student', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleStudent);
+    await saveSnapshot(sampleStudent);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.liabilityType).toBe('student');
     expect(cmd.input.Item.plaidAccountId).toBe('acct-student');
@@ -187,7 +195,7 @@ describe('upsertSnapshot', () => {
 
   it('correctly stores a mortgage liability with liabilityType: mortgage', async () => {
     mockSend.mockResolvedValue({});
-    await upsertSnapshot(sampleMortgage);
+    await saveSnapshot(sampleMortgage);
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.Item.liabilityType).toBe('mortgage');
     expect(cmd.input.Item.plaidAccountId).toBe('acct-mortgage');
@@ -195,40 +203,51 @@ describe('upsertSnapshot', () => {
 
   it('returns void on success', async () => {
     mockSend.mockResolvedValue({});
-    const result = await upsertSnapshot(sampleCredit);
+    const result = await saveSnapshot(sampleCredit);
     expect(result).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------
-// getByUserId
+// getLatestByUserId
 // ---------------------------------------------------------------------------
 
-describe('getByUserId', () => {
+describe('getLatestByUserId', () => {
   it('returns an empty array when Items is an empty array', async () => {
     mockSend.mockResolvedValue({ Items: [] });
-    const result = await getByUserId('user-123');
+    const result = await getLatestByUserId('user-123');
     expect(result).toEqual([]);
   });
 
   it('returns an empty array when Items is absent from the response', async () => {
     mockSend.mockResolvedValue({});
-    const result = await getByUserId('user-123');
+    const result = await getLatestByUserId('user-123');
     expect(result).toEqual([]);
   });
 
-  it('returns all liabilities for the user when found', async () => {
-    mockSend.mockResolvedValue({ Items: [sampleCredit, sampleStudent, sampleMortgage] });
-    const result = await getByUserId('user-123');
-    expect(result).toHaveLength(3);
-    expect(result[0]).toEqual(sampleCredit);
-    expect(result[1]).toEqual(sampleStudent);
-    expect(result[2]).toEqual(sampleMortgage);
+  it('returns only the latest snapshot per account when multiple exist', async () => {
+    const older: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01AAA', updatedAt: '2025-01-01T00:00:00.000Z' };
+    const newer: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01ZZZ', updatedAt: '2025-02-01T00:00:00.000Z' };
+    mockSend.mockResolvedValue({ Items: [older, newer] });
+    const result = await getLatestByUserId('user-123');
+    expect(result).toHaveLength(1);
+    expect(result[0].sortKey).toBe('acct-credit#01ZZZ');
+  });
+
+  it('returns one entry per account when multiple accounts have history', async () => {
+    const creditOld: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01AAA' };
+    const creditNew: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01ZZZ' };
+    const studentOld: StudentLiability = { ...sampleStudent, sortKey: 'acct-student#01AAA' };
+    const studentNew: StudentLiability = { ...sampleStudent, sortKey: 'acct-student#01ZZZ' };
+    mockSend.mockResolvedValue({ Items: [creditOld, creditNew, studentOld, studentNew] });
+    const result = await getLatestByUserId('user-123');
+    expect(result).toHaveLength(2);
+    expect(result.map((l) => l.plaidAccountId).sort()).toEqual(['acct-credit', 'acct-student']);
   });
 
   it('queries the Liabilities base table (no IndexName)', async () => {
     mockSend.mockResolvedValue({ Items: [] });
-    await getByUserId('user-123');
+    await getLatestByUserId('user-123');
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.TableName).toBe('Liabilities');
     expect(cmd.input.IndexName).toBeUndefined();
@@ -236,7 +255,7 @@ describe('getByUserId', () => {
 
   it('filters by the provided userId via KeyConditionExpression', async () => {
     mockSend.mockResolvedValue({ Items: [] });
-    await getByUserId('user-123');
+    await getLatestByUserId('user-123');
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd.input.KeyConditionExpression).toBeDefined();
     const values = Object.values(cmd.input.ExpressionAttributeValues as Record<string, unknown>);
@@ -245,47 +264,28 @@ describe('getByUserId', () => {
 });
 
 // ---------------------------------------------------------------------------
-// deleteAllLiabilitiesForUser
+// getAllByUserId
 // ---------------------------------------------------------------------------
 
-describe('deleteAllLiabilitiesForUser', () => {
-  it('does nothing when the user has no liabilities', async () => {
-    mockSend.mockResolvedValueOnce({ Items: [] });
-
-    await deleteAllLiabilitiesForUser('user-123');
-
-    expect(mockSend).toHaveBeenCalledTimes(1);
+describe('getAllByUserId', () => {
+  it('returns an empty array when Items is empty', async () => {
+    mockSend.mockResolvedValue({ Items: [] });
+    const result = await getAllByUserId('user-123');
+    expect(result).toEqual([]);
   });
 
-  it('issues one DeleteCommand per liability', async () => {
-    mockSend
-      .mockResolvedValueOnce({ Items: [sampleCredit, sampleStudent] })
-      .mockResolvedValue({});
-
-    await deleteAllLiabilitiesForUser('user-123');
-
-    expect(mockSend).toHaveBeenCalledTimes(3);
+  it('returns all historical snapshots without filtering', async () => {
+    const older: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01AAA' };
+    const newer: CreditLiability = { ...sampleCredit, sortKey: 'acct-credit#01ZZZ' };
+    mockSend.mockResolvedValue({ Items: [older, newer] });
+    const result = await getAllByUserId('user-123');
+    expect(result).toHaveLength(2);
   });
 
-  it('deletes from the Liabilities table', async () => {
-    mockSend
-      .mockResolvedValueOnce({ Items: [sampleCredit] })
-      .mockResolvedValue({});
-
-    await deleteAllLiabilitiesForUser('user-123');
-
-    const deleteCall = mockSend.mock.calls[1][0];
-    expect(deleteCall.input.TableName).toBe('Liabilities');
-  });
-
-  it('uses the composite key { userId, plaidAccountId } for deletion', async () => {
-    mockSend
-      .mockResolvedValueOnce({ Items: [sampleCredit] })
-      .mockResolvedValue({});
-
-    await deleteAllLiabilitiesForUser('user-123');
-
-    const deleteCall = mockSend.mock.calls[1][0];
-    expect(deleteCall.input.Key).toEqual({ userId: 'user-123', plaidAccountId: 'acct-credit' });
+  it('queries the Liabilities base table', async () => {
+    mockSend.mockResolvedValue({ Items: [] });
+    await getAllByUserId('user-123');
+    const cmd = mockSend.mock.calls[0][0];
+    expect(cmd.input.TableName).toBe('Liabilities');
   });
 });

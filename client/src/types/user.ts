@@ -5,6 +5,7 @@ export interface PublicUser {
   email: string
   createdAt?: string
   agentBudgetApproved?: boolean
+  birthday?: string
 }
 
 export interface AuthState {

@@ -22,6 +22,7 @@ vi.mock('../../../db/index.js', () => ({ db: { send: mockSend } }));
 // ---------------------------------------------------------------------------
 
 import { saveBudget, getLatestBudget, getBudgetHistory, deleteAllBudgetsForUser } from '../budget.repository.js';
+import { BadRequestError } from '../../../lib/errors.js';
 import type { Budget } from '../budget.types.js';
 
 // ---------------------------------------------------------------------------
@@ -40,9 +41,12 @@ const sampleBudget: Budget = {
   takeout: { amount: 150 },
   shopping: { amount: 250 },
   personalCare: { amount: 100 },
+  emergencyFund: { amount: 0 },
+  entertainment: { amount: 0 },
+  medical: { amount: 0 },
   debts: { amount: 500 },
   investments: { amount: 300 },
-  goals: [],
+  goals: ['pay down debt'],
 };
 
 beforeEach(() => {
@@ -54,6 +58,13 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('saveBudget', () => {
+  it('throws BadRequestError when goals is empty', async () => {
+    const budgetNoGoals = { ...sampleBudget, goals: [] };
+
+    await expect(saveBudget(budgetNoGoals)).rejects.toThrow(BadRequestError);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
   it('calls db.send exactly once', async () => {
     mockSend.mockResolvedValue({});
 

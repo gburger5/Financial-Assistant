@@ -30,7 +30,7 @@ import {
   getHistory,
 } from '../budget.controller.js';
 import * as budgetService from '../budget.service.js';
-import type { Budget } from '../budget.types.js';
+import type { Budget, BudgetGoal } from '../budget.types.js';
 
 const mockCreateInitialBudget = vi.mocked(budgetService.createInitialBudget);
 const mockGetLatestBudget = vi.mocked(budgetService.getLatestBudget);
@@ -64,6 +64,8 @@ function makeReply(): any {
 // Fixtures
 // ---------------------------------------------------------------------------
 
+const testGoals: BudgetGoal[] = ['pay down debt', 'maximize investments'];
+
 const sampleBudget: Budget = {
   userId: 'user-ctrl-1',
   budgetId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
@@ -76,9 +78,12 @@ const sampleBudget: Budget = {
   takeout: { amount: 150 },
   shopping: { amount: 250 },
   personalCare: { amount: 100 },
+  emergencyFund: { amount: 0 },
+  entertainment: { amount: 0 },
+  medical: { amount: 0 },
   debts: { amount: 500 },
   investments: { amount: 300 },
-  goals: [],
+  goals: testGoals,
 };
 
 beforeEach(() => {
@@ -90,19 +95,19 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('initializeBudget', () => {
-  it('calls createInitialBudget with the authenticated userId', async () => {
+  it('calls createInitialBudget with the authenticated userId and goals', async () => {
     mockCreateInitialBudget.mockResolvedValue(sampleBudget);
-    const req = makeRequest();
+    const req = makeRequest({ body: { goals: testGoals } });
     const reply = makeReply();
 
     await initializeBudget(req, reply);
 
-    expect(mockCreateInitialBudget).toHaveBeenCalledWith('user-ctrl-1');
+    expect(mockCreateInitialBudget).toHaveBeenCalledWith('user-ctrl-1', testGoals);
   });
 
   it('replies with status 201', async () => {
     mockCreateInitialBudget.mockResolvedValue(sampleBudget);
-    const req = makeRequest();
+    const req = makeRequest({ body: { goals: testGoals } });
     const reply = makeReply();
 
     await initializeBudget(req, reply);
@@ -112,7 +117,7 @@ describe('initializeBudget', () => {
 
   it('sends the created budget in the reply', async () => {
     mockCreateInitialBudget.mockResolvedValue(sampleBudget);
-    const req = makeRequest();
+    const req = makeRequest({ body: { goals: testGoals } });
     const reply = makeReply();
 
     await initializeBudget(req, reply);
