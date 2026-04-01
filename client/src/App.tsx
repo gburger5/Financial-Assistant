@@ -6,6 +6,8 @@ import AppShell from './components/layout/AppShell'
 import Landing from './pages/Landing'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import CheckEmailPage from './pages/CheckEmailPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 import LinkBankPage from './pages/LinkBankPage'
 import DashboardPage from './pages/DashboardPage'
 import BudgetPage from './pages/BudgetPage'
@@ -18,6 +20,7 @@ import SettingsPage from './pages/SettingsPage'
 
 function App() {
   return (
+<<<<<<< HEAD
     <SettingsProvider>
       <AuthProvider>
         <Routes>
@@ -25,6 +28,15 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+=======
+    <AuthProvider>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/check-email" element={<CheckEmailPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+>>>>>>> ae6f013 (finalize changes)
 
           {/* Post-signup onboarding */}
           <Route

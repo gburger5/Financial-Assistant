@@ -6,6 +6,7 @@ import EmptyState from '../components/ui/EmptyState'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import Badge from '../components/ui/Badge'
 import {
   DollarSign,
   Home,
@@ -21,6 +22,7 @@ import {
   Shield,
   Clapperboard,
   HeartPulse,
+  Target,
 } from 'lucide-react'
 import './BudgetPage.css'
 
@@ -128,6 +130,20 @@ export default function BudgetPage() {
           positive={savingsDebtTotal / income >= 0.2}
         />
       </div>
+
+      {budget.goals.length > 0 && (
+        <Card className="budget-page__goals">
+          <div className="budget-page__goals-header">
+            <Target size={18} className="budget-page__goals-icon" />
+            <h3 className="budget-page__goals-title">Financial Goals</h3>
+          </div>
+          <div className="budget-page__goals-list">
+            {budget.goals.map((goal) => (
+              <Badge key={goal} variant="info">{goal}</Badge>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="budget-page__categories-header">

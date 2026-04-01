@@ -2,7 +2,6 @@ import { FormEvent, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff, Check, X } from 'lucide-react'
 import { api } from '../services/api'
-import { useAuth } from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import './SignUpPage.css'
@@ -31,7 +30,6 @@ function allRulesPass(pw: string, confirm: string): boolean {
 
 export default function SignUpPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -65,8 +63,12 @@ export default function SignUpPage() {
         password: form.password,
         confirmPassword: form.confirmPassword,
       })
+<<<<<<< HEAD
       await login(form.email, form.password)
       navigate('/link-bank')
+=======
+      navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
+>>>>>>> ae6f013 (finalize changes)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
