@@ -61,7 +61,7 @@ export default function DebtsPage() {
   const { data: txData } = useApi<{ transactions: Transaction[] }>('/api/transactions?category=LOAN_PAYMENTS&limit=10')
   const { proposals } = useProposals()
 
-  const liabilities = liabilitiesData?.liabilities ?? []
+  const liabilities = useMemo(() => liabilitiesData?.liabilities ?? [], [liabilitiesData])
   const debtAccounts = useMemo(
     () => (accountsData?.accounts ?? []).filter((a) => a.type === 'credit' || a.type === 'loan'),
     [accountsData],
