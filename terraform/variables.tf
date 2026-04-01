@@ -122,6 +122,47 @@ variable "encryption_key_ssm_path" {
   default     = "/myapp/encryption-key"
 }
 
+# Email / Brevo
+variable "email_from" {
+  description = "From address for transactional emails"
+  type        = string
+  default     = "financial.assistant2026@gmail.com"
+}
+
+variable "email_from_name" {
+  description = "Display name for transactional emails"
+  type        = string
+  default     = "Financial Assistant"
+}
+
+variable "brevo_api_key" {
+  description = "Brevo (Sendinblue) API key for sending emails"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# Plaid
+variable "plaid_client_id" {
+  description = "Plaid client ID"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "plaid_secret" {
+  description = "Plaid secret key"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "plaid_env" {
+  description = "Plaid environment (sandbox, development, production)"
+  type        = string
+  default     = "sandbox"
+}
+
 # Optional HTTPS / custom domain (leave empty to deploy HTTP only)
 variable "domain_name" {
   description = "Custom domain for the ALB (e.g. agents.example.com). Leave empty to use HTTP only."
