@@ -105,7 +105,10 @@ jobs:
       - name: Deploy frontend to S3
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          aws s3 sync ./client/dist s3://${{ vars.FRONTEND_BUCKET_NAME }}/ --delete
+          aws s3 sync ./client/dist s3://${{ vars.FRONTEND_BUCKET_NAME }}/ --delete --exact-timestamps
+          aws s3 cp ./client/dist/index.html s3://${{ vars.FRONTEND_BUCKET_NAME }}/index.html \
+            --content-type "text/html" \
+            --cache-control "no-cache, no-store, must-revalidate"
           aws cloudfront create-invalidation \
             --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"

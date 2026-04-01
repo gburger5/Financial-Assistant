@@ -116,10 +116,16 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      NODE_ENV       = "production"
-      JWT_SECRET     = data.aws_ssm_parameter.jwt_secret.value
-      FRONTEND_URL   = data.aws_ssm_parameter.frontend_url.value
-      ENCRYPTION_KEY = data.aws_ssm_parameter.encryption_key.value
+      NODE_ENV         = "production"
+      JWT_SECRET       = data.aws_ssm_parameter.jwt_secret.value
+      FRONTEND_URL     = data.aws_ssm_parameter.frontend_url.value
+      ENCRYPTION_KEY   = data.aws_ssm_parameter.encryption_key.value
+      EMAIL_FROM       = var.email_from
+      EMAIL_FROM_NAME  = var.email_from_name
+      BREVO_API_KEY    = var.brevo_api_key
+      PLAID_CLIENT_ID  = var.plaid_client_id
+      PLAID_SECRET     = var.plaid_secret
+      PLAID_ENV        = var.plaid_env
     }
   }
 
@@ -136,7 +142,7 @@ resource "aws_apigatewayv2_api" "api" {
 
   cors_configuration {
     allow_origins = ["https://${aws_cloudfront_distribution.frontend.domain_name}"]
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
   }
