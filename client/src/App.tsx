@@ -4,6 +4,8 @@ import ProtectedRoute from './pages/ProtectedRoute'
 import AppShell from './components/layout/AppShell'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import CheckEmailPage from './pages/CheckEmailPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 import LinkBankPage from './pages/LinkBankPage'
 import DashboardPage from './pages/DashboardPage'
 import BudgetPage from './pages/BudgetPage'
@@ -20,6 +22,8 @@ function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/check-email" element={<CheckEmailPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         {/* Post-signup onboarding */}
         <Route
