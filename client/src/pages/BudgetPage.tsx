@@ -41,42 +41,42 @@ export default function BudgetPage() {
   }
 
   const needsTotal =
-    budget.housing.amount +
-    budget.utilities.amount +
-    budget.transportation.amount +
-    budget.groceries.amount +
-    budget.personalCare.amount +
-    budget.medical.amount
+    (budget.housing?.amount ?? 0) +
+    (budget.utilities?.amount ?? 0) +
+    (budget.transportation?.amount ?? 0) +
+    (budget.groceries?.amount ?? 0) +
+    (budget.personalCare?.amount ?? 0) +
+    (budget.medical?.amount ?? 0)
 
   const wantsTotal =
-    budget.takeout.amount +
-    budget.shopping.amount +
-    budget.entertainment.amount
+    (budget.takeout?.amount ?? 0) +
+    (budget.shopping?.amount ?? 0) +
+    (budget.entertainment?.amount ?? 0)
 
   const savingsDebtTotal =
-    budget.investments.amount +
-    budget.debts.amount +
-    budget.emergencyFund.amount
+    (budget.investments?.amount ?? 0) +
+    (budget.debts?.amount ?? 0) +
+    (budget.emergencyFund?.amount ?? 0)
 
-  const income = budget.income.amount
+  const income = budget.income?.amount ?? 0
 
   const fmt = (v: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v)
   const pct = (v: number) => `${income > 0 ? Math.round((v / income) * 100) : 0}%`
 
   const categories = [
-    { name: 'Housing', icon: <Home size={18} />, amount: budget.housing.amount, color: 'var(--color-chart-1)' },
-    { name: 'Utilities', icon: <Zap size={18} />, amount: budget.utilities.amount, color: 'var(--color-chart-2)' },
-    { name: 'Transportation', icon: <Car size={18} />, amount: budget.transportation.amount, color: 'var(--color-chart-3)' },
-    { name: 'Groceries', icon: <ShoppingCart size={18} />, amount: budget.groceries.amount, color: 'var(--color-chart-4)' },
-    { name: 'Medical', icon: <HeartPulse size={18} />, amount: budget.medical.amount, color: '#EC4899' },
-    { name: 'Takeout', icon: <Utensils size={18} />, amount: budget.takeout.amount, color: 'var(--color-chart-5)' },
-    { name: 'Shopping', icon: <ShoppingBag size={18} />, amount: budget.shopping.amount, color: 'var(--color-chart-6)' },
-    { name: 'Personal Care', icon: <Scissors size={18} />, amount: budget.personalCare.amount, color: 'var(--color-chart-7)' },
-    { name: 'Entertainment', icon: <Clapperboard size={18} />, amount: budget.entertainment.amount, color: '#8B5CF6' },
-    { name: 'Emergency Fund', icon: <Shield size={18} />, amount: budget.emergencyFund.amount, color: '#06B6D4' },
-    { name: 'Debts', icon: <CreditCard size={18} />, amount: budget.debts.amount, color: '#F97316' },
-    { name: 'Investments', icon: <PiggyBank size={18} />, amount: budget.investments.amount, color: '#14B8A6' },
+    { name: 'Housing', icon: <Home size={18} />, amount: budget.housing?.amount ?? 0, color: 'var(--color-chart-1)' },
+    { name: 'Utilities', icon: <Zap size={18} />, amount: budget.utilities?.amount ?? 0, color: 'var(--color-chart-2)' },
+    { name: 'Transportation', icon: <Car size={18} />, amount: budget.transportation?.amount ?? 0, color: 'var(--color-chart-3)' },
+    { name: 'Groceries', icon: <ShoppingCart size={18} />, amount: budget.groceries?.amount ?? 0, color: 'var(--color-chart-4)' },
+    { name: 'Medical', icon: <HeartPulse size={18} />, amount: budget.medical?.amount ?? 0, color: '#EC4899' },
+    { name: 'Takeout', icon: <Utensils size={18} />, amount: budget.takeout?.amount ?? 0, color: 'var(--color-chart-5)' },
+    { name: 'Shopping', icon: <ShoppingBag size={18} />, amount: budget.shopping?.amount ?? 0, color: 'var(--color-chart-6)' },
+    { name: 'Personal Care', icon: <Scissors size={18} />, amount: budget.personalCare?.amount ?? 0, color: 'var(--color-chart-7)' },
+    { name: 'Entertainment', icon: <Clapperboard size={18} />, amount: budget.entertainment?.amount ?? 0, color: '#8B5CF6' },
+    { name: 'Emergency Fund', icon: <Shield size={18} />, amount: budget.emergencyFund?.amount ?? 0, color: '#06B6D4' },
+    { name: 'Debts', icon: <CreditCard size={18} />, amount: budget.debts?.amount ?? 0, color: '#F97316' },
+    { name: 'Investments', icon: <PiggyBank size={18} />, amount: budget.investments?.amount ?? 0, color: '#14B8A6' },
   ]
 
   return (

@@ -418,11 +418,11 @@ export default function LinkBankPage() {
     setLoading(true)
     try {
       // Fire debt/investing agents only if allocations are nonzero
-      if (budget && budget.debts.amount > 0) {
-        api.post('/api/agent/debt', { debtAllocation: budget.debts.amount }).catch(() => {})
+      if (budget && (budget.debts?.amount ?? 0) > 0) {
+        api.post('/api/agent/debt', { debtAllocation: budget.debts?.amount ?? 0 }).catch(() => {})
       }
-      if (budget && budget.investments.amount > 0) {
-        api.post('/api/agent/investing', { investingAllocation: budget.investments.amount }).catch(() => {})
+      if (budget && (budget.investments?.amount ?? 0) > 0) {
+        api.post('/api/agent/investing', { investingAllocation: budget.investments?.amount ?? 0 }).catch(() => {})
       }
       setStep(6)
     } finally {
@@ -665,7 +665,7 @@ export default function LinkBankPage() {
               <span>Change</span>
             </div>
             {BUDGET_CATEGORIES.map(({ key, label, icon }) => {
-              const current = (budget[key as BudgetKey] as { amount: number }).amount
+              const current = ((budget[key as BudgetKey] as { amount: number } | undefined)?.amount ?? 0)
               const proposedRaw = getProposedAmount(result, key)
               const proposed = proposedRaw ?? current
               const { label: diffLabel, positive } = diff(current, proposed)
@@ -742,7 +742,7 @@ export default function LinkBankPage() {
   function renderBudgetSummary(b: Budget) {
     const sections = ['Income', 'Needs', 'Wants', 'Savings'] as const
     const totalExpenses = BUDGET_CATEGORIES.filter((c) => c.key !== 'income').reduce(
-      (sum, { key }) => sum + (b[key as BudgetKey] as { amount: number }).amount,
+      (sum, { key }) => sum + ((b[key as BudgetKey] as { amount: number } | undefined)?.amount ?? 0),
       0,
     )
     const remaining = b.income.amount - totalExpenses
@@ -755,7 +755,7 @@ export default function LinkBankPage() {
             <div key={section} className="onboard__budget-section">
               <p className="onboard__budget-section-header">{section}</p>
               {cats.map(({ key, label, icon }) => {
-                const amount = (b[key as BudgetKey] as { amount: number }).amount
+                const amount = ((b[key as BudgetKey] as { amount: number } | undefined)?.amount ?? 0)
                 return (
                   <div key={key} className="onboard__budget-row">
                     <span>{icon} {label}</span>
