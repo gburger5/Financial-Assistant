@@ -25,7 +25,7 @@ async function transactionRoutes(fastify: FastifyInstance): Promise<void> {
    * Results are sorted newest-first and capped at `limit` (default 50, max 200).
    */
   fastify.get<{
-    Querystring: { since?: string; limit?: string };
+    Querystring: { since?: string; limit?: string; category?: string };
   }>('/', {
     preHandler: [verifyJWT],
     schema: {
@@ -34,6 +34,7 @@ async function transactionRoutes(fastify: FastifyInstance): Promise<void> {
         properties: {
           since: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
           limit: { type: 'string', pattern: '^\\d+$' },
+          category: { type: 'string' },
         },
         additionalProperties: false,
       },
@@ -55,8 +56,13 @@ async function transactionRoutes(fastify: FastifyInstance): Promise<void> {
     // ACH transfer settles; hiding them would make approved proposals invisible.
     const all = await getTransactionsSince(userId, sinceDate, { includePending: true });
 
+    // Filter by category when the query param is provided.
+    const filtered = req.query.category
+      ? all.filter((tx) => tx.category === req.query.category)
+      : all;
+
     // Sort newest-first and apply the limit.
-    const transactions = all
+    const transactions = filtered
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
       .slice(0, limit);
 

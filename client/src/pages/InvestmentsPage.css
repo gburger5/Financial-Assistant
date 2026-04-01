@@ -1,0 +1,151 @@
+.investments-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.investments-page__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.investments-page__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 1024px) {
+  .investments-page__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .investments-page__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.investments-page__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .investments-page__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.investments-page__projections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.investments-page__section-title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.investments-page__projections-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.investments-page__projections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.investments-page__proj-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.investments-page__proj-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.investments-page__proj-value {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.investments-page__proj-value--highlight {
+  color: #14B8A6;
+}
+
+.investments-page__positive {
+  font-size: var(--text-sm);
+  color: #14B8A6;
+  background: rgba(20, 184, 166, 0.08);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Holdings table */
+.investments-page__table-wrapper {
+  overflow-x: auto;
+}
+
+.investments-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.investments-page__table th {
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.investments-page__table td {
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.investments-page__table tr:last-child td {
+  border-bottom: none;
+}
+
+.investments-page__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.investments-page__ticker {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.investments-page__gain {
+  color: #22C55E;
+}
+
+.investments-page__loss {
+  color: #EF4444;
+}

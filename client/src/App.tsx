@@ -10,6 +10,8 @@ import LinkBankPage from './pages/LinkBankPage'
 import DashboardPage from './pages/DashboardPage'
 import BudgetPage from './pages/BudgetPage'
 import SavingsPage from './pages/SavingsPage'
+import InvestmentsPage from './pages/InvestmentsPage'
+import DebtsPage from './pages/DebtsPage'
 import ProposalsPage from './pages/ProposalsPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
@@ -34,6 +36,7 @@ function App() {
             }
           />
 
+<<<<<<< HEAD
           {/* Authenticated (inside AppShell) */}
           <Route
             element={
@@ -49,6 +52,24 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
+=======
+        {/* Authenticated (inside AppShell) */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/budget" element={<BudgetPage />} />
+          <Route path="/savings" element={<SavingsPage />} />
+          <Route path="/investments" element={<InvestmentsPage />} />
+          <Route path="/debts" element={<DebtsPage />} />
+          <Route path="/proposals" element={<ProposalsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+>>>>>>> e7632d3 (create investments/debts pages)
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
