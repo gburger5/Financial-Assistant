@@ -127,6 +127,25 @@ export const verifySchema = {
 } as const;
 
 /**
+ * Schema for PATCH /profile.
+ * Body requires a birthday string in YYYY-MM-DD format.
+ * Responds 200 with the updated PublicUser.
+ */
+export const updateProfileSchema = {
+  body: {
+    type: 'object',
+    required: ['birthday'],
+    additionalProperties: false,
+    properties: {
+      birthday: { type: 'string', format: 'date' },
+    },
+  },
+  response: {
+    200: publicUserSchema,
+  },
+} as const;
+
+/**
  * Schema for GET /verify-email.
  * No request body. Expects a `token` query parameter. Responds 200 with a
  * success boolean.
