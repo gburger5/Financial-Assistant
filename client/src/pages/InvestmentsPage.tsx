@@ -37,7 +37,7 @@ export default function InvestmentsPage() {
   const { data: txData } = useApi<{ transactions: InvestmentTransaction[] }>('/api/investments/transactions?limit=10')
   const { proposals } = useProposals()
 
-  const holdings = holdingsData?.holdings ?? []
+  const holdings = useMemo(() => holdingsData?.holdings ?? [], [holdingsData])
   const transactions = txData?.transactions ?? []
 
   // Latest investing proposal
