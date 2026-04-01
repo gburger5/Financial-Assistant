@@ -8,6 +8,8 @@ import LinkBankPage from './pages/LinkBankPage'
 import DashboardPage from './pages/DashboardPage'
 import BudgetPage from './pages/BudgetPage'
 import SavingsPage from './pages/SavingsPage'
+import InvestmentsPage from './pages/InvestmentsPage'
+import DebtsPage from './pages/DebtsPage'
 import ProposalsPage from './pages/ProposalsPage'
 import ProfilePage from './pages/ProfilePage'
 
@@ -40,6 +42,8 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/budget" element={<BudgetPage />} />
           <Route path="/savings" element={<SavingsPage />} />
+          <Route path="/investments" element={<InvestmentsPage />} />
+          <Route path="/debts" element={<DebtsPage />} />
           <Route path="/proposals" element={<ProposalsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

@@ -3,6 +3,8 @@ import {
   LayoutDashboard,
   Wallet,
   PiggyBank,
+  TrendingUp,
+  CreditCard,
   FileText,
   User,
   LogOut,
@@ -19,6 +21,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
   { to: '/budget', icon: <Wallet size={20} />, label: 'Budget' },
   { to: '/savings', icon: <PiggyBank size={20} />, label: 'Savings' },
+  { to: '/investments', icon: <TrendingUp size={20} />, label: 'Investments' },
+  { to: '/debts', icon: <CreditCard size={20} />, label: 'Debts' },
   { to: '/proposals', icon: <FileText size={20} />, label: 'Proposals' },
   { to: '/profile', icon: <User size={20} />, label: 'Profile' },
 ]
