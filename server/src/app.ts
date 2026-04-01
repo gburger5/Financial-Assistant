@@ -25,6 +25,7 @@ import transactionRoutes from './modules/transactions/transactions.route.js';
 import accountRoutes from './modules/accounts/accounts.route.js';
 import agentRoutes from './modules/agents/agents.route.js';
 import investmentRoutes from './modules/investments/investments.route.js';
+import liabilitiesRoutes from './modules/liabilities/liabilities.route.js';
 import { createLogger } from './lib/logger.js';
 import { registerHooks } from './hooks/hooks.js';
 
@@ -161,8 +162,11 @@ export function buildApp(): FastifyInstance {
   // Account routes: linked bank accounts.
   app.register(accountRoutes, { prefix: '/api/accounts' });
 
-  // Investment routes: investment transaction history.
+  // Investment routes: investment transaction history and holdings.
   app.register(investmentRoutes, { prefix: '/api/investments' });
+
+  // Liabilities routes: latest liability snapshots.
+  app.register(liabilitiesRoutes, { prefix: '/api/liabilities' });
 
   // Agent routes: run agents, manage proposals, execute autonomous actions.
   app.register(agentRoutes, { prefix: '/api/agent' });

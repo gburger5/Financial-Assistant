@@ -23,6 +23,7 @@ vi.mock('../auth.service.js', () => ({
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
   deleteAccount: vi.fn(),
+  updateBirthday: vi.fn(),
 }));
 
 // verifyJWT calls isAccessTokenRevoked — mock so tokens aren't checked against DB
@@ -45,6 +46,7 @@ const mockRefreshAccessToken = vi.mocked(authService.refreshAccessToken);
 const mockForgotPassword = vi.mocked(authService.forgotPassword);
 const mockResetPassword = vi.mocked(authService.resetPassword);
 const mockDeleteAccount = vi.mocked(authService.deleteAccount);
+const mockUpdateBirthday = vi.mocked(authService.updateBirthday);
 
 const TEST_SECRET = 'route-integration-test-secret';
 
@@ -649,5 +651,41 @@ describe('DELETE /api/auth/account', () => {
     app = await buildTestApp();
     const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!!' } });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/auth/profile
+// ---------------------------------------------------------------------------
+
+describe('PATCH /api/auth/profile', () => {
+  let app: FastifyInstance;
+  afterEach(() => app?.close());
+
+  it('returns 401 without auth', async () => {
+    app = await buildTestApp();
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', payload: { birthday: '1990-05-15' } });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 200 with updated user on valid birthday', async () => {
+    mockUpdateBirthday.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Test', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false, birthday: '1990-05-15' });
+    app = await buildTestApp();
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: { birthday: '1990-05-15' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().birthday).toBe('1990-05-15');
+  });
+
+  it('returns 400 when birthday is missing', async () => {
+    app = await buildTestApp();
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: {} });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('calls updateBirthday with correct userId and birthday', async () => {
+    mockUpdateBirthday.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Test', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false, birthday: '1990-05-15' });
+    app = await buildTestApp();
+    await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: { birthday: '1990-05-15' } });
+    expect(mockUpdateBirthday).toHaveBeenCalledWith('user-route-123', '1990-05-15');
   });
 });

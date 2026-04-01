@@ -2,7 +2,6 @@ import { FormEvent, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { api } from '../services/api'
-import { useAuth } from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import ProgressBar from '../components/ui/ProgressBar'
@@ -42,7 +41,6 @@ function validatePassword(pw: string): string | null {
 
 export default function SignUpPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -81,9 +79,7 @@ export default function SignUpPage() {
         password: form.password,
         confirmPassword: form.confirmPassword,
       })
-      // Auto-login after registration
-      await login(form.email, form.password)
-      navigate('/link-bank')
+      navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {

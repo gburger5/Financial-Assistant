@@ -10,7 +10,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { verifyJWT } from '../../plugins/auth.plugin.js';
-import { getTransactionsSince } from './investments.service.js';
+import { getLatestHoldings, getTransactionsSince } from './investments.service.js';
 
 /**
  * Registers all /api/investments routes on the Fastify instance.
@@ -19,6 +19,18 @@ import { getTransactionsSince } from './investments.service.js';
  * @returns {Promise<void>}
  */
 async function investmentRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /holdings
+   * Returns the latest holdings snapshot for the authenticated user.
+   */
+  fastify.get('/holdings', {
+    preHandler: [verifyJWT],
+  }, async (req) => {
+    const userId = req.user!.userId;
+    const holdings = await getLatestHoldings(userId);
+    return { holdings };
+  });
+
   /**
    * GET /transactions
    * Returns investment transactions for the authenticated user since `since`

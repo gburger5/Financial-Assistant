@@ -21,6 +21,7 @@ import type {
   ForgotPasswordRouteGeneric,
   ResetPasswordRouteGeneric,
   DeleteAccountRouteGeneric,
+  UpdateProfileRouteGeneric,
 } from './auth.schema.js';
 
 /**
@@ -268,4 +269,18 @@ export async function deleteAccountHandler(
   const { currentPassword } = request.body;
   await authService.deleteAccount(userId, currentPassword, jti, exp);
   return reply.status(200).send({ success: true });
+}
+
+/**
+ * Handles PATCH /profile.
+ * Updates the authenticated user's birthday.
+ */
+export async function updateProfile(
+  request: FastifyRequest<UpdateProfileRouteGeneric>,
+  reply: FastifyReply
+): Promise<void> {
+  const userId = request.user!.userId;
+  const { birthday } = request.body;
+  const user = await authService.updateBirthday(userId, birthday);
+  return reply.status(200).send(user);
 }

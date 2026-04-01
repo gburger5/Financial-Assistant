@@ -11,33 +11,168 @@
   min-height: 300px;
 }
 
-.savings-page__contribution {
+/* Stat cards row */
+.savings-page__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .savings-page__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Emergency Fund section */
+.savings-page__ef {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-4);
 }
 
-.savings-page__contribution-icon {
+.savings-page__section-title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.savings-page__ef-summary {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background: rgba(20, 184, 166, 0.12);
-  color: #14B8A6;
-  flex-shrink: 0;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.savings-page__contribution-label {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-}
-
-.savings-page__contribution-value {
+.savings-page__ef-balance {
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
+}
+
+.savings-page__ef-account {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Progress bar with milestone marker */
+.savings-page__ef-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.savings-page__ef-bar-container {
+  position: relative;
+}
+
+.savings-page__ef-milestone {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 2px;
+  background: var(--color-text-muted);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.savings-page__ef-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* EF detail grid */
+.savings-page__ef-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .savings-page__ef-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.savings-page__ef-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.savings-page__ef-detail-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.savings-page__ef-detail-value {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two-column layout */
+.savings-page__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .savings-page__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Savings accounts list */
+.savings-page__account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.savings-page__account-row:last-child {
+  border-bottom: none;
+}
+
+.savings-page__account-row--highlighted {
+  background: rgba(20, 184, 166, 0.06);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  border-bottom: none;
+}
+
+.savings-page__account-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.savings-page__account-name {
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.savings-page__account-mask {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.savings-page__account-balance {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
 }

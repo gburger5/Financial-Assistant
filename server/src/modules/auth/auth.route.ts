@@ -20,6 +20,7 @@ import {
   forgotPasswordHandler,
   resetPasswordHandler,
   deleteAccountHandler,
+  updateProfile,
 } from './auth.controller.js';
 import {
   registerSchema,
@@ -35,8 +36,10 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   deleteAccountSchema,
+  updateProfileSchema,
 } from './auth.schema.js';
 import type {
+  UpdateProfileRouteGeneric,
   UpdateNameRouteGeneric,
   UpdatePasswordRouteGeneric,
   UpdateEmailRouteGeneric,
@@ -145,6 +148,12 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
       preHandler: verifyJWT,
     },
     logout
+  );
+
+  fastify.patch<UpdateProfileRouteGeneric>(
+    '/profile',
+    { schema: updateProfileSchema, preHandler: verifyJWT },
+    updateProfile
   );
 
   fastify.patch<UpdateNameRouteGeneric>(
