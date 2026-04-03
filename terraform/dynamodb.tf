@@ -108,3 +108,37 @@ resource "aws_dynamodb_table" "auth_tokens" {
     enabled        = true
   }
 }
+
+resource "aws_dynamodb_table" "agent_metrics" {
+  name         = var.agent_metrics_table
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "userId"
+  range_key    = "metricId"
+
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  attribute {
+    name = "metricId"
+    type = "S"
+  }
+
+  attribute {
+    name = "agentType"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "agentType-createdAt-index"
+    hash_key        = "agentType"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+}

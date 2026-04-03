@@ -15,7 +15,7 @@ import {
   type InvestmentPlan,
 } from './tools.js';
 import { INVESTING_SYSTEM_PROMPT } from './prompts.js';
-import type { InvestingAgentInput } from '../agents.types.js';
+import type { AgentInvokeResult, InvestingAgentInput } from '../agents.types.js';
 
 /**
  * Creates a fresh investing agent configured with structured output. A new
@@ -41,15 +41,15 @@ export function makeInvestingAgent(): Agent {
 
 /**
  * Invokes the investing agent with the user's investment allocation and
- * account details. Returns a validated InvestmentPlan with scheduled
- * contributions, projections, and positive outcomes.
+ * account details. Returns the validated InvestmentPlan alongside the raw SDK
+ * metrics snapshot so the caller can persist invocation metrics separately.
  *
  * @param {InvestingAgentInput} input - userId, investingAllocation, accounts, and userAge.
- * @returns {Promise<InvestmentPlan>} A validated investment plan.
+ * @returns {Promise<AgentInvokeResult<InvestmentPlan>>} The plan and SDK metrics.
  */
 export async function invokeInvestingAgent(
   input: InvestingAgentInput,
-): Promise<InvestmentPlan> {
+): Promise<AgentInvokeResult<InvestmentPlan>> {
   const agent = makeInvestingAgent();
 
   const message =
@@ -59,5 +59,5 @@ export async function invokeInvestingAgent(
     `Current investment accounts: ${JSON.stringify(input.accounts)}.`;
 
   const result = await agent.invoke(message);
-  return result.structuredOutput as InvestmentPlan;
+  return { output: result.structuredOutput as InvestmentPlan, metrics: result.metrics };
 }

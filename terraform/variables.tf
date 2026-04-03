@@ -84,6 +84,12 @@ variable "budgets_table" {
   default     = "Budgets"
 }
 
+variable "agent_metrics_table" {
+  description = "DynamoDB table name for agent invocation metrics"
+  type        = string
+  default     = "AgentMetrics"
+}
+
 # Frontend
 variable "frontend_bucket_name" {
   description = "S3 bucket name for the React frontend (must be globally unique)"

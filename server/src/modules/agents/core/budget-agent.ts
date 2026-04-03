@@ -16,6 +16,7 @@ import {
   type BudgetProposal,
 } from './tools.js';
 import { BUDGET_SYSTEM_PROMPT } from './prompts.js';
+import type { AgentInvokeResult } from '../agents.types.js';
 import type { Budget } from '../../budget/budget.types.js';
 
 /**
@@ -42,17 +43,17 @@ export function makeBudgetAgent(): Agent {
 
 /**
  * Invokes the budget agent with the user's current Plaid-synced budget.
- * Returns a validated BudgetProposal with all recommended amounts, summary,
- * and rationale.
+ * Returns the validated BudgetProposal alongside the raw SDK metrics snapshot
+ * so the caller can persist invocation metrics separately.
  *
  * @param userId - UUID of the user requesting the budget analysis.
  * @param budget - The user's current budget from the Budgets table.
- * @returns A validated BudgetProposal object.
+ * @returns An AgentInvokeResult containing the validated BudgetProposal and metrics.
  */
 export async function invokeBudgetAgent(
   userId: string,
   budget: Budget,
-): Promise<BudgetProposal> {
+): Promise<AgentInvokeResult<BudgetProposal>> {
   const agent = makeBudgetAgent();
 
   const message =
@@ -61,5 +62,5 @@ export async function invokeBudgetAgent(
     `Current budget: ${JSON.stringify(budget)}.`;
 
   const result = await agent.invoke(message);
-  return result.structuredOutput as BudgetProposal;
+  return { output: result.structuredOutput as BudgetProposal, metrics: result.metrics };
 }

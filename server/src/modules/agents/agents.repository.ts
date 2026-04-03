@@ -1,11 +1,17 @@
 /**
  * @module agents.repository
- * @description DynamoDB persistence layer for agent proposals.
+ * @description DynamoDB persistence layer for agent proposals and metrics.
  *
- * DynamoDB schema:
+ * DynamoDB schema — Proposals:
  *   Table: Proposals
  *   PK: userId (HASH)
  *   SK: proposalId (RANGE) — a ULID, so lexicographic order = chronological order
+ *
+ * DynamoDB schema — AgentMetrics:
+ *   Table: AgentMetrics
+ *   PK: userId (HASH)
+ *   SK: metricId (RANGE) — a ULID, so lexicographic order = chronological order
+ *   GSI: agentType (HASH) + createdAt (RANGE) — for trend queries across users
  *
  * Every agent execution creates a new proposal via PutCommand (append-only).
  * Status transitions use UpdateCommand with a ConditionExpression to enforce
@@ -14,7 +20,7 @@
 import { PutCommand, GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { db } from '../../db/index.js';
 import { Tables } from '../../db/tables.js';
-import type { Proposal, AgentType, ProposalStatus } from './agents.types.js';
+import type { Proposal, AgentType, ProposalStatus, AgentMetricsRecord } from './agents.types.js';
 
 /**
  * Persists a new proposal snapshot.
@@ -183,6 +189,24 @@ export async function updateProposalStatus(
         ':expectedStatus': expectedCurrentStatus,
         ':updatedAt': new Date().toISOString(),
       },
+    }),
+  );
+}
+
+/**
+ * Persists an agent invocation metrics record.
+ * Append-only — each invocation produces a new record keyed by ULID metricId.
+ * Failures here must never propagate to callers; the service wraps this in
+ * a fire-and-forget try/catch so proposal creation is never blocked.
+ *
+ * @param {AgentMetricsRecord} record - The metrics record to store.
+ * @returns {Promise<void>}
+ */
+export async function saveAgentMetrics(record: AgentMetricsRecord): Promise<void> {
+  await db.send(
+    new PutCommand({
+      TableName: Tables.AgentMetrics,
+      Item: record,
     }),
   );
 }

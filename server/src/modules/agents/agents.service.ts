@@ -37,11 +37,14 @@ import {
 } from '../../lib/errors.js';
 import type {
   AgentType,
+  AgentMetricsRecord,
   Proposal,
+  StoredToolMetrics,
   DebtAccount,
   InvestmentAccount,
   InvestmentHolding,
 } from './agents.types.js';
+import type { AgentMetrics } from '@strands-agents/sdk';
 import type { Liability, Apr } from '../liabilities/liabilities.types.js';
 import type { Account } from '../accounts/accounts.types.js';
 import type { Holding } from '../investments/investments.types.js';
@@ -72,15 +75,23 @@ export async function runBudgetAgent(userId: string): Promise<Proposal> {
     throw new NotFoundError('No budget found. Connect a bank account to get started.');
   }
 
-  let result: BudgetProposal;
+  let output: BudgetProposal;
+  let metrics: AgentMetrics | undefined;
   try {
-    result = await invokeBudgetAgent(userId, budget);
+    ({ output, metrics } = await invokeBudgetAgent(userId, budget));
   } catch {
     throw new ServiceUnavailableError('Budget agent is temporarily unavailable. Please try again.');
   }
 
-  const proposal = buildProposal(userId, 'budget', result);
+  const proposal = buildProposal(userId, 'budget', output);
   await agentsRepository.saveProposal(proposal);
+
+  if (metrics) {
+    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'budget', metrics)).catch(() => {
+      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
+    });
+  }
+
   return proposal;
 }
 
@@ -108,15 +119,23 @@ export async function runDebtAgent(userId: string, debtAllocation: number): Prom
 
   const debts = mapLiabilitiesToDebtAccounts(liabilities, accounts);
 
-  let result: DebtPaymentPlan;
+  let output: DebtPaymentPlan;
+  let metrics: AgentMetrics | undefined;
   try {
-    result = await invokeDebtAgent({ userId, debtAllocation, debts });
+    ({ output, metrics } = await invokeDebtAgent({ userId, debtAllocation, debts }));
   } catch {
     throw new ServiceUnavailableError('Debt agent is temporarily unavailable. Please try again.');
   }
 
-  const proposal = buildProposal(userId, 'debt', result);
+  const proposal = buildProposal(userId, 'debt', output);
   await agentsRepository.saveProposal(proposal);
+
+  if (metrics) {
+    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'debt', metrics)).catch(() => {
+      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
+    });
+  }
+
   return proposal;
 }
 
@@ -146,15 +165,23 @@ export async function runInvestingAgent(userId: string, investingAllocation: num
   const investmentAccounts = mapToInvestmentAccounts(accounts, holdings);
   const userAge = user.birthday ? computeAge(user.birthday) : null;
 
-  let result: InvestmentPlan;
+  let output: InvestmentPlan;
+  let metrics: AgentMetrics | undefined;
   try {
-    result = await invokeInvestingAgent({ userId, investingAllocation, accounts: investmentAccounts, userAge });
+    ({ output, metrics } = await invokeInvestingAgent({ userId, investingAllocation, accounts: investmentAccounts, userAge }));
   } catch {
     throw new ServiceUnavailableError('Investing agent is temporarily unavailable. Please try again.');
   }
 
-  const proposal = buildProposal(userId, 'investing', result);
+  const proposal = buildProposal(userId, 'investing', output);
   await agentsRepository.saveProposal(proposal);
+
+  if (metrics) {
+    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'investing', metrics)).catch(() => {
+      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
+    });
+  }
+
   return proposal;
 }
 
@@ -527,6 +554,55 @@ export function mapToInvestmentAccounts(accounts: Account[], holdings: Holding[]
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Maps an SDK AgentMetrics snapshot into an AgentMetricsRecord ready for
+ * DynamoDB persistence. Computes averageTimeMs and successRate per tool using
+ * the SDK's `toolUsage` getter which exposes pre-computed averages.
+ *
+ * @param {string} userId
+ * @param {string} proposalId - FK linking the metrics to the generating proposal.
+ * @param {AgentType} agentType
+ * @param {AgentMetrics} metrics - Raw SDK snapshot from agent.invoke().
+ * @returns {AgentMetricsRecord}
+ */
+function buildMetricsRecord(
+  userId: string,
+  proposalId: string,
+  agentType: AgentType,
+  metrics: AgentMetrics,
+): AgentMetricsRecord {
+  const toolMetrics: AgentMetricsRecord['toolMetrics'] = {};
+  // toolUsage is a computed getter that includes averageTime and successRate
+  for (const [name, data] of Object.entries(metrics.toolUsage)) {
+    toolMetrics[name] = {
+      callCount: data.callCount,
+      successCount: data.successCount,
+      errorCount: data.errorCount,
+      totalTimeMs: data.totalTime,
+      averageTimeMs: data.averageTime,
+      successRate: data.successRate,
+    } satisfies StoredToolMetrics;
+  }
+
+  return {
+    userId,
+    metricId: ulid(),
+    proposalId,
+    agentType,
+    createdAt: new Date().toISOString(),
+    totalTokens: metrics.accumulatedUsage.totalTokens,
+    inputTokens: metrics.accumulatedUsage.inputTokens,
+    outputTokens: metrics.accumulatedUsage.outputTokens,
+    cacheReadTokens: metrics.accumulatedUsage.cacheReadInputTokens ?? 0,
+    cacheWriteTokens: metrics.accumulatedUsage.cacheWriteInputTokens ?? 0,
+    totalDurationMs: metrics.totalDuration,
+    modelLatencyMs: metrics.accumulatedMetrics.latencyMs,
+    cycleCount: metrics.cycleCount,
+    averageCycleDurationMs: metrics.averageCycleTime,
+    toolMetrics,
+  };
+}
 
 /**
  * Builds a new Proposal object with a generated ULID and timestamps.

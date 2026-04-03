@@ -15,7 +15,7 @@ import {
   type DebtPaymentPlan,
 } from './tools.js';
 import { DEBT_SYSTEM_PROMPT } from './prompts.js';
-import type { DebtAgentInput } from '../agents.types.js';
+import type { AgentInvokeResult, DebtAgentInput } from '../agents.types.js';
 
 /**
  * Creates a fresh debt agent configured with structured output. A new
@@ -41,15 +41,15 @@ export function makeDebtAgent(): Agent {
 
 /**
  * Invokes the debt agent with the user's debt allocation and account details.
- * Returns a validated DebtPaymentPlan with scheduled payments, projections,
- * and interest savings.
+ * Returns the validated DebtPaymentPlan alongside the raw SDK metrics snapshot
+ * so the caller can persist invocation metrics separately.
  *
  * @param {DebtAgentInput} input - userId, debtAllocation, and debts array.
- * @returns {Promise<DebtPaymentPlan>} A validated debt payment plan.
+ * @returns {Promise<AgentInvokeResult<DebtPaymentPlan>>} The plan and SDK metrics.
  */
 export async function invokeDebtAgent(
   input: DebtAgentInput,
-): Promise<DebtPaymentPlan> {
+): Promise<AgentInvokeResult<DebtPaymentPlan>> {
   const agent = makeDebtAgent();
 
   const message =
@@ -58,5 +58,5 @@ export async function invokeDebtAgent(
     `Current debts: ${JSON.stringify(input.debts)}.`;
 
   const result = await agent.invoke(message);
-  return result.structuredOutput as DebtPaymentPlan;
+  return { output: result.structuredOutput as DebtPaymentPlan, metrics: result.metrics };
 }
