@@ -7,10 +7,10 @@
 
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
-import { getAccountsForUser } from '../accounts/accounts.service.js';
-import { getUserById } from '../auth/auth.service.js';
-import { getLatestHoldings } from '../investments/investments.service.js';
-import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
+import { getAccountsForUser } from '../../accounts/accounts.service.js';
+import { getUserById } from '../../auth/auth.service.js';
+import { getLatestHoldings } from '../../investments/investments.service.js';
+import { getLiabilitiesForUser } from '../../liabilities/liabilities.service.js';
 
 /**
  * Zod schema for the budget proposal output. Field names match the server's

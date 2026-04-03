@@ -6,7 +6,7 @@
  * Plaid data into agent prompts.
  */
 
-import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js';
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './core/tools.js';
 
 // ---------------------------------------------------------------------------
 // Agent & proposal enums

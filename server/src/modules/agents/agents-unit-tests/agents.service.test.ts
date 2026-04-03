@@ -60,21 +60,21 @@ vi.mock('../../transactions/transactions.service.js', () => ({
 const { mockInvokeBudgetAgent } = vi.hoisted(() => ({
   mockInvokeBudgetAgent: vi.fn(),
 }));
-vi.mock('../budget-agent.js', () => ({
+vi.mock('../core/budget-agent.js', () => ({
   invokeBudgetAgent: mockInvokeBudgetAgent,
 }));
 
 const { mockInvokeDebtAgent } = vi.hoisted(() => ({
   mockInvokeDebtAgent: vi.fn(),
 }));
-vi.mock('../debt-agent.js', () => ({
+vi.mock('../core/debt-agent.js', () => ({
   invokeDebtAgent: mockInvokeDebtAgent,
 }));
 
 const { mockInvokeInvestingAgent } = vi.hoisted(() => ({
   mockInvokeInvestingAgent: vi.fn(),
 }));
-vi.mock('../investing-agent.js', () => ({
+vi.mock('../core/investing-agent.js', () => ({
   invokeInvestingAgent: mockInvokeInvestingAgent,
 }));
 
@@ -101,7 +101,7 @@ import * as investmentsService from '../../investments/investments.service.js';
 import * as authService from '../../auth/auth.service.js';
 import * as txService from '../../transactions/transactions.service.js';
 import type { Proposal } from '../agents.types.js';
-import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from '../tools.js';
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from '../core/tools.js';
 
 const mockSaveProposal = vi.mocked(agentsRepo.saveProposal);
 const mockGetProposalById = vi.mocked(agentsRepo.getProposalById);

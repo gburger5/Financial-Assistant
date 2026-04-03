@@ -15,9 +15,9 @@
  */
 import { ulid } from 'ulid';
 import * as agentsRepository from './agents.repository.js';
-import { invokeBudgetAgent } from './budget-agent.js';
-import { invokeDebtAgent } from './debt-agent.js';
-import { invokeInvestingAgent } from './investing-agent.js';
+import { invokeBudgetAgent } from './core/budget-agent.js';
+import { invokeDebtAgent } from './core/debt-agent.js';
+import { invokeInvestingAgent } from './core/investing-agent.js';
 import { getLatestBudget, updateBudget } from '../budget/budget.service.js';
 import { getLiabilitiesForUser } from '../liabilities/liabilities.service.js';
 import { getAccountsForUser, adjustBalance } from '../accounts/accounts.service.js';
@@ -45,7 +45,7 @@ import type {
 import type { Liability, Apr } from '../liabilities/liabilities.types.js';
 import type { Account } from '../accounts/accounts.types.js';
 import type { Holding } from '../investments/investments.types.js';
-import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js';
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './core/tools.js';
 
 // ---------------------------------------------------------------------------
 // Agent invocation methods
