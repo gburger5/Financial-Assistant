@@ -12,6 +12,7 @@ import {
   getUserAccounts,
   getUserLiabilities,
   getUserProfile,
+  getUserFinancialSnapshot,
   type DebtPaymentPlan,
 } from './tools.js';
 import { DEBT_SYSTEM_PROMPT } from './prompts.js';
@@ -33,7 +34,7 @@ export function makeDebtAgent(): Agent {
   return new Agent({
     systemPrompt: DEBT_SYSTEM_PROMPT,
     model,
-    tools: [getUserAccounts, getUserLiabilities, getUserProfile],
+    tools: [getUserAccounts, getUserLiabilities, getUserProfile, getUserFinancialSnapshot],
     structuredOutputSchema: debtPaymentPlanSchema,
     printer: false,
   });

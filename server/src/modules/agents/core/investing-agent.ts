@@ -12,6 +12,7 @@ import {
   getUserAccounts,
   getUserHoldings,
   getUserProfile,
+  getUserFinancialSnapshot,
   type InvestmentPlan,
 } from './tools.js';
 import { INVESTING_SYSTEM_PROMPT } from './prompts.js';
@@ -33,7 +34,7 @@ export function makeInvestingAgent(): Agent {
   return new Agent({
     systemPrompt: INVESTING_SYSTEM_PROMPT,
     model,
-    tools: [getUserAccounts, getUserHoldings, getUserProfile],
+    tools: [getUserAccounts, getUserHoldings, getUserProfile, getUserFinancialSnapshot],
     structuredOutputSchema: investmentPlanSchema,
     printer: false,
   });

@@ -1,8 +1,9 @@
 /**
  * @module agentTools
  * @description Shared tool definitions and schemas for Strands agents. Tools
- * are console-only — no database writes or external side effects. Intended
- * for local development and testing.
+ * are read-only — no database writes or external side effects. Each tool
+ * returns structured error objects on failure so the agent can retry or
+ * switch strategy instead of receiving a hard exception.
  */
 
 import { tool } from '@strands-agents/sdk';
@@ -11,6 +12,7 @@ import { getAccountsForUser } from '../../accounts/accounts.service.js';
 import { getUserById } from '../../auth/auth.service.js';
 import { getLatestHoldings } from '../../investments/investments.service.js';
 import { getLiabilitiesForUser } from '../../liabilities/liabilities.service.js';
+import { NotFoundError } from '../../../lib/errors.js';
 
 /**
  * Zod schema for the budget proposal output. Field names match the server's
@@ -185,12 +187,23 @@ export type InvestmentPlan = z.infer<typeof investmentPlanSchema>;
 
 /** Input schema shared by all user-data retrieval tools. */
 const userIdSchema = z.object({
-  userId: z.string().describe('UUID of the user whose data to retrieve'),
+  userId: z.string().describe('ID of the user whose data to retrieve'),
 });
+
+/**
+ * Extracts a human-readable message from an unknown caught value.
+ *
+ * @param {unknown} err - The caught error value.
+ * @returns {string} The error message, or 'Unknown error' for non-Error values.
+ */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error';
+}
 
 /**
  * Retrieves all bank accounts (checking, savings, credit, loan, investment)
  * for a user from DynamoDB. Returns balances, account types, and metadata.
+ * On failure, returns a structured error object the agent can reason about.
  */
 export const getUserAccounts = tool({
   name: 'get_user_accounts',
@@ -199,17 +212,24 @@ export const getUserAccounts = tool({
     'fields: name, type (depository/credit/loan/investment), subtype, ' +
     'currentBalance, availableBalance, limitBalance, and isoCurrencyCode. ' +
     'Use this to understand the user\'s full financial picture — checking vs ' +
-    'savings balances, credit utilization, and loan balances.',
+    'savings balances, credit utilization, and loan balances. ' +
+    'Do NOT use this to look up transaction history. ' +
+    'Call once per session — account data does not change within a single agent run.',
   inputSchema: userIdSchema,
   callback: async (input: z.infer<typeof userIdSchema>) => {
-    const accounts = await getAccountsForUser(input.userId);
-    return JSON.parse(JSON.stringify({ accounts }));
+    try {
+      const accounts = await getAccountsForUser(input.userId);
+      return { accounts, isEmpty: accounts.length === 0 };
+    } catch (err) {
+      return { error: 'FAILED_TO_FETCH_ACCOUNTS', message: errorMessage(err), retryable: true };
+    }
   },
 });
 
 /**
  * Retrieves the latest investment holdings snapshot for a user. Returns
  * ticker symbols, quantities, values, cost basis, and security types.
+ * On failure, returns a structured error object the agent can reason about.
  */
 export const getUserHoldings = tool({
   name: 'get_user_holdings',
@@ -218,17 +238,24 @@ export const getUserHoldings = tool({
     'holdings with fields: tickerSymbol, securityName, securityType ' +
     '(etf/mutual fund/equity/etc.), quantity, institutionPrice, ' +
     'institutionValue, costBasis, and closePrice. Use this to understand ' +
-    'the user\'s investment allocation and portfolio composition.',
+    'the user\'s investment allocation and portfolio composition. ' +
+    'Do NOT use this to check account balances (use get_user_accounts instead). ' +
+    'Call once per session. Use this before generating an investment plan.',
   inputSchema: userIdSchema,
   callback: async (input: z.infer<typeof userIdSchema>) => {
-    const holdings = await getLatestHoldings(input.userId);
-    return JSON.parse(JSON.stringify({ holdings }));
+    try {
+      const holdings = await getLatestHoldings(input.userId);
+      return { holdings, isEmpty: holdings.length === 0 };
+    } catch (err) {
+      return { error: 'FAILED_TO_FETCH_HOLDINGS', message: errorMessage(err), retryable: true };
+    }
   },
 });
 
 /**
  * Retrieves the latest liability snapshot (credit cards, student loans,
  * mortgages) for a user. Returns APRs, minimum payments, and balances.
+ * On failure, returns a structured error object the agent can reason about.
  */
 export const getUserLiabilities = tool({
   name: 'get_user_liabilities',
@@ -240,11 +267,17 @@ export const getUserLiabilities = tool({
     'originationPrincipalAmount, repaymentPlan. ' +
     'Mortgage: nextMonthlyPayment, interestRatePercentage, outstandingPrincipalBalance. ' +
     'Use this to understand debt obligations, interest rates, and minimum payments — ' +
-    'critical for deciding how to split between debt repayment and investing.',
+    'critical for deciding how to split between debt repayment and investing. ' +
+    'Do NOT use this to look up account balances (use get_user_accounts instead). ' +
+    'Call once per session. Use this before generating a debt repayment plan.',
   inputSchema: userIdSchema,
   callback: async (input: z.infer<typeof userIdSchema>) => {
-    const liabilities = await getLiabilitiesForUser(input.userId);
-    return JSON.parse(JSON.stringify({ liabilities }));
+    try {
+      const liabilities = await getLiabilitiesForUser(input.userId);
+      return { liabilities, isEmpty: liabilities.length === 0 };
+    } catch (err) {
+      return { error: 'FAILED_TO_FETCH_LIABILITIES', message: errorMessage(err), retryable: true };
+    }
   },
 });
 
@@ -269,6 +302,8 @@ function computeAge(birthday: string): number {
 /**
  * Retrieves a user's name and age. Age is computed from their birthday.
  * Returns null for age if the user has not set a birthday yet.
+ * On failure, returns a structured error object — NotFoundError is not
+ * retryable (user does not exist), other errors are retryable.
  */
 export const getUserProfile = tool({
   name: 'get_user_profile',
@@ -277,14 +312,79 @@ export const getUserProfile = tool({
     '(in years, computed from birthday). Age is null if the user has not set ' +
     'a birthday. Use this to personalize advice and factor in life stage — ' +
     'e.g. younger users have a longer investment horizon, older users may ' +
-    'need more conservative allocations.',
+    'need more conservative allocations. ' +
+    'Call once per session. Use this before any tool that needs the user\'s ' +
+    'age for risk assessment or timeline calculations.',
   inputSchema: userIdSchema,
   callback: async (input: z.infer<typeof userIdSchema>) => {
-    const user = await getUserById(input.userId);
+    try {
+      const user = await getUserById(input.userId);
+      return {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        age: user.birthday ? computeAge(user.birthday) : null,
+      };
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return { error: 'USER_NOT_FOUND', message: err.message, retryable: false };
+      }
+      return { error: 'FAILED_TO_FETCH_PROFILE', message: errorMessage(err), retryable: true };
+    }
+  },
+});
+
+/**
+ * Retrieves all financial data for a user in a single call: bank accounts,
+ * investment holdings, and liabilities. Uses Promise.allSettled so a failure
+ * in one dataset does not prevent the other two from returning.
+ */
+export const getUserFinancialSnapshot = tool({
+  name: 'get_user_financial_snapshot',
+  description:
+    'Retrieve all financial data for a user in a single call: bank accounts, ' +
+    'investment holdings, and liabilities. Returns all three datasets together ' +
+    'to avoid multiple round trips. Prefer this over calling get_user_accounts, ' +
+    'get_user_holdings, and get_user_liabilities separately. ' +
+    'Call once per session — data does not change within a single agent run.',
+  inputSchema: userIdSchema,
+  callback: async (input: z.infer<typeof userIdSchema>) => {
+    const [accountsResult, holdingsResult, liabilitiesResult] = await Promise.allSettled([
+      getAccountsForUser(input.userId),
+      getLatestHoldings(input.userId),
+      getLiabilitiesForUser(input.userId),
+    ]);
+
+    /**
+     * Extracts the value or a structured error from a PromiseSettledResult.
+     *
+     * @param {PromiseSettledResult<unknown[]>} result - The settled promise result.
+     * @param {string} errorCode - Error code to use if the promise rejected.
+     * @returns {{ data: unknown[] | null, error: object | null }}
+     */
+    const unwrap = (result: PromiseSettledResult<unknown[]>, errorCode: string) => {
+      if (result.status === 'fulfilled') {
+        return { data: result.value, error: null };
+      }
+      return {
+        data: null,
+        error: { error: errorCode, message: errorMessage(result.reason), retryable: true },
+      };
+    };
+
+    const accounts = unwrap(accountsResult, 'FAILED_TO_FETCH_ACCOUNTS');
+    const holdings = unwrap(holdingsResult, 'FAILED_TO_FETCH_HOLDINGS');
+    const liabilities = unwrap(liabilitiesResult, 'FAILED_TO_FETCH_LIABILITIES');
+
     return {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      age: user.birthday ? computeAge(user.birthday) : null,
+      accounts: accounts.data,
+      accountsEmpty: accounts.data ? (accounts.data as unknown[]).length === 0 : null,
+      accountsError: accounts.error,
+      holdings: holdings.data,
+      holdingsEmpty: holdings.data ? (holdings.data as unknown[]).length === 0 : null,
+      holdingsError: holdings.error,
+      liabilities: liabilities.data,
+      liabilitiesEmpty: liabilities.data ? (liabilities.data as unknown[]).length === 0 : null,
+      liabilitiesError: liabilities.error,
     };
   },
 });

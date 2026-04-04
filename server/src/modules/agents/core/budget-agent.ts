@@ -13,6 +13,7 @@ import {
   getUserHoldings,
   getUserLiabilities,
   getUserProfile,
+  getUserFinancialSnapshot,
   type BudgetProposal,
 } from './tools.js';
 import { BUDGET_SYSTEM_PROMPT } from './prompts.js';
@@ -35,7 +36,7 @@ export function makeBudgetAgent(): Agent {
   return new Agent({
     systemPrompt: BUDGET_SYSTEM_PROMPT,
     model,
-    tools: [getUserAccounts, getUserHoldings, getUserLiabilities, getUserProfile],
+    tools: [getUserAccounts, getUserHoldings, getUserLiabilities, getUserProfile, getUserFinancialSnapshot],
     structuredOutputSchema: budgetProposalSchema,
     printer: false
   });

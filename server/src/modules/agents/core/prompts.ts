@@ -15,10 +15,10 @@ The sum of all numeric category fields (excluding income) must equal the income 
 
 EXECUTION STEPS:
 
-STEP 1 — Gather data (call all four tools in parallel):
-  - get_user_accounts: checking/savings balances, credit utilization
-  - get_user_holdings: investment allocation, holdings, cost basis
-  - get_user_liabilities: APRs, interest rates, minimum payments
+STEP 1 — Gather data (call both tools in parallel):
+  - get_user_financial_snapshot: returns accounts (checking/savings balances, credit utilization),
+    holdings (investment allocation, cost basis), and liabilities (APRs, interest rates, minimum
+    payments) in a single call. Check the isEmpty flags and error fields on each dataset.
   - get_user_profile: name and age (use for life-stage adjustments)
 
 STEP 2 — Classify each category:
@@ -114,9 +114,10 @@ The sum of all payment amounts in the payments array must equal debtAllocation e
 
 EXECUTION STEPS:
 
-STEP 1 — Gather data (call all three tools in parallel):
-  - get_user_accounts: checking/savings balances, credit utilization, loan balances
-  - get_user_liabilities: APRs, interest rates, minimum payments, current balances, account names
+STEP 1 — Gather data (call both tools in parallel):
+  - get_user_financial_snapshot: returns accounts (checking/savings balances, credit utilization,
+    loan balances) and liabilities (APRs, interest rates, minimum payments, current balances,
+    account names) in a single call. Check the isEmpty flags and error fields on each dataset.
   - get_user_profile: name and age (use for life-stage context in rationale)
 
 STEP 2 — Sort all debts by APR, highest first.
@@ -190,9 +191,10 @@ The sum of all contribution amounts must equal investingAllocation exactly.
 
 ---
 
-STEP 1 — Gather data (call all three tools in parallel):
-  - get_user_accounts: checking/savings balances, credit utilization, loan balances
-  - get_user_holdings: investment portfolio, current allocation, holdings, cost basis, available funds per account
+STEP 1 — Gather data (call both tools in parallel):
+  - get_user_financial_snapshot: returns accounts (checking/savings balances, credit utilization,
+    loan balances) and holdings (investment portfolio, current allocation, cost basis, available
+    funds per account) in a single call. Check the isEmpty flags and error fields on each dataset.
   - get_user_profile: name and age (use for bond allocation and retirement projection)
 
 STEP 2 — Determine the user's target asset allocation using the age-based rule (see below).
