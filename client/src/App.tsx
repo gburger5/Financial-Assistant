@@ -17,18 +17,22 @@ import DebtsPage from './pages/DebtsPage'
 import ProposalsPage from './pages/ProposalsPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 function App() {
   return (
     <SettingsProvider>
-    <AuthProvider>
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<Landing />}/>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/check-email" element={<CheckEmailPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/check-email" element={<CheckEmailPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Post-signup onboarding */}
           <Route
@@ -40,28 +44,29 @@ function App() {
             }
           />
 
-        {/* Authenticated (inside AppShell) */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/budget" element={<BudgetPage />} />
-          <Route path="/savings" element={<SavingsPage />} />
-          <Route path="/investments" element={<InvestmentsPage />} />
-          <Route path="/debts" element={<DebtsPage />} />
-          <Route path="/proposals" element={<ProposalsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </AuthProvider>
-  </SettingsProvider>
+          {/* Authenticated (inside AppShell) */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/budget" element={<BudgetPage />} />
+            <Route path="/savings" element={<SavingsPage />} />
+            <Route path="/investments" element={<InvestmentsPage />} />
+            <Route path="/debts" element={<DebtsPage />} />
+            <Route path="/proposals" element={<ProposalsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </AuthProvider>
+    </SettingsProvider>
   )
 }
 

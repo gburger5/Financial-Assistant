@@ -35,21 +35,19 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      {/* Background orbs */}
-      <div className="login-page__bg" aria-hidden="true">
+      <div className="login-page__bg">
         <div className="login-page__orb login-page__orb--1" />
         <div className="login-page__orb login-page__orb--2" />
       </div>
 
       <div className="login-page__card">
-        {/* Logo */}
-        <Link to="/" className="login-page__logo" aria-label="FinanceAI home">
-          <span className="login-page__logo-icon" aria-hidden="true" />
-          <span className="login-page__logo-text">FinanceAI</span>
+        <Link to="/" className="login-page__logo">
+          <span className="login-page__logo-icon" />
+          <span className="login-page__logo-text">Financial Assistant</span>
         </Link>
 
-        <h1 className="login-page__heading">Welcome back</h1>
-        <p className="login-page__sub">Sign in to your account to continue</p>
+        <h2 className="login-page__heading">Welcome back</h2>
+        <p className="login-page__sub">Sign in to your account</p>
 
         <form className="login-page__form" onSubmit={handleSubmit} noValidate>
           <Input
@@ -82,7 +80,7 @@ export default function LoginPage() {
 
           <div className="login-page__forgot">
             <Link to="/forgot-password" className="login-page__forgot-link">
-              Forgot password?
+              Forgot your password?
             </Link>
           </div>
 

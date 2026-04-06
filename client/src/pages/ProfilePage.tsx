@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { useState, FormEvent, useCallback } from 'react'
-=======
-import { FormEvent, useState } from 'react'
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useApi } from '../hooks/useApi'
@@ -11,11 +7,8 @@ import Card from '../components/ui/Card'
 import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-<<<<<<< HEAD
 import Modal from '../components/ui/Modal'
 import ProgressBar from '../components/ui/ProgressBar'
-=======
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
 import EmptyState from '../components/ui/EmptyState'
 import {
   Building2,
@@ -23,16 +16,6 @@ import {
   Landmark,
   TrendingUp,
   Wallet,
-<<<<<<< HEAD
-  Pencil,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-} from 'lucide-react'
-import './ProfilePage.css'
-
-// ── Types ───────────────────────────────────────────────────────────────────
-=======
   KeyRound,
   AlertTriangle,
   Eye,
@@ -44,7 +27,6 @@ import './ProfilePage.css'
 import './ProfilePage.css'
 
 /* ── Types ── */
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
 
 interface Account {
   plaidAccountId: string
@@ -98,33 +80,103 @@ function formatBalance(amount: number | null, currency: string | null) {
   }).format(amount)
 }
 
-/* ── Component ── */
+function getPasswordStrength(pw: string): number {
+  let score = 0
+  if (pw.length >= 10) score += 20
+  if (/[A-Z]/.test(pw)) score += 20
+  if (/[a-z]/.test(pw)) score += 20
+  if (/\d/.test(pw)) score += 20
+  if (/[^A-Za-z0-9]/.test(pw)) score += 20
+  return score
+}
+
+function strengthLabel(score: number): string {
+  if (score <= 20) return 'Weak'
+  if (score <= 40) return 'Fair'
+  if (score <= 60) return 'Moderate'
+  if (score <= 80) return 'Good'
+  return 'Strong'
+}
+
+function strengthColor(score: number): string {
+  if (score <= 20) return 'var(--color-danger)'
+  if (score <= 40) return 'var(--color-warning)'
+  if (score <= 60) return 'var(--color-warning)'
+  if (score <= 80) return 'var(--color-success)'
+  return 'var(--color-success)'
+}
+
+function validatePassword(pw: string): string | null {
+  if (pw.length < 10) return 'Password must be at least 10 characters'
+  if (!/[A-Z]/.test(pw)) return 'Password must contain an uppercase letter'
+  if (!/[a-z]/.test(pw)) return 'Password must contain a lowercase letter'
+  if (!/\d/.test(pw)) return 'Password must contain a number'
+  if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain a special character'
+  return null
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { data: accountsData } = useApi<{ accounts: Account[] }>('/api/accounts')
 
-  /* Change Password state */
-  const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
-  const [pwShow, setPwShow] = useState(false)
+  // ── Edit name state
+  const [editingName, setEditingName] = useState(false)
+  const [firstName, setFirstName] = useState(user?.firstName ?? '')
+  const [lastName, setLastName] = useState(user?.lastName ?? '')
+  const [nameLoading, setNameLoading] = useState(false)
+  const [nameError, setNameError] = useState('')
+  const [nameSuccess, setNameSuccess] = useState('')
+
+  // ── Change email state
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailSuccess, setEmailSuccess] = useState('')
+
+  // ── Change password state
+  const [showPwForm, setShowPwForm] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [showCurrentPw, setShowCurrentPw] = useState(false)
+  const [showNewPw, setShowNewPw] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
   const [pwError, setPwError] = useState('')
   const [pwSuccess, setPwSuccess] = useState(false)
 
-  /* Delete Account state */
-  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm' | 'password'>('idle')
+  // ── Delete account state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
   if (!user) return null
 
-  const displayName =
-    [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
-  const accounts = accountsData?.accounts ?? []
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const showPwChecklist = pwForm.new.length > 0 || pwForm.confirm.length > 0
+  const handleNameSave = useCallback(async (e: FormEvent) => {
+    e.preventDefault()
+    setNameError('')
+    setNameSuccess('')
+    setNameLoading(true)
+    try {
+      await api.patch('/api/auth/profile/name', {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      })
+      setNameSuccess('Name updated')
+      setEditingName(false)
+      setTimeout(() => setNameSuccess(''), 3000)
+    } catch (err: unknown) {
+      setNameError(err instanceof Error ? err.message : 'Failed to update name')
+    } finally {
+      setNameLoading(false)
+    }
+  }, [firstName, lastName])
 
   /* ── Change Password handler ── */
   async function handleChangePassword(e: FormEvent) {
@@ -148,9 +200,9 @@ export default function ProfilePage() {
         newPassword: pwForm.new,
         confirmNewPassword: pwForm.confirm,
       })
-      setPwSuccess(true)
-      setPwForm({ current: '', new: '', confirm: '' })
-      setTimeout(() => { logout(); navigate('/login') }, 2000)
+      // Server revokes all sessions on password change — clear tokens and redirect
+      await logout()
+      navigate('/login')
     } catch (err: unknown) {
       setPwError(err instanceof Error ? err.message : 'Failed to change password')
     } finally {
@@ -167,23 +219,8 @@ export default function ProfilePage() {
 
     setDeleteLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/account`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ currentPassword: deletePassword }),
-        },
-      )
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Failed to delete account')
-      }
-      logout()
+      await api.delete('/api/auth/account', { currentPassword: deletePassword })
+      await logout()
       navigate('/')
     } catch (err: unknown) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete account')
@@ -194,12 +231,9 @@ export default function ProfilePage() {
 
   return (
     <div className="profile-page page">
-<<<<<<< HEAD
-      {/* ── User Info Card ────────────────────────────────────────────────── */}
-=======
 
-      {/* ── User Info ── */}
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
+
+      {/* ── User Info Card ──────────────────────────────────────────────── */}
       <Card className="profile-page__info">
         <div className="profile-page__avatar-row">
           <Avatar name={displayName} size="lg" />
@@ -210,7 +244,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="profile-page__fields">
-          {/* ── Name field ──────────────────────────────────────────────── */}
+          {/* Name */}
           <div className="profile-page__field">
             <span className="profile-page__field-label">Name</span>
             {editingName ? (
@@ -260,11 +294,9 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          {nameSuccess && (
-            <p className="profile-page__field-success">{nameSuccess}</p>
-          )}
+          {nameSuccess && <p className="profile-page__field-success">{nameSuccess}</p>}
 
-          {/* ── Email field ─────────────────────────────────────────────── */}
+          {/* Email */}
           <div className="profile-page__field">
             <span className="profile-page__field-label">Email</span>
             {editingEmail ? (
@@ -308,11 +340,9 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          {emailSuccess && (
-            <p className="profile-page__field-success">{emailSuccess}</p>
-          )}
+          {emailSuccess && <p className="profile-page__field-success">{emailSuccess}</p>}
 
-          {/* ── Member since ────────────────────────────────────────────── */}
+          {/* Member since */}
           {user.createdAt && (
             <div className="profile-page__field">
               <span className="profile-page__field-label">Member since</span>
@@ -678,7 +708,6 @@ export default function ProfilePage() {
           </form>
         )}
       </Card>
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
     </div>
   )
 }
