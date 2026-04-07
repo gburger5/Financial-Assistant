@@ -1,38 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { CheckCircle, XCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Mail } from 'lucide-react'
 import { api } from '../services/api'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
 import './VerifyEmailPage.css'
 
-type Status = 'loading' | 'success' | 'error'
+type Status = 'confirm' | 'loading' | 'success' | 'error'
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
-  const [status, setStatus] = useState<Status>(() => token ? 'loading' : 'error')
+  const [status, setStatus] = useState<Status>(() => token ? 'confirm' : 'error')
   const [errorMessage, setErrorMessage] = useState(() => token ? '' : 'No verification token provided.')
 
-  useEffect(() => {
+  // The API call is deferred until the user explicitly clicks the button.
+  // This prevents email security scanners from pre-fetching the link and
+  // consuming the token before the user has a chance to verify manually.
+  function handleConfirm() {
     if (!token) return
-
-    let cancelled = false
+    setStatus('loading')
 
     api
       .get(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then(() => {
-        if (!cancelled) setStatus('success')
-      })
+      .then(() => setStatus('success'))
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setStatus('error')
-          setErrorMessage(err instanceof Error ? err.message : 'Verification failed')
-        }
+        setStatus('error')
+        setErrorMessage(err instanceof Error ? err.message : 'Verification failed')
       })
-
-    return () => { cancelled = true }
-  }, [token])
+  }
 
   return (
     <div className="verify-email-page">
@@ -46,6 +42,21 @@ export default function VerifyEmailPage() {
           <span className="verify-email-page__logo-icon" aria-hidden="true" />
           <span className="verify-email-page__logo-text">FinanceAI</span>
         </Link>
+
+        {status === 'confirm' && (
+          <>
+            <div className="verify-email-page__icon">
+              <Mail size={40} />
+            </div>
+            <h1 className="verify-email-page__heading">Confirm your email</h1>
+            <p className="verify-email-page__sub">
+              Click the button below to verify your email address and activate your account.
+            </p>
+            <Button variant="cta" fullWidth onClick={handleConfirm}>
+              Verify my email
+            </Button>
+          </>
+        )}
 
         {status === 'loading' && (
           <>
