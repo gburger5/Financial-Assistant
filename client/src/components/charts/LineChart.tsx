@@ -49,7 +49,7 @@ export default function LineChart({ data, color = '#00D4AA' }: LineChartProps) {
             fontSize: '0.875rem',
             boxShadow: 'var(--shadow-md)',
           }}
-          formatter={(value: number | string) => {
+          formatter={(value: number | string | undefined) => {
             const n = typeof value === 'number' ? value : 0
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
           }}
