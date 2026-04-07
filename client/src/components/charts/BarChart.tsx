@@ -77,7 +77,7 @@ export default function BarChart({ data, color, showValues = true }: BarChartPro
               fontSize: '0.875rem',
               boxShadow: 'var(--shadow-md)',
             }}
-            formatter={(value: number | string) => {
+            formatter={(value: number | string | undefined) => {
               const n = typeof value === 'number' ? value : 0
               return fmt(n)
             }}
@@ -93,7 +93,7 @@ export default function BarChart({ data, color, showValues = true }: BarChartPro
               <LabelList
                 dataKey="value"
                 position="top"
-                formatter={(v: number) => fmt(v)}
+                formatter={((v: unknown) => fmt(typeof v === 'number' ? v : 0)) as never}
                 style={{
                   fill: 'var(--color-text-dimmed)',
                   fontSize: '11px',
