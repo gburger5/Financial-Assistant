@@ -15,9 +15,9 @@ export interface Proposal {
   status: ProposalStatus
   summary?: string
   rationale?: string
-  result?: ProposalResult
+  result: ProposalResult
   payload?: Record<string, unknown>
-  createdAt?: string
+  createdAt: string
   updatedAt?: string
 }
 
