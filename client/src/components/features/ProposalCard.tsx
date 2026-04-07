@@ -1,27 +1,17 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import type { Proposal } from '../../types/proposal'
 import Card from '../ui/Card'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import './ProposalCard.css'
 
-export interface Proposal {
-  proposalId: string
-  type: 'budget' | 'debt' | 'investing'
-  agentType?: string
-  status: 'pending' | 'executed' | 'rejected'
-  summary: string
-  rationale?: string
-  result?: unknown
-  createdAt?: string
-}
-
 interface ProposalCardProps {
   proposal: Proposal
-  onApprove: (id: string) => void
-  onExecute?: (id: string) => void
-  onReject: (id: string) => void
-  onDelete?: (id: string) => void
+  onApprove: (id: string) => void | Promise<void>
+  onExecute?: (id: string) => void | Promise<void>
+  onReject: (id: string) => void | Promise<void>
+  onDelete?: (id: string) => void | Promise<void>
 }
 
 const TYPE_VARIANT: Record<string, 'info' | 'warning' | 'success'> = {
@@ -42,7 +32,10 @@ export default function ProposalCard({ proposal, onApprove, onReject, onDelete }
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const displayType = proposal.agentType ?? proposal.type
+  const displayType = proposal.agentType ?? proposal.type ?? 'budget'
+  // Summary and rationale may be top-level or nested inside result
+  const summary = proposal.summary ?? (proposal.result as Record<string, unknown>)?.summary as string | undefined
+  const rationale = proposal.rationale ?? (proposal.result as Record<string, unknown>)?.rationale as string | undefined
 
   async function handleConfirmedAction() {
     if (!confirmAction) return
@@ -93,9 +86,9 @@ export default function ProposalCard({ proposal, onApprove, onReject, onDelete }
         )}
       </div>
 
-      <p className="proposal-card__summary">{proposal.summary}</p>
+      {summary && <p className="proposal-card__summary">{summary}</p>}
 
-      {proposal.rationale && (
+      {rationale && (
         <div className="proposal-card__rationale">
           <button
             className="proposal-card__rationale-toggle"
@@ -104,7 +97,7 @@ export default function ProposalCard({ proposal, onApprove, onReject, onDelete }
           >
             {expanded ? 'Hide rationale' : 'Show rationale'}
           </button>
-          {expanded && <p className="proposal-card__rationale-text">{proposal.rationale}</p>}
+          {expanded && <p className="proposal-card__rationale-text">{rationale}</p>}
         </div>
       )}
 
