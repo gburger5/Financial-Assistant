@@ -16,10 +16,6 @@ import type { Transaction, InvestmentTransaction } from '../types/transaction'
 import { LayoutDashboard, Receipt, RefreshCw } from 'lucide-react'
 import './DashboardPage.css'
 
-/*
- * Theme-safe chart palette — visible in both light and dark mode.
- * These are NOT CSS vars so they don't change with data-theme.
- */
 const CHART_COLORS = {
   housing:        '#457B9D',
   utilities:      '#3B82F6',
@@ -28,12 +24,9 @@ const CHART_COLORS = {
   takeout:        '#EF4444',
   shopping:       '#8B5CF6',
   personalCare:   '#EC4899',
-<<<<<<< HEAD
-=======
   entertainment:  '#A78BFA',
   medical:        '#F472B6',
   emergencyFund:  '#06B6D4',
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
   debts:          '#F97316',
   investments:    '#14B8A6',
   income:         '#00D4AA',
@@ -58,7 +51,6 @@ export default function DashboardPage() {
     }
   }, [refetchTx, refetchInvTx])
 
-  // Merge regular and investment transactions, sorted newest-first
   const allTransactions: Array<{ key: string; name: string; category: string; date: string; amount: number }> = []
   if (txData?.transactions) {
     for (const tx of txData.transactions) {
@@ -105,22 +97,22 @@ export default function DashboardPage() {
     )
   }
 
-const donutSlices: DonutSlice[] = budget
-  ? [
-      { name: 'Housing',        value: budget.housing?.amount ?? 0,        color: CHART_COLORS.housing },
-      { name: 'Utilities',      value: budget.utilities?.amount ?? 0,      color: CHART_COLORS.utilities },
-      { name: 'Transportation', value: budget.transportation?.amount ?? 0, color: CHART_COLORS.transportation },
-      { name: 'Groceries',      value: budget.groceries?.amount ?? 0,      color: CHART_COLORS.groceries },
-      { name: 'Takeout',        value: budget.takeout?.amount ?? 0,        color: CHART_COLORS.takeout },
-      { name: 'Shopping',       value: budget.shopping?.amount ?? 0,       color: CHART_COLORS.shopping },
-      { name: 'Personal Care',  value: budget.personalCare?.amount ?? 0,   color: CHART_COLORS.personalCare },
-      { name: 'Entertainment',  value: budget.entertainment?.amount ?? 0,  color: CHART_COLORS.entertainment },
-      { name: 'Medical',        value: budget.medical?.amount ?? 0,        color: CHART_COLORS.medical },
-      { name: 'Emergency Fund', value: budget.emergencyFund?.amount ?? 0,  color: CHART_COLORS.emergencyFund },
-      { name: 'Debts',          value: budget.debts?.amount ?? 0,          color: CHART_COLORS.debts },
-      { name: 'Investments',    value: budget.investments?.amount ?? 0,    color: CHART_COLORS.investments },
-    ].filter((s) => s.value > 0)
-  : []
+  const donutSlices: DonutSlice[] = budget
+    ? [
+        { name: 'Housing',        value: budget.housing?.amount ?? 0,        color: CHART_COLORS.housing },
+        { name: 'Utilities',      value: budget.utilities?.amount ?? 0,      color: CHART_COLORS.utilities },
+        { name: 'Transportation', value: budget.transportation?.amount ?? 0, color: CHART_COLORS.transportation },
+        { name: 'Groceries',      value: budget.groceries?.amount ?? 0,      color: CHART_COLORS.groceries },
+        { name: 'Takeout',        value: budget.takeout?.amount ?? 0,        color: CHART_COLORS.takeout },
+        { name: 'Shopping',       value: budget.shopping?.amount ?? 0,       color: CHART_COLORS.shopping },
+        { name: 'Personal Care',  value: budget.personalCare?.amount ?? 0,   color: CHART_COLORS.personalCare },
+        { name: 'Entertainment',  value: budget.entertainment?.amount ?? 0,  color: CHART_COLORS.entertainment },
+        { name: 'Medical',        value: budget.medical?.amount ?? 0,        color: CHART_COLORS.medical },
+        { name: 'Emergency Fund', value: budget.emergencyFund?.amount ?? 0,  color: CHART_COLORS.emergencyFund },
+        { name: 'Debts',          value: budget.debts?.amount ?? 0,          color: CHART_COLORS.debts },
+        { name: 'Investments',    value: budget.investments?.amount ?? 0,    color: CHART_COLORS.investments },
+      ].filter((s) => s.value > 0)
+    : []
 
   const barData: BarDataPoint[] = budget
     ? [

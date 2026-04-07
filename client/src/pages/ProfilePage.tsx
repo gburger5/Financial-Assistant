@@ -16,17 +16,14 @@ import {
   Landmark,
   TrendingUp,
   Wallet,
-  KeyRound,
-  AlertTriangle,
+  Pencil,
   Eye,
   EyeOff,
-  CheckCircle2,
-  Check,
-  X,
+  AlertTriangle,
 } from 'lucide-react'
 import './ProfilePage.css'
 
-/* ── Types ── */
+// ── Types ───────────────────────────────────────────────────────────────────
 
 interface Account {
   plaidAccountId: string
@@ -40,27 +37,7 @@ interface Account {
   isoCurrencyCode: string | null
 }
 
-/* ── Password rules (shared logic with SignUp) ── */
-
-interface PwRule {
-  label: string
-  test: (pw: string, confirm: string) => boolean
-}
-
-const PW_RULES: PwRule[] = [
-  { label: 'At least 10 characters',  test: (pw) => pw.length >= 10 },
-  { label: 'One uppercase letter',    test: (pw) => /[A-Z]/.test(pw) },
-  { label: 'One lowercase letter',    test: (pw) => /[a-z]/.test(pw) },
-  { label: 'One number',              test: (pw) => /\d/.test(pw) },
-  { label: 'One special character',   test: (pw) => /[^A-Za-z0-9]/.test(pw) },
-  { label: 'Passwords match',         test: (pw, c) => pw.length > 0 && c.length > 0 && pw === c },
-]
-
-function allRulesPass(pw: string, confirm: string): boolean {
-  return PW_RULES.every((r) => r.test(pw, confirm))
-}
-
-/* ── Helpers ── */
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function accountIcon(type: string) {
   switch (type) {
@@ -146,7 +123,6 @@ export default function ProfilePage() {
   const [showNewPw, setShowNewPw] = useState(false)
   const [pwLoading, setPwLoading] = useState(false)
   const [pwError, setPwError] = useState('')
-  const [pwSuccess, setPwSuccess] = useState(false)
 
   // ── Delete account state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -154,7 +130,7 @@ export default function ProfilePage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
-  if (!user) return null
+  const strength = getPasswordStrength(newPassword)
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -178,44 +154,66 @@ export default function ProfilePage() {
     }
   }, [firstName, lastName])
 
-  /* ── Change Password handler ── */
-  async function handleChangePassword(e: FormEvent) {
+  const handleEmailSave = useCallback(async (e: FormEvent) => {
     e.preventDefault()
-    setPwError('')
-    setPwSuccess(false)
+    setEmailError('')
+    setEmailSuccess('')
 
-    if (!allRulesPass(pwForm.new, pwForm.confirm)) {
-      setPwError('Password does not meet all requirements')
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      setEmailError('Please enter a valid email address')
       return
     }
-    if (pwForm.current === pwForm.new) {
-      setPwError('New password must be different from current')
+
+    setEmailLoading(true)
+    try {
+      await api.patch('/api/auth/profile/email', { newEmail: newEmail.trim() })
+      setEmailSuccess('Verification email sent to your new address. Check your inbox.')
+      setEditingEmail(false)
+      setNewEmail('')
+      setTimeout(() => setEmailSuccess(''), 5000)
+    } catch (err: unknown) {
+      setEmailError(err instanceof Error ? err.message : 'Failed to update email')
+    } finally {
+      setEmailLoading(false)
+    }
+  }, [newEmail])
+
+  const handlePasswordChange = useCallback(async (e: FormEvent) => {
+    e.preventDefault()
+    setPwError('')
+
+    const pwValidation = validatePassword(newPassword)
+    if (pwValidation) { setPwError(pwValidation); return }
+
+    if (newPassword !== confirmNewPassword) {
+      setPwError('Passwords do not match')
       return
     }
 
     setPwLoading(true)
     try {
       await api.patch('/api/auth/profile/password', {
-        currentPassword: pwForm.current,
-        newPassword: pwForm.new,
-        confirmNewPassword: pwForm.confirm,
+        currentPassword,
+        newPassword,
+        confirmNewPassword,
       })
       // Server revokes all sessions on password change — clear tokens and redirect
       await logout()
       navigate('/login')
     } catch (err: unknown) {
-      setPwError(err instanceof Error ? err.message : 'Failed to change password')
+      setPwError(err instanceof Error ? err.message : 'Failed to update password')
     } finally {
       setPwLoading(false)
     }
-  }
+  }, [currentPassword, newPassword, confirmNewPassword, logout, navigate])
 
-  /* ── Delete Account handler ── */
-  async function handleDeleteAccount(e: FormEvent) {
-    e.preventDefault()
+  const handleDeleteAccount = useCallback(async () => {
     setDeleteError('')
 
-    if (!deletePassword) { setDeleteError('Password is required'); return }
+    if (!deletePassword) {
+      setDeleteError('Please enter your password to confirm')
+      return
+    }
 
     setDeleteLoading(true)
     try {
@@ -227,12 +225,33 @@ export default function ProfilePage() {
     } finally {
       setDeleteLoading(false)
     }
-  }
+  }, [deletePassword, logout, navigate])
+
+  const resetPwForm = useCallback(() => {
+    setShowPwForm(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setShowCurrentPw(false)
+    setShowNewPw(false)
+    setPwError('')
+  }, [])
+
+  const resetDeleteModal = useCallback(() => {
+    setShowDeleteModal(false)
+    setDeletePassword('')
+    setDeleteError('')
+  }, [])
+
+  if (!user) return null
+
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
+
+  const accounts = accountsData?.accounts ?? []
 
   return (
     <div className="profile-page page">
-
-
       {/* ── User Info Card ──────────────────────────────────────────────── */}
       <Card className="profile-page__info">
         <div className="profile-page__avatar-row">
@@ -354,7 +373,6 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-<<<<<<< HEAD
       {/* ── Change Password Card ─────────────────────────────────────────── */}
       <Card>
         <div className="profile-page__section-header">
@@ -447,9 +465,6 @@ export default function ProfilePage() {
       </Card>
 
       {/* ── Linked Accounts Card ─────────────────────────────────────────── */}
-=======
-      {/* ── Linked Accounts ── */}
->>>>>>> c62ef6e (Created devMock for testing, changed dashboard to have better design and incorporate light and dark)
       <Card>
         <h4 className="profile-page__section-title">Linked Accounts</h4>
         {accounts.length > 0 ? (
@@ -483,7 +498,6 @@ export default function ProfilePage() {
         )}
       </Card>
 
-<<<<<<< HEAD
       {/* ── Danger Zone Card ─────────────────────────────────────────────── */}
       <Card className="profile-page__danger-card">
         <h4 className="profile-page__section-title profile-page__section-title--danger">
@@ -533,181 +547,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </Modal>
-=======
-      {/* ── Change Password ── */}
-      <Card>
-        <div className="profile-page__section-header">
-          <KeyRound size={20} />
-          <h4 className="profile-page__section-title">Change Password</h4>
-        </div>
-
-        {pwSuccess ? (
-          <div className="profile-page__success">
-            <CheckCircle2 size={20} />
-            <div>
-              <strong>Password changed successfully.</strong>
-              <p>All sessions have been invalidated. Redirecting to login…</p>
-            </div>
-          </div>
-        ) : (
-          <form className="profile-page__pw-form" onSubmit={handleChangePassword} noValidate>
-            <div className="profile-page__pw-field">
-              <Input
-                label="Current password"
-                type={pwShow ? 'text' : 'password'}
-                value={pwForm.current}
-                onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
-                autoComplete="current-password"
-                required
-              />
-            </div>
-
-            <div className="profile-page__pw-field">
-              <Input
-                label="New password"
-                type={pwShow ? 'text' : 'password'}
-                value={pwForm.new}
-                onChange={(e) => setPwForm((p) => ({ ...p, new: e.target.value }))}
-                autoComplete="new-password"
-                required
-              />
-            </div>
-
-            <div className="profile-page__pw-field">
-              <Input
-                label="Confirm new password"
-                type={pwShow ? 'text' : 'password'}
-                value={pwForm.confirm}
-                onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
-                autoComplete="new-password"
-                required
-              />
-            </div>
-
-            <button
-              type="button"
-              className="profile-page__pw-show"
-              onClick={() => setPwShow((v) => !v)}
-            >
-              {pwShow ? <EyeOff size={14} /> : <Eye size={14} />}
-              {pwShow ? 'Hide passwords' : 'Show passwords'}
-            </button>
-
-            {/* Live password checklist — same design as SignUp */}
-            {showPwChecklist && (
-              <ul className="pw-checklist">
-                {PW_RULES.map((rule) => {
-                  const passed = rule.test(pwForm.new, pwForm.confirm)
-                  return (
-                    <li
-                      key={rule.label}
-                      className={`pw-checklist__rule ${passed ? 'pw-checklist__rule--pass' : ''}`}
-                    >
-                      {passed ? <Check size={14} /> : <X size={14} />}
-                      {rule.label}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-
-            {pwError && <p className="profile-page__error" role="alert">{pwError}</p>}
-
-            <div className="profile-page__pw-actions">
-              <Button type="submit" variant="primary" size="sm" disabled={pwLoading}>
-                {pwLoading ? 'Updating…' : 'Update password'}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Card>
-
-      {/* ── Danger Zone — Delete Account ── */}
-      <Card className="profile-page__danger-card">
-        <div className="profile-page__section-header">
-          <AlertTriangle size={20} className="profile-page__danger-icon" />
-          <h4 className="profile-page__section-title profile-page__section-title--danger">
-            Danger Zone
-          </h4>
-        </div>
-
-        {deleteStep === 'idle' && (
-          <div className="profile-page__danger-content">
-            <div className="profile-page__danger-text">
-              <strong>Delete your account</strong>
-              <p>
-                Permanently remove your account and all associated data including transactions,
-                budgets, linked accounts, and proposals. This action cannot be undone.
-              </p>
-            </div>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setDeleteStep('confirm')}
-            >
-              Delete account
-            </Button>
-          </div>
-        )}
-
-        {deleteStep === 'confirm' && (
-          <div className="profile-page__danger-confirm">
-            <div className="profile-page__danger-warning">
-              <AlertTriangle size={18} />
-              <p>
-                <strong>Are you sure?</strong> This will permanently delete all of your data:
-                transactions, budgets, bank connections, proposals, and your user account.
-                You will not be able to recover any of this data.
-              </p>
-            </div>
-            <div className="profile-page__danger-actions">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setDeleteStep('password')}
-              >
-                Yes, I want to delete my account
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {deleteStep === 'password' && (
-          <form className="profile-page__danger-form" onSubmit={handleDeleteAccount} noValidate>
-            <p className="profile-page__danger-prompt">
-              Enter your password to confirm account deletion.
-            </p>
-            <Input
-              label="Password"
-              type="password"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-            {deleteError && <p className="profile-page__error" role="alert">{deleteError}</p>}
-            <div className="profile-page__danger-actions">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setDeleteStep('idle'); setDeletePassword(''); setDeleteError('') }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="danger" size="sm" disabled={deleteLoading}>
-                {deleteLoading ? 'Deleting…' : 'Permanently delete my account'}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Card>
     </div>
   )
 }
