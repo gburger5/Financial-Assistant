@@ -17,23 +17,25 @@
 
 .proposal-card__summary {
   font-size: var(--text-sm);
-  color: var(--color-text-dimmed);
+  color: var(--color-text-secondary);
   line-height: var(--leading-relaxed);
 }
 
 .proposal-card__rationale-toggle {
   background: transparent;
   border: none;
-  color: var(--color-navy-400);
+  color: var(--color-purple-400);
   font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   padding: 0;
+  min-height: unset;
+  min-width: unset;
   transition: color var(--transition-fast);
 }
 
 .proposal-card__rationale-toggle:hover {
-  color: var(--color-teal-500);
+  color: var(--color-purple-300);
 }
 
 .proposal-card__rationale-toggle:focus-visible {
@@ -54,6 +56,31 @@
   gap: var(--space-3);
 }
 
+/* ── Confirmation dialog ──────────────────── */
+.proposal-card__action-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.proposal-card__action-confirm-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+.proposal-card__action-confirm-btns {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Delete ───────────────────────────────── */
 .proposal-card__delete-btn {
   background: transparent;
   border: none;
@@ -63,6 +90,8 @@
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
+  min-height: unset;
+  min-width: unset;
   transition: color var(--transition-fast);
 }
 
@@ -89,6 +118,8 @@
   font-weight: var(--weight-medium);
   cursor: pointer;
   padding: 0;
+  min-height: unset;
+  min-width: unset;
 }
 
 .proposal-card__delete-confirm-yes {

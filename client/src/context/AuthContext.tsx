@@ -27,7 +27,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [token, setToken] = useState<string | null>(() => getAccessToken())
   const [ready, setReady] = useState(() => !getAccessToken())
 
-  // On mount, verify the stored access token (the api layer will auto-refresh if needed)
+  // On mount, verify the stored access token (api layer auto-refreshes if needed)
   useEffect(() => {
     const storedToken = getAccessToken()
     if (!storedToken) return
@@ -57,7 +57,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async (): Promise<void> => {
     const currentRefresh = getRefreshToken()
-    // Best-effort server-side revocation — don't block on failure
     if (currentRefresh) {
       try {
         await api.post('/api/auth/logout', { refreshToken: currentRefresh })
