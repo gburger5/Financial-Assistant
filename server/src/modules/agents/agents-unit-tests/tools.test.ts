@@ -111,7 +111,7 @@ describe('getUserAccounts', () => {
     const accounts = [mockAccount];
     mockGetAccounts.mockResolvedValue(accounts);
 
-    const result = await getUserAccounts.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserAccounts.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.accounts).toBe(accounts);
   });
 
@@ -125,7 +125,7 @@ describe('getUserAccounts', () => {
   it('includes isEmpty: false for non-empty accounts', async () => {
     mockGetAccounts.mockResolvedValue([mockAccount]);
 
-    const result = await getUserAccounts.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserAccounts.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.isEmpty).toBe(false);
   });
 
@@ -150,7 +150,7 @@ describe('getUserHoldings', () => {
     const holdings = [mockHolding];
     mockGetHoldings.mockResolvedValue(holdings);
 
-    const result = await getUserHoldings.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserHoldings.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.holdings).toBe(holdings);
   });
 
@@ -164,7 +164,7 @@ describe('getUserHoldings', () => {
   it('includes isEmpty: false for non-empty holdings', async () => {
     mockGetHoldings.mockResolvedValue([mockHolding]);
 
-    const result = await getUserHoldings.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserHoldings.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.isEmpty).toBe(false);
   });
 
@@ -189,7 +189,7 @@ describe('getUserLiabilities', () => {
     const liabilities = [mockLiability];
     mockGetLiabilities.mockResolvedValue(liabilities);
 
-    const result = await getUserLiabilities.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserLiabilities.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.liabilities).toBe(liabilities);
   });
 
@@ -203,7 +203,7 @@ describe('getUserLiabilities', () => {
   it('includes isEmpty: false for non-empty liabilities', async () => {
     mockGetLiabilities.mockResolvedValue([mockLiability]);
 
-    const result = await getUserLiabilities.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserLiabilities.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.isEmpty).toBe(false);
   });
 
@@ -227,7 +227,7 @@ describe('getUserProfile', () => {
   it('returns name and computed age', async () => {
     mockGetUserById.mockResolvedValue(mockUser);
 
-    const result = await getUserProfile.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserProfile.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.firstName).toBe('Jane');
     expect(result.lastName).toBe('Doe');
     expect(typeof result.age).toBe('number');
@@ -237,7 +237,7 @@ describe('getUserProfile', () => {
   it('returns null age when no birthday', async () => {
     mockGetUserById.mockResolvedValue({ ...mockUser, birthday: null });
 
-    const result = await getUserProfile.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserProfile.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
     expect(result.age).toBeNull();
   });
 
@@ -274,7 +274,7 @@ describe('getUserFinancialSnapshot', () => {
     mockGetHoldings.mockResolvedValue([mockHolding]);
     mockGetLiabilities.mockResolvedValue([mockLiability]);
 
-    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
 
     expect(result.accounts).toEqual([mockAccount]);
     expect(result.holdings).toEqual([mockHolding]);
@@ -292,7 +292,7 @@ describe('getUserFinancialSnapshot', () => {
     mockGetHoldings.mockResolvedValue([]);
     mockGetLiabilities.mockResolvedValue([]);
 
-    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
 
     expect(result.accountsEmpty).toBe(true);
     expect(result.holdingsEmpty).toBe(true);
@@ -304,7 +304,7 @@ describe('getUserFinancialSnapshot', () => {
     mockGetHoldings.mockResolvedValue([mockHolding]);
     mockGetLiabilities.mockResolvedValue([mockLiability]);
 
-    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
 
     expect(result.accounts).toBeNull();
     expect(result.accountsEmpty).toBeNull();
@@ -323,7 +323,7 @@ describe('getUserFinancialSnapshot', () => {
     mockGetHoldings.mockRejectedValue(new Error('fail 2'));
     mockGetLiabilities.mockRejectedValue(new Error('fail 3'));
 
-    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, any>;
+    const result = await getUserFinancialSnapshot.invoke({ userId: TEST_USER_ID }) as Record<string, unknown>;
 
     expect(result.accounts).toBeNull();
     expect(result.holdings).toBeNull();
