@@ -1,0 +1,752 @@
+[
+  {
+    "caseId": "budget-balanced-no-debt",
+    "caseName": "Balanced user with no debt",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.7333333333333334,
+        "min": 0.7333333333333334,
+        "max": 0.7333333333333334,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9,
+    "medianDurationMs": 29929.555185999998,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=6000.00 income=6000.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1300"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=6000 input=6000"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7333333333333334,
+            "weight": 3,
+            "detail": "needs=0.62 wants=0.17 savings=0.22"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=600 cap=1800 (savings=14000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9,
+        "rawOutput": {
+          "summary": "The biggest change in this budget is introducing a $600 monthly emergency fund contribution, since your current liquid savings of $14,000 fall short of the recommended three-month cushion of $18,000. To fund this, monthly investments are reduced from $1,900 to $1,300 — still a strong allocation for a 30-year-old with no debt. All spending categories are kept at your current actual levels, as they are reasonable and within healthy ranges.",
+          "rationale": "With no debt and no specific goals provided, the default 50/30/20 framework was applied. Your needs spending already slightly exceeds the 50% target, so all need categories are preserved as-is per the hard rules. The most critical gap identified was the underfunded emergency fund — at $14,000 against a $18,000 three-month target — so a portion of the excess investment allocation was redirected there, while still maintaining a meaningful investment contribution appropriate for your age and long investment horizon.",
+          "income": 6000,
+          "housing": 1800,
+          "utilities": 200,
+          "transportation": 400,
+          "groceries": 600,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 600,
+          "entertainment": 300,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1300
+        },
+        "durationMs": 29929.555185999998
+      }
+    ]
+  },
+  {
+    "caseId": "budget-high-debt-low-savings",
+    "caseName": "High debt, low savings",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.6399999999999999,
+        "min": 0.6399999999999999,
+        "max": 0.6399999999999999,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.865,
+    "medianDurationMs": 33380.82976000001,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5000.00 income=5000.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=300"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=400 totalMinimums=200"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5000 input=5000"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.6399999999999999,
+            "weight": 3,
+            "detail": "needs=0.68 wants=0.18 savings=0.14"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=800 cap=1500 (savings=3500)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "debts=400 > investments=300"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=4"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.865,
+        "rawOutput": {
+          "summary": "Your most urgent priority is building an emergency fund — with only $3,500 in liquid savings against a $5,000 monthly income, you have less than one month of cushion, so this budget directs $800 per month toward that goal. Your credit card carries a 24.99% APR on a $5,000 balance, so debt payments are increased to $400 to accelerate paydown and reduce costly interest charges. To free up this extra cash, takeout, shopping, and entertainment are each trimmed modestly while all essential needs remain fully funded.",
+          "rationale": "With no stated goals, the default 50/30/20 framework was applied, but adjusted to reflect two urgent financial realities: a critically low emergency fund and high-interest credit card debt. Wants were pulled below the default 30% ceiling to fund a meaningful emergency fund contribution and above-minimum debt payment, while a small investment allocation is preserved to maintain the habit of long-term saving even during this debt paydown phase.",
+          "income": 5000,
+          "housing": 1500,
+          "utilities": 200,
+          "transportation": 300,
+          "groceries": 500,
+          "takeout": 300,
+          "shopping": 250,
+          "personalCare": 100,
+          "emergencyFund": 800,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 400,
+          "investments": 300
+        },
+        "durationMs": 33380.82976000001
+      }
+    ]
+  },
+  {
+    "caseId": "budget-overspending-wants",
+    "caseName": "Overspending on wants",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 1,
+    "medianDurationMs": 31626.769996999996,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5000.00 income=5000.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1000"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5000 input=5000"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 1,
+            "weight": 3,
+            "detail": "needs=0.50 wants=0.30 savings=0.20"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=300 cap=1500 (savings=11000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 1,
+        "rawOutput": {
+          "summary": "This budget redirects $300 per month into an emergency fund, which is critical given that your current savings of $11,000 fall short of the recommended three-month cushion of $15,000. To fund this and boost your investment contribution to $1,000, wants categories like takeout, shopping, and entertainment have been trimmed by a combined $600. These adjustments keep all essential expenses fully covered while putting your money to work more effectively.",
+          "rationale": "With no active goals specified, the default 50/30/20 framework was applied, targeting $2,500 for needs, $1,500 for wants, and $1,000 for investments and savings growth. Because your liquid savings are below the three-month income threshold, starting a monthly emergency fund contribution was prioritized within the needs bucket. Wants spending was reduced proportionally across takeout, shopping, and entertainment to stay within the 30% ceiling and free up room for a stronger financial foundation.",
+          "income": 5000,
+          "housing": 1200,
+          "utilities": 200,
+          "transportation": 300,
+          "groceries": 400,
+          "takeout": 300,
+          "shopping": 500,
+          "personalCare": 200,
+          "emergencyFund": 300,
+          "entertainment": 500,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1000
+        },
+        "durationMs": 31626.769996999996
+      }
+    ]
+  },
+  {
+    "caseId": "budget-high-income-no-investments",
+    "caseName": "High income, zero current investments",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.75,
+        "min": 0.75,
+        "max": 0.75,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.90625,
+    "medianDurationMs": 25050.774978,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=12000.00 income=12000.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=3800"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=12000 input=12000"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.75,
+            "weight": 3,
+            "detail": "needs=0.51 wants=0.17 savings=0.32"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=1200 cap=1200 (savings=58000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=2"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.90625,
+        "rawOutput": {
+          "summary": "The biggest changes here are redirecting the $5,000 that was previously unallocated to both an emergency fund contribution of $1,200 and investments of $3,800. Your liquid savings of $58,000 is healthy but still below the six-month target of $72,000, so a steady monthly contribution will close that gap while the remaining surplus builds long-term wealth through investing.",
+          "rationale": "With no debt and no specific goals provided, the default 50/30/20 framework was applied. All current spending on needs and wants was preserved in full since those amounts are reasonable and non-negotiable per the rules. The full unallocated surplus of $3,800 was directed entirely to investments (after capping the emergency fund at 10% of income per the 3x–6x savings rule), honoring the rule against adding excess funds to wants.",
+          "income": 12000,
+          "housing": 3000,
+          "utilities": 300,
+          "transportation": 600,
+          "groceries": 800,
+          "takeout": 600,
+          "shopping": 800,
+          "personalCare": 200,
+          "emergencyFund": 1200,
+          "entertainment": 500,
+          "medical": 200,
+          "debts": 0,
+          "investments": 3800
+        },
+        "durationMs": 25050.774978
+      }
+    ]
+  },
+  {
+    "caseId": "budget-emergency-fund-fully-funded",
+    "caseName": "Emergency fund fully funded",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.7454545454545455,
+        "min": 0.7454545454545455,
+        "max": 0.7454545454545455,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9045454545454545,
+    "medianDurationMs": 28878.892458000017,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "The most meaningful change here is redirecting $275 from your investment bucket into a monthly emergency fund contribution — your $40,000 in savings already exceeds six months of income, so only a small maintenance contribution is needed. Investments are adjusted to $1,475, which still represents a strong savings rate for a 36-year-old with no debt. All other spending categories are kept at your current actual levels since they are reasonable and well within healthy ranges.",
+          "rationale": "With no debt or active goals, the default 50/30/20 framework was applied. Your needs spending is slightly above the 50% target due to real, non-negotiable costs, which is acceptable. Because your emergency fund already exceeds six months of income, the monthly contribution is capped at 5% of income ($275), with the remainder directed to investments to support long-term wealth building at your life stage.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 28878.892458000017
+      }
+    ]
+  },
+  {
+    "caseId": "budget-minimal-income",
+    "caseName": "Minimal income with non-negotiable needs",
+    "agentType": "budget",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.3999999999999999,
+        "min": 0.3999999999999999,
+        "max": 0.3999999999999999,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.7749999999999999,
+    "medianDurationMs": 30072.071902000025,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=2500.00 income=2500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=100"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=2500 input=2500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.3999999999999999,
+            "weight": 3,
+            "detail": "needs=0.80 wants=0.16 savings=0.04"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=250 cap=750 (savings=3800)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=2"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.7749999999999999,
+        "rawOutput": {
+          "summary": "Your needs spending of $1,750 already accounts for most of your $2,500 income, so the biggest opportunity is redirecting your current $0 emergency fund contribution to $250 per month — your liquid savings of $3,800 are well below a healthy three-month cushion of $7,500. Investments are trimmed slightly to $100 to make room for that emergency savings priority, while all want categories are held at their current levels since there are no goals signaling a desire to cut back.",
+          "rationale": "With no active debt and no stated goals, the default 50/30/20 framework applies, but your needs spending structurally exceeds 50% of income, so needs are held at actuals and the remaining $750 is split between wants (kept at current levels) and savings priorities. Because your emergency fund is below three months of income, building that reserve takes precedence over maximizing investments, resulting in a $250 monthly emergency contribution and a minimum but nonzero $100 investment allocation.",
+          "income": 2500,
+          "housing": 1200,
+          "utilities": 150,
+          "transportation": 200,
+          "groceries": 150,
+          "takeout": 150,
+          "shopping": 100,
+          "personalCare": 50,
+          "emergencyFund": 250,
+          "entertainment": 100,
+          "medical": 50,
+          "debts": 0,
+          "investments": 100
+        },
+        "durationMs": 30072.071902000025
+      }
+    ]
+  }
+]

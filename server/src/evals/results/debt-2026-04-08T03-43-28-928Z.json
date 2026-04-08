@@ -1,0 +1,760 @@
+[
+  {
+    "caseId": "debt-classic-avalanche",
+    "caseName": "Classic 3-debt avalanche",
+    "agentType": "debt",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "payments_sum_equals_allocation": 1,
+      "all_debts_covered": 1,
+      "minimums_met": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "projections_for_all_debts": 1
+    },
+    "softScoreStats": {
+      "avalanche_ordering": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "payment_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "interest_savings_plausible": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 1,
+    "medianDurationMs": 39070.678532,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "payments_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=1000.00 allocation=1000.00"
+          },
+          {
+            "name": "all_debts_covered",
+            "passed": true,
+            "detail": "all debts paid"
+          },
+          {
+            "name": "minimums_met",
+            "passed": true,
+            "detail": "all minimums covered"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "projections_for_all_debts",
+            "passed": true,
+            "detail": "all projected"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "avalanche_ordering",
+            "score": 1,
+            "weight": 4,
+            "detail": "rank correlation=1.00"
+          },
+          {
+            "name": "payment_type_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "3/3 correct"
+          },
+          {
+            "name": "interest_savings_plausible",
+            "score": 1,
+            "weight": 1,
+            "detail": "savings=2918"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=4"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 1,
+        "rawOutput": {
+          "summary": "This month, Chase Visa receives $470 ($150 minimum plus $320 in extra payments), the Student Loan receives its $280 minimum, and the Honda Auto Loan receives its $250 minimum, totaling exactly $1,000. The extra dollars are directed entirely at the Chase Visa because its 24.99% APR is nearly four times higher than your next debt, making it the most expensive balance to carry. Eliminating it first prevents hundreds of dollars in unnecessary interest charges each month it stays open.",
+          "rationale": "The avalanche strategy is applied here because Eval's Chase Visa carries a 24.99% APR — far above the 6.80% Student Loan and 4.50% Auto Loan — meaning every extra dollar directed there saves the maximum possible interest. At age 30, Eval has a meaningful runway to eliminate these debts efficiently, and front-loading the highest-rate balance accelerates that timeline. Once the Visa is cleared in roughly 12 months, the freed-up $470/month can cascade into the remaining debts to further compress the payoff schedule.",
+          "scheduled_payments": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "amount": 470,
+              "payment_type": "extra"
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "amount": 280,
+              "payment_type": "minimum"
+            },
+            {
+              "plaid_account_id": "acc_auto",
+              "debt_name": "Honda Auto Loan",
+              "amount": 250,
+              "payment_type": "minimum"
+            }
+          ],
+          "projections": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "current_balance": 5000,
+              "apr": 0.2499,
+              "months_to_payoff": 12,
+              "total_interest_paid": 692
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "current_balance": 25000,
+              "apr": 0.068,
+              "months_to_payoff": 125,
+              "total_interest_paid": 10000
+            },
+            {
+              "plaid_account_id": "acc_auto",
+              "debt_name": "Honda Auto Loan",
+              "current_balance": 12000,
+              "apr": 0.045,
+              "months_to_payoff": 53,
+              "total_interest_paid": 1255
+            }
+          ],
+          "interest_savings": 2918,
+          "positive_outcomes": "Once the Chase Visa is paid off in approximately 12 months, that frees up $470 per month that can be redirected toward the Student Loan or Auto Loan — dramatically accelerating both payoff timelines and saving even more in interest beyond the projected $2,918 in savings versus minimum-only payments."
+        },
+        "durationMs": 39070.678532
+      }
+    ]
+  },
+  {
+    "caseId": "debt-single-debt",
+    "caseName": "Single credit card debt",
+    "agentType": "debt",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "payments_sum_equals_allocation": 1,
+      "all_debts_covered": 1,
+      "minimums_met": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "projections_for_all_debts": 1
+    },
+    "softScoreStats": {
+      "avalanche_ordering": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "payment_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "interest_savings_plausible": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 1,
+    "medianDurationMs": 29140.749898000002,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "payments_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=500.00 allocation=500.00"
+          },
+          {
+            "name": "all_debts_covered",
+            "passed": true,
+            "detail": "all debts paid"
+          },
+          {
+            "name": "minimums_met",
+            "passed": true,
+            "detail": "all minimums covered"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "projections_for_all_debts",
+            "passed": true,
+            "detail": "all projected"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "avalanche_ordering",
+            "score": 1,
+            "weight": 4,
+            "detail": "fewer than 2 debts"
+          },
+          {
+            "name": "payment_type_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "1/1 correct"
+          },
+          {
+            "name": "interest_savings_plausible",
+            "score": 1,
+            "weight": 1,
+            "detail": "savings=792"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 1,
+        "rawOutput": {
+          "summary": "Your full $500 monthly budget is applied to the Chase Visa, with $100 covering the minimum and the remaining $400 as an extra payment toward the principal. This aggressive paydown eliminates the balance in approximately 7 months. Once paid off, that $500 per month is completely freed up for savings, investing, or other goals.",
+          "rationale": "The avalanche strategy is applied here by directing all surplus funds to the Chase Visa, your only debt, which carries a high APR of 22.99%. At 30 years old, minimizing interest costs now preserves significantly more of your income for wealth-building in the years ahead. Paying $500 per month instead of the $100 minimum cuts the repayment timeline from roughly 45 months down to just 7, saving approximately $792 in interest.",
+          "scheduled_payments": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "amount": 500,
+              "payment_type": "extra"
+            }
+          ],
+          "projections": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "current_balance": 3000,
+              "apr": 0.2299,
+              "months_to_payoff": 7,
+              "total_interest_paid": 456
+            }
+          ],
+          "interest_savings": 792,
+          "positive_outcomes": "Once your Chase Visa is paid off in approximately 7 months, that frees up $500/month — compared to 45 months of payments if you only paid the $100 minimum."
+        },
+        "durationMs": 29140.749898000002
+      }
+    ]
+  },
+  {
+    "caseId": "debt-allocation-equals-minimums",
+    "caseName": "Allocation equals total minimums",
+    "agentType": "debt",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "payments_sum_equals_allocation": 1,
+      "all_debts_covered": 1,
+      "minimums_met": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "projections_for_all_debts": 1
+    },
+    "softScoreStats": {
+      "avalanche_ordering": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "payment_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "interest_savings_plausible": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 1,
+    "medianDurationMs": 41748.43027,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "payments_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=680.00 allocation=680.00"
+          },
+          {
+            "name": "all_debts_covered",
+            "passed": true,
+            "detail": "all debts paid"
+          },
+          {
+            "name": "minimums_met",
+            "passed": true,
+            "detail": "all minimums covered"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "projections_for_all_debts",
+            "passed": true,
+            "detail": "all projected"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "avalanche_ordering",
+            "score": 1,
+            "weight": 4,
+            "detail": "rank correlation=1.00"
+          },
+          {
+            "name": "payment_type_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "3/3 correct"
+          },
+          {
+            "name": "interest_savings_plausible",
+            "score": 1,
+            "weight": 1,
+            "detail": "no surplus over minimums"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=4"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 1,
+        "rawOutput": {
+          "summary": "Your $680 monthly budget covers the minimum payment on all three debts: $150 to Chase Visa, $280 to the Student Loan, and $250 to the Honda Auto Loan. Because your minimums total exactly $680, there is no surplus this month to apply extra toward the highest-rate debt. If you can find any additional funds, even $25-$50 extra, directing them to the Chase Visa at 24.99% APR will generate the most interest savings.",
+          "rationale": "The avalanche strategy targets the Chase Visa first because its 24.99% APR is nearly four times higher than the Student Loan (6.80%) and more than five times higher than the Honda Auto Loan (4.50%), meaning every extra dollar applied there saves the most in interest. At 30 years old, Eval has a meaningful window to eliminate high-interest credit card debt aggressively before it compounds further. Unfortunately, this month's $680 budget is fully consumed by the three minimum payments, so no avalanche surplus is available until the budget increases or a debt is eliminated.",
+          "scheduled_payments": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "amount": 150,
+              "payment_type": "minimum"
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "amount": 280,
+              "payment_type": "minimum"
+            },
+            {
+              "plaid_account_id": "acc_auto",
+              "debt_name": "Honda Auto Loan",
+              "amount": 250,
+              "payment_type": "minimum"
+            }
+          ],
+          "projections": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "current_balance": 5000,
+              "apr": 0.2499,
+              "months_to_payoff": 58,
+              "total_interest_paid": 3625
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "current_balance": 25000,
+              "apr": 0.068,
+              "months_to_payoff": 125,
+              "total_interest_paid": 9972
+            },
+            {
+              "plaid_account_id": "acc_auto",
+              "debt_name": "Honda Auto Loan",
+              "current_balance": 12000,
+              "apr": 0.045,
+              "months_to_payoff": 53,
+              "total_interest_paid": 1250
+            }
+          ],
+          "interest_savings": 0,
+          "positive_outcomes": "Your Honda Auto Loan is on track to be fully paid off in approximately 53 months, which will free up $250 per month in cash flow. Redirecting that $250 toward the Chase Visa at that point would dramatically accelerate payoff and save a significant amount in interest."
+        },
+        "durationMs": 41748.43027
+      }
+    ]
+  },
+  {
+    "caseId": "debt-payoff-cascade",
+    "caseName": "Payoff cascade across debts",
+    "agentType": "debt",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "payments_sum_equals_allocation": 1,
+      "all_debts_covered": 1,
+      "minimums_met": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "projections_for_all_debts": 1
+    },
+    "softScoreStats": {
+      "avalanche_ordering": {
+        "mean": 0.6666666666666666,
+        "min": 0.6666666666666666,
+        "max": 0.6666666666666666,
+        "stddev": 0
+      },
+      "payment_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "interest_savings_plausible": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.8333333333333333,
+    "medianDurationMs": 40222.39706200002,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "payments_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=1200.00 allocation=1200.00"
+          },
+          {
+            "name": "all_debts_covered",
+            "passed": true,
+            "detail": "all debts paid"
+          },
+          {
+            "name": "minimums_met",
+            "passed": true,
+            "detail": "all minimums covered"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "projections_for_all_debts",
+            "passed": true,
+            "detail": "all projected"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "avalanche_ordering",
+            "score": 0.6666666666666666,
+            "weight": 4,
+            "detail": "rank correlation=0.67"
+          },
+          {
+            "name": "payment_type_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "3/3 correct"
+          },
+          {
+            "name": "interest_savings_plausible",
+            "score": 1,
+            "weight": 1,
+            "detail": "savings=3904"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.8333333333333333,
+        "rawOutput": {
+          "summary": "This month, Chase Visa receives $200 to be paid off in full, Amex receives $720 ($200 minimum plus $520 extra), and Student Loan receives its $280 minimum payment. The Chase Visa is eliminated immediately, and the full surplus is then focused on Amex — the next highest-rate debt — to minimize interest costs. Once Amex is paid off in about 13 months, that $720 per month can be redirected to accelerate the student loan.",
+          "rationale": "The avalanche strategy targets Chase Visa first at 24.99% APR — the most expensive debt — eliminating it entirely this month with its small $200 balance. The freed-up surplus is then concentrated on Amex at 18.99% APR, saving approximately $3,904 in interest compared to paying only minimums across all accounts. At 30 years old, Eval has a good runway to clear these debts efficiently and redirect cash flow toward building wealth.",
+          "scheduled_payments": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "amount": 200,
+              "payment_type": "payoff"
+            },
+            {
+              "plaid_account_id": "acc_amex",
+              "debt_name": "Amex",
+              "amount": 720,
+              "payment_type": "extra"
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "amount": 280,
+              "payment_type": "minimum"
+            }
+          ],
+          "projections": [
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "current_balance": 200,
+              "apr": 0.2499,
+              "months_to_payoff": 1,
+              "total_interest_paid": 4.17
+            },
+            {
+              "plaid_account_id": "acc_amex",
+              "debt_name": "Amex",
+              "current_balance": 8000,
+              "apr": 0.1899,
+              "months_to_payoff": 13,
+              "total_interest_paid": 863
+            },
+            {
+              "plaid_account_id": "acc_student",
+              "debt_name": "Student Loan",
+              "current_balance": 25000,
+              "apr": 0.068,
+              "months_to_payoff": 125,
+              "total_interest_paid": 9944
+            }
+          ],
+          "interest_savings": 3904,
+          "positive_outcomes": "Once Amex is paid off in approximately 13 months, Eval will free up $720 per month that can be fully redirected toward the student loan or savings — dramatically accelerating the path to being debt-free."
+        },
+        "durationMs": 40222.39706200002
+      }
+    ]
+  },
+  {
+    "caseId": "debt-two-equal-apr",
+    "caseName": "Two debts with identical APR",
+    "agentType": "debt",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "payments_sum_equals_allocation": 1,
+      "all_debts_covered": 1,
+      "minimums_met": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "projections_for_all_debts": 1
+    },
+    "softScoreStats": {
+      "avalanche_ordering": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "payment_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "interest_savings_plausible": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 1,
+    "medianDurationMs": 45013.515289,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "payments_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=600.00 allocation=600.00"
+          },
+          {
+            "name": "all_debts_covered",
+            "passed": true,
+            "detail": "all debts paid"
+          },
+          {
+            "name": "minimums_met",
+            "passed": true,
+            "detail": "all minimums covered"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "projections_for_all_debts",
+            "passed": true,
+            "detail": "all projected"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "avalanche_ordering",
+            "score": 1,
+            "weight": 4,
+            "detail": "rank correlation=1.00"
+          },
+          {
+            "name": "payment_type_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "2/2 correct"
+          },
+          {
+            "name": "interest_savings_plausible",
+            "score": 1,
+            "weight": 1,
+            "detail": "savings=4907"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=4"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 1,
+        "rawOutput": {
+          "summary": "This month, $500 goes to your Citi Mastercard (including its $150 minimum plus $350 extra) and $100 goes to your Chase Visa as the minimum payment. Both cards share the same 19.99% APR, so the extra dollars are directed at the higher-balance Mastercard to eliminate the larger interest-accruing principal first. Sticking to this plan will save you approximately $4,907 in interest compared to making only minimum payments.",
+          "rationale": "Both the Chase Visa and Citi Mastercard carry the same 19.99% APR, so the avalanche strategy directs all surplus funds to the Mastercard first because its $6,000 balance generates more interest in absolute dollar terms each month than the Visa's $4,000 balance. At 30 years old, Eval has a strong incentive to eliminate this high-rate debt quickly and redirect that cash flow toward longer-horizon goals like investing. Once the Mastercard is retired in roughly 14 months, the full $600 budget accelerates the Visa payoff, clearing all debt in about 21 months total.",
+          "scheduled_payments": [
+            {
+              "plaid_account_id": "acc_mc",
+              "debt_name": "Citi Mastercard",
+              "amount": 500,
+              "payment_type": "extra"
+            },
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "amount": 100,
+              "payment_type": "minimum"
+            }
+          ],
+          "projections": [
+            {
+              "plaid_account_id": "acc_mc",
+              "debt_name": "Citi Mastercard",
+              "current_balance": 6000,
+              "apr": 0.1999,
+              "months_to_payoff": 14,
+              "total_interest_paid": 690
+            },
+            {
+              "plaid_account_id": "acc_visa",
+              "debt_name": "Chase Visa",
+              "current_balance": 4000,
+              "apr": 0.1999,
+              "months_to_payoff": 21,
+              "total_interest_paid": 1028
+            }
+          ],
+          "interest_savings": 4907,
+          "positive_outcomes": "Once the Citi Mastercard is paid off in 14 months, the full $600 monthly budget rolls onto the Chase Visa, accelerating that payoff and freeing up all $600 of monthly cash flow by month 21 — money that can then be redirected toward savings or investing."
+        },
+        "durationMs": 45013.515289
+      }
+    ]
+  }
+]

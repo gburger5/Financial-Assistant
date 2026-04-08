@@ -1,0 +1,447 @@
+[
+  {
+    "caseId": "budget-emergency-fund-fully-funded",
+    "caseName": "Emergency fund fully funded",
+    "agentType": "budget",
+    "runCount": 5,
+    "hardConstraintPassRate": {
+      "categories_sum_equals_income": 1,
+      "investments_nonzero": 1,
+      "debts_gte_min_payments": 1,
+      "all_categories_nonnegative": 1,
+      "income_matches_input": 1,
+      "needs_not_reduced_below_actual": 1
+    },
+    "softScoreStats": {
+      "fifty_thirty_twenty_adherence": {
+        "mean": 0.7454545454545455,
+        "min": 0.7454545454545455,
+        "max": 0.7454545454545455,
+        "stddev": 0
+      },
+      "emergency_fund_tier_compliance": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "debt_prioritized_when_high_apr": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9045454545454545,
+    "medianDurationMs": 46616.746771000035,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "Your needs and wants spending looks healthy and is kept intact. Since your savings balance of $45,000 already exceeds a 6-month emergency fund, the monthly emergency fund contribution is set to a modest $275 to maintain that cushion without over-allocating. The freed-up funds from your previous investment allocation are redirected to keep monthly investments strong at $1,475, giving you a solid wealth-building foundation at 36.",
+          "rationale": "With no debt and no specific goals provided, the default 50/30/20 framework was applied. Your actual needs spending slightly exceeds the 50% target, so all need categories are preserved at actuals and the surplus from a well-funded wants category is channeled into investments rather than lifestyle inflation. The emergency fund contribution is capped at 5% of income per the rules, since liquid savings of $45,000 already surpasses six months of income.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 61322.03699600004
+      },
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "Your emergency fund is already well-funded at $40,000, well above six months of income, so a small monthly contribution of $275 is sufficient to maintain it. Since you have no debt, the freed-up allocation goes entirely into investments, bringing that down slightly from $1,750 to $1,475 to make room for the emergency fund top-up while keeping all your current spending intact. Every dollar of your $5,500 income is accounted for with no changes to any spending category.",
+          "rationale": "With no debt obligations and no specific goals provided, the default 50/30/20 framework was applied. Your actual needs spending slightly exceeds the 50% threshold, so all need categories were preserved at current levels per the hard rules. The emergency fund cap of 5% of income ($275) was applied because your liquid savings already exceed six months of income, and the remaining surplus flowed directly into investments rather than wants.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 31763.518998000014
+      },
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=2"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "Your needs and wants spending looks healthy and is kept as-is since there are no debts and your $45,000 in liquid savings already exceeds a 6-month emergency fund. A modest $275 emergency fund contribution is added to maintain the savings habit, with the remaining surplus directed to investments at $1,475 per month — a slight reduction from your current $1,750 that better reflects a balanced, sustainable plan.",
+          "rationale": "With no debts, no stated goals, and liquid savings well above 6 months of income, the default 50/30/20 framework applies. Needs are honored at their actual levels since they are non-negotiable, wants are held at current actuals rather than inflated to the 30% ceiling (per the hard rule against redirecting surplus to wants), and the remaining funds flow to investments after a small emergency fund top-up capped at 5% of income.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 47431.47285300004
+      },
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "The biggest change here is redirecting $275 per month toward an emergency fund contribution, even though your savings balance of $45,000 is already strong. Your investment allocation is adjusted to $1,475 to balance this out, keeping your savings momentum intact. All spending categories remain the same since they are well within healthy limits.",
+          "rationale": "With no debt and no active goals, the default 50/30/20 framework applies. Needs are fully covered at actuals, wants fall comfortably under the 30% ceiling, and the bulk of remaining income flows to investments. A modest emergency fund contribution is included per policy, capped at 5% of income given that liquid savings already exceed six months of income.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 34330.401617999945
+      },
+      {
+        "hardConstraints": [
+          {
+            "name": "categories_sum_equals_income",
+            "passed": true,
+            "detail": "sum=5500.00 income=5500.00"
+          },
+          {
+            "name": "investments_nonzero",
+            "passed": true,
+            "detail": "investments=1475"
+          },
+          {
+            "name": "debts_gte_min_payments",
+            "passed": true,
+            "detail": "debts=0 totalMinimums=0"
+          },
+          {
+            "name": "all_categories_nonnegative",
+            "passed": true,
+            "detail": "all fields >= 0"
+          },
+          {
+            "name": "income_matches_input",
+            "passed": true,
+            "detail": "output=5500 input=5500"
+          },
+          {
+            "name": "needs_not_reduced_below_actual",
+            "passed": true,
+            "detail": "all needs preserved"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "fifty_thirty_twenty_adherence",
+            "score": 0.7454545454545455,
+            "weight": 3,
+            "detail": "needs=0.56 wants=0.17 savings=0.27"
+          },
+          {
+            "name": "emergency_fund_tier_compliance",
+            "score": 1,
+            "weight": 2,
+            "detail": "ef=275 cap=275 (savings=45000)"
+          },
+          {
+            "name": "debt_prioritized_when_high_apr",
+            "score": 1,
+            "weight": 2,
+            "detail": "no debt above 10% APR"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean summary, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9045454545454545,
+        "rawOutput": {
+          "summary": "Your needs and wants spending looks well-managed, so all existing category amounts are preserved. Since your savings of $45,000 already exceeds a 6-month emergency fund, a modest $275 monthly contribution keeps that cushion growing without over-allocating. The freed-up dollars from reducing your investment line slightly are offset by now formally funding your emergency fund, keeping your total savings trajectory strong.",
+          "rationale": "With no debt and no specific goals provided, the default 50/30/20 framework was applied. Needs are held at actual spending since they are non-negotiable and already reasonable. Because your liquid savings exceed six months of income, the emergency fund contribution is capped at 5% ($275), and the remaining unallocated funds are directed to investments, resulting in a $1,475 monthly investment contribution.",
+          "income": 5500,
+          "housing": 1600,
+          "utilities": 200,
+          "transportation": 350,
+          "groceries": 550,
+          "takeout": 300,
+          "shopping": 300,
+          "personalCare": 100,
+          "emergencyFund": 275,
+          "entertainment": 250,
+          "medical": 100,
+          "debts": 0,
+          "investments": 1475
+        },
+        "durationMs": 46616.746771000035
+      }
+    ]
+  }
+]
