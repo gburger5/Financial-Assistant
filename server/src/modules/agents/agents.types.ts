@@ -59,6 +59,13 @@ export interface AgentMetricsRecord {
   userId: string;
   metricId: string;
   proposalId: string;
+  /**
+   * Correlation id shared with log lines emitted during this agent run.
+   * Joining on `agent.invocation_id` lets an operator pivot from a log
+   * entry to the persisted metrics record (and vice-versa) for a single
+   * invocation. ULID, generated at the start of each run*Agent call.
+   */
+  invocationId: string;
   agentType: AgentType;
   createdAt: string;
 

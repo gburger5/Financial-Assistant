@@ -9,7 +9,7 @@
  * non-deterministic, so a single run is not enough signal — 5 strikes the
  * balance between cost and stability for routine prompt changes.
  */
-export const DEFAULT_RUNS_PER_CASE = 1;
+export const DEFAULT_RUNS_PER_CASE = 5;
 
 /**
  * Dollar tolerance for sum-equality hard constraints. Float arithmetic

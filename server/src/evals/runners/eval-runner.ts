@@ -63,6 +63,7 @@ function sleep(ms: number): Promise<void> {
  * @param invoke - Closure that invokes the target agent with the case input.
  * @param score - Pure scoring function for the agent's output.
  * @param runsPerCase - How many times to run the case (default: EVAL_RUNS env var, then config value).
+ * @param delayMs - Milliseconds to wait between iterations to avoid rate limits (default: 3000, pass 0 in unit tests).
  * @returns The aggregated EvalCaseResult across all runs.
  */
 export async function runCase<TCase extends EvalCase>(
@@ -71,6 +72,7 @@ export async function runCase<TCase extends EvalCase>(
   invoke: (c: TCase) => Promise<AgentInvokeResult<AnyAgentOutput>>,
   score: (output: AnyAgentOutput, c: TCase) => Omit<SingleRunScore, 'durationMs'>,
   runsPerCase: number = Number(process.env.EVAL_RUNS) || DEFAULT_RUNS_PER_CASE,
+  delayMs: number = 3000,
 ): Promise<EvalCaseResult> {
   const runs: SingleRunScore[] = [];
 
@@ -92,7 +94,7 @@ export async function runCase<TCase extends EvalCase>(
 
     // Space out API calls to avoid hitting Anthropic's per-minute rate limit.
     if (i < runsPerCase - 1) {
-      await sleep(3000);
+      await sleep(delayMs);
     }
   }
 

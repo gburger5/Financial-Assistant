@@ -13,7 +13,9 @@
  *     so that retries after partial failure are safe — upserts with the same ID are no-ops.
  *   - Status transitions are enforced atomically via DynamoDB ConditionExpressions.
  */
+import type pino from 'pino';
 import { ulid } from 'ulid';
+import { getAgentLogger } from '../../lib/agent-logger.js';
 import * as agentsRepository from './agents.repository.js';
 import { invokeBudgetAgent } from './core/budget-agent.js';
 import { invokeDebtAgent } from './core/debt-agent.js';
@@ -51,6 +53,77 @@ import type { Holding } from '../investments/investments.types.js';
 import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './core/tools.js';
 
 // ---------------------------------------------------------------------------
+// Logging helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a pino child logger bound to the correlation context for a single
+ * agent run. The invocation id ties every log line for this run to the
+ * AgentMetricsRecord eventually persisted under the same id.
+ *
+ * Field names follow the OTel-style namespace.attribute convention already
+ * used by the HTTP request hook in `src/hooks/hooks.ts`.
+ *
+ * @param {AgentType} agentType
+ * @param {string} userId
+ * @param {string} invocationId - ULID generated at the start of the run.
+ * @returns {pino.Logger}
+ */
+function createInvocationLogger(
+  agentType: AgentType,
+  userId: string,
+  invocationId: string,
+): pino.Logger {
+  return getAgentLogger().child({
+    'agent.type': agentType,
+    'agent.invocation_id': invocationId,
+    'user.id': userId,
+  });
+}
+
+/**
+ * Summarises a metrics snapshot into the small subset of fields we want to
+ * emit on the success log line. Keeps the log terse (counts/durations only —
+ * never user financial values) while still carrying enough information to
+ * spot slow runs, high token usage, or tool errors at a glance.
+ *
+ * @param {AgentMetrics | undefined} metrics - Raw SDK snapshot.
+ * @returns {Record<string, number>} Flat OTel-named fields.
+ */
+function summariseMetricsForLog(metrics: AgentMetrics | undefined): Record<string, number> {
+  if (!metrics) return {};
+  let toolErrorCount = 0;
+  for (const data of Object.values(metrics.toolUsage)) {
+    toolErrorCount += data.errorCount;
+  }
+  return {
+    'agent.total_tokens': metrics.accumulatedUsage.totalTokens,
+    'agent.duration_ms': metrics.totalDuration,
+    'agent.cycle_count': metrics.cycleCount,
+    'tool.error_count': toolErrorCount,
+  };
+}
+
+/**
+ * Non-silent catch handler for the fire-and-forget metrics save. Metrics
+ * loss is still acceptable (the proposal is the critical path), but the
+ * failure must not be invisible — otherwise a broken metrics table would
+ * silently drop analytics data.
+ *
+ * @param {pino.Logger} log - The invocation-bound child logger.
+ * @returns {(err: unknown) => void}
+ */
+function logMetricsSaveFailure(log: pino.Logger): (err: unknown) => void {
+  return (err: unknown) => {
+    const e = err as { name?: string; message?: string };
+    log.warn(
+      { 'error.type': e?.name ?? 'Error', 'error.message': e?.message ?? String(err) },
+      'agent metrics persistence failed',
+    );
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Agent invocation methods
 // ---------------------------------------------------------------------------
 
@@ -65,6 +138,9 @@ import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './core/too
  * @throws {ServiceUnavailableError} If the agent invocation fails.
  */
 export async function runBudgetAgent(userId: string): Promise<Proposal> {
+  const invocationId = ulid();
+  const log = createInvocationLogger('budget', userId, invocationId);
+
   const existing = await agentsRepository.getPendingProposal(userId, 'budget');
   if (existing) {
     throw new ConflictError('A pending budget proposal already exists');
@@ -75,21 +151,33 @@ export async function runBudgetAgent(userId: string): Promise<Proposal> {
     throw new NotFoundError('No budget found. Connect a bank account to get started.');
   }
 
+  log.debug({ 'inputs.has_budget': true }, 'agent invocation starting');
+
   let output: BudgetProposal;
   let metrics: AgentMetrics | undefined;
   try {
     ({ output, metrics } = await invokeBudgetAgent(userId, budget));
-  } catch {
+  } catch (err) {
+    const e = err as { name?: string; message?: string };
+    log.error(
+      { 'error.type': e?.name ?? 'Error', 'error.message': e?.message ?? String(err) },
+      'agent invocation failed',
+    );
     throw new ServiceUnavailableError('Budget agent is temporarily unavailable. Please try again.');
   }
 
   const proposal = buildProposal(userId, 'budget', output);
   await agentsRepository.saveProposal(proposal);
 
+  log.info(
+    { 'agent.proposal_id': proposal.proposalId, ...summariseMetricsForLog(metrics) },
+    'agent invocation succeeded',
+  );
+
   if (metrics) {
-    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'budget', metrics)).catch(() => {
-      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
-    });
+    agentsRepository
+      .saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, invocationId, 'budget', metrics))
+      .catch(logMetricsSaveFailure(log));
   }
 
   return proposal;
@@ -107,6 +195,9 @@ export async function runBudgetAgent(userId: string): Promise<Proposal> {
  * @throws {ServiceUnavailableError} If the agent invocation fails.
  */
 export async function runDebtAgent(userId: string, debtAllocation: number): Promise<Proposal> {
+  const invocationId = ulid();
+  const log = createInvocationLogger('debt', userId, invocationId);
+
   const existing = await agentsRepository.getPendingProposal(userId, 'debt');
   if (existing) {
     throw new ConflictError('A pending debt proposal already exists');
@@ -119,21 +210,36 @@ export async function runDebtAgent(userId: string, debtAllocation: number): Prom
 
   const debts = mapLiabilitiesToDebtAccounts(liabilities, accounts);
 
+  log.debug(
+    { 'inputs.liability_count': debts.length, 'inputs.account_count': accounts.length },
+    'agent invocation starting',
+  );
+
   let output: DebtPaymentPlan;
   let metrics: AgentMetrics | undefined;
   try {
     ({ output, metrics } = await invokeDebtAgent({ userId, debtAllocation, debts }));
-  } catch {
+  } catch (err) {
+    const e = err as { name?: string; message?: string };
+    log.error(
+      { 'error.type': e?.name ?? 'Error', 'error.message': e?.message ?? String(err) },
+      'agent invocation failed',
+    );
     throw new ServiceUnavailableError('Debt agent is temporarily unavailable. Please try again.');
   }
 
   const proposal = buildProposal(userId, 'debt', output);
   await agentsRepository.saveProposal(proposal);
 
+  log.info(
+    { 'agent.proposal_id': proposal.proposalId, ...summariseMetricsForLog(metrics) },
+    'agent invocation succeeded',
+  );
+
   if (metrics) {
-    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'debt', metrics)).catch(() => {
-      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
-    });
+    agentsRepository
+      .saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, invocationId, 'debt', metrics))
+      .catch(logMetricsSaveFailure(log));
   }
 
   return proposal;
@@ -151,6 +257,9 @@ export async function runDebtAgent(userId: string, debtAllocation: number): Prom
  * @throws {ServiceUnavailableError} If the agent invocation fails.
  */
 export async function runInvestingAgent(userId: string, investingAllocation: number): Promise<Proposal> {
+  const invocationId = ulid();
+  const log = createInvocationLogger('investing', userId, invocationId);
+
   const existing = await agentsRepository.getPendingProposal(userId, 'investing');
   if (existing) {
     throw new ConflictError('A pending investing proposal already exists');
@@ -165,21 +274,40 @@ export async function runInvestingAgent(userId: string, investingAllocation: num
   const investmentAccounts = mapToInvestmentAccounts(accounts, holdings);
   const userAge = user.birthday ? computeAge(user.birthday) : null;
 
+  log.debug(
+    {
+      'inputs.investment_account_count': investmentAccounts.length,
+      'inputs.holding_count': holdings.length,
+      'inputs.has_user_age': userAge !== null,
+    },
+    'agent invocation starting',
+  );
+
   let output: InvestmentPlan;
   let metrics: AgentMetrics | undefined;
   try {
     ({ output, metrics } = await invokeInvestingAgent({ userId, investingAllocation, accounts: investmentAccounts, userAge }));
-  } catch {
+  } catch (err) {
+    const e = err as { name?: string; message?: string };
+    log.error(
+      { 'error.type': e?.name ?? 'Error', 'error.message': e?.message ?? String(err) },
+      'agent invocation failed',
+    );
     throw new ServiceUnavailableError('Investing agent is temporarily unavailable. Please try again.');
   }
 
   const proposal = buildProposal(userId, 'investing', output);
   await agentsRepository.saveProposal(proposal);
 
+  log.info(
+    { 'agent.proposal_id': proposal.proposalId, ...summariseMetricsForLog(metrics) },
+    'agent invocation succeeded',
+  );
+
   if (metrics) {
-    agentsRepository.saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, 'investing', metrics)).catch(() => {
-      // Fire-and-forget — metrics loss is acceptable, proposal is the critical path
-    });
+    agentsRepository
+      .saveAgentMetrics(buildMetricsRecord(userId, proposal.proposalId, invocationId, 'investing', metrics))
+      .catch(logMetricsSaveFailure(log));
   }
 
   return proposal;
@@ -245,6 +373,16 @@ export async function approveProposal(userId: string, proposalId: string): Promi
   }
 
   await agentsRepository.updateProposalStatus(userId, proposalId, 'approved', 'pending');
+  getAgentLogger().info(
+    {
+      'agent.type': proposal.agentType,
+      'agent.proposal_id': proposalId,
+      'user.id': userId,
+      'proposal.status_from': 'pending',
+      'proposal.status_to': 'approved',
+    },
+    'proposal status transition',
+  );
   return { ...proposal, status: 'approved', updatedAt: new Date().toISOString() };
 }
 
@@ -267,6 +405,16 @@ export async function rejectProposal(userId: string, proposalId: string): Promis
   }
 
   await agentsRepository.updateProposalStatus(userId, proposalId, 'rejected', 'pending');
+  getAgentLogger().info(
+    {
+      'agent.type': proposal.agentType,
+      'agent.proposal_id': proposalId,
+      'user.id': userId,
+      'proposal.status_from': 'pending',
+      'proposal.status_to': 'rejected',
+    },
+    'proposal status transition',
+  );
   return { ...proposal, status: 'rejected', updatedAt: new Date().toISOString() };
 }
 
@@ -317,6 +465,16 @@ export async function executeProposal(userId: string, proposalId: string): Promi
   }
 
   await agentsRepository.updateProposalStatus(userId, proposalId, 'executed', 'approved');
+  getAgentLogger().info(
+    {
+      'agent.type': proposal.agentType,
+      'agent.proposal_id': proposalId,
+      'user.id': userId,
+      'proposal.status_from': 'approved',
+      'proposal.status_to': 'executed',
+    },
+    'proposal executed',
+  );
   return { ...proposal, status: 'executed', updatedAt: new Date().toISOString() };
 }
 
@@ -569,6 +727,7 @@ export function mapToInvestmentAccounts(accounts: Account[], holdings: Holding[]
 function buildMetricsRecord(
   userId: string,
   proposalId: string,
+  invocationId: string,
   agentType: AgentType,
   metrics: AgentMetrics,
 ): AgentMetricsRecord {
@@ -589,6 +748,7 @@ function buildMetricsRecord(
     userId,
     metricId: ulid(),
     proposalId,
+    invocationId,
     agentType,
     createdAt: new Date().toISOString(),
     totalTokens: metrics.accumulatedUsage.totalTokens,

@@ -41,6 +41,7 @@ const sampleMetricsRecord: AgentMetricsRecord = {
   userId: 'user-agent-1',
   metricId: '01ARZ3NDEKTSV4RRFFQ69G5FAX',
   proposalId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+  invocationId: '01ARZ3NDEKTSV4RRFFQ69G5FAW',
   agentType: 'budget',
   createdAt: '2024-01-01T00:00:00.000Z',
   totalTokens: 1500,

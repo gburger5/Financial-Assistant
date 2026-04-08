@@ -48,7 +48,7 @@ describe('runCase', () => {
     const mocks = makeMocks();
     const invoke = vi.fn().mockResolvedValue({ output: {}, metrics: {} });
     const score = vi.fn().mockReturnValue(fakeSingleRun);
-    await runCase(fakeCase, mocks, invoke, score, 4);
+    await runCase(fakeCase, mocks, invoke, score, 4, 0);
     expect(invoke).toHaveBeenCalledTimes(4);
     expect(score).toHaveBeenCalledTimes(4);
   });
@@ -57,7 +57,7 @@ describe('runCase', () => {
     const mocks = makeMocks();
     const invoke = vi.fn().mockResolvedValue({ output: {}, metrics: {} });
     const score = vi.fn().mockReturnValue(fakeSingleRun);
-    await runCase(fakeCase, mocks, invoke, score, 1);
+    await runCase(fakeCase, mocks, invoke, score, 1, 0);
     await expect(mocks.getAccountsForUser('u1')).resolves.toEqual(fakeCase.mockData.accounts);
     await expect(mocks.getLatestHoldings('u1')).resolves.toEqual(fakeCase.mockData.holdings);
     await expect(mocks.getLiabilitiesForUser('u1')).resolves.toEqual(fakeCase.mockData.liabilities);
@@ -68,7 +68,7 @@ describe('runCase', () => {
     const mocks = makeMocks();
     const invoke = vi.fn().mockResolvedValue({ output: {}, metrics: {} });
     const score = vi.fn().mockReturnValue(fakeSingleRun);
-    const result = await runCase(fakeCase, mocks, invoke, score, 3);
+    const result = await runCase(fakeCase, mocks, invoke, score, 3, 0);
     expect(result.caseId).toBe('c1');
     expect(result.caseName).toBe('Case 1');
     expect(result.agentType).toBe('budget');
@@ -81,7 +81,7 @@ describe('runCase', () => {
     const mocks = makeMocks();
     const invoke = vi.fn().mockResolvedValue({ output: {}, metrics: {} });
     const score = vi.fn().mockReturnValue(fakeSingleRun);
-    const result = await runCase(fakeCase, mocks, invoke, score, 2);
+    const result = await runCase(fakeCase, mocks, invoke, score, 2, 0);
     for (const run of result.runs) {
       expect(typeof run.durationMs).toBe('number');
       expect(run.durationMs).toBeGreaterThanOrEqual(0);
@@ -93,7 +93,7 @@ describe('runCase', () => {
     const output = { hello: 'world' };
     const invoke = vi.fn().mockResolvedValue({ output, metrics: {} });
     const score = vi.fn().mockReturnValue(fakeSingleRun);
-    await runCase(fakeCase, mocks, invoke, score, 1);
+    await runCase(fakeCase, mocks, invoke, score, 1, 0);
     expect(score).toHaveBeenCalledWith(output, fakeCase);
   });
 });
