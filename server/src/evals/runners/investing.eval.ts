@@ -61,7 +61,6 @@ describe('investing agent eval', () => {
   afterAll(() => {
     if (allResults.length === 0) return;
     writeResultsArtifact('investing', allResults);
-    // eslint-disable-next-line no-console
     console.table(
       allResults.map(r => ({
         case: r.caseName,

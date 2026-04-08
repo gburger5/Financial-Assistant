@@ -67,7 +67,6 @@ describe('budget agent eval', () => {
   afterAll(() => {
     if (allResults.length === 0) return;
     writeResultsArtifact('budget', allResults);
-    // eslint-disable-next-line no-console
     console.table(
       allResults.map(r => ({
         case: r.caseName,

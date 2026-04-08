@@ -61,7 +61,6 @@ describe('debt agent eval', () => {
   afterAll(() => {
     if (allResults.length === 0) return;
     writeResultsArtifact('debt', allResults);
-    // eslint-disable-next-line no-console
     console.table(
       allResults.map(r => ({
         case: r.caseName,

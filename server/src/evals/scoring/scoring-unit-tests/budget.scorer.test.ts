@@ -12,7 +12,6 @@ import {
   makeBudget,
   makeChecking,
   makeSavings,
-  makeCreditAccount,
   makeCreditLiability,
 } from '../../fixtures/mock-data.js';
 import type { BudgetEvalCase } from '../../eval.types.js';
@@ -122,6 +121,7 @@ describe('scoreBudgetOutput — hard constraints', () => {
 
   it('passes investments_nonzero for any positive investment', () => {
     const score = scoreBudgetOutput(makeProposal({ investments: 1 }), makeCase());
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const c = score.hardConstraints.find(c => c.name === 'investments_nonzero');
     // Note: must adjust another field to keep sum valid; do this directly.
     const valid = scoreBudgetOutput(

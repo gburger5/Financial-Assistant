@@ -6,7 +6,7 @@
  * switch strategy instead of receiving a hard exception.
  */
 
-import { tool } from '@strands-agents/sdk';
+import { JSONValue, tool } from '@strands-agents/sdk';
 import { z } from 'zod';
 import { getAccountsForUser } from '../../accounts/accounts.service.js';
 import { getUserById } from '../../auth/auth.service.js';
@@ -219,7 +219,7 @@ export const getUserAccounts = tool({
   callback: async (input: z.infer<typeof userIdSchema>) => {
     try {
       const accounts = await getAccountsForUser(input.userId);
-      return { accounts, isEmpty: accounts.length === 0 };
+      return { accounts, isEmpty: accounts.length === 0 } as unknown as JSONValue;
     } catch (err) {
       return { error: 'FAILED_TO_FETCH_ACCOUNTS', message: errorMessage(err), retryable: true };
     }
@@ -245,7 +245,7 @@ export const getUserHoldings = tool({
   callback: async (input: z.infer<typeof userIdSchema>) => {
     try {
       const holdings = await getLatestHoldings(input.userId);
-      return { holdings, isEmpty: holdings.length === 0 };
+      return { holdings, isEmpty: holdings.length === 0 } as unknown as JSONValue;
     } catch (err) {
       return { error: 'FAILED_TO_FETCH_HOLDINGS', message: errorMessage(err), retryable: true };
     }
@@ -274,7 +274,7 @@ export const getUserLiabilities = tool({
   callback: async (input: z.infer<typeof userIdSchema>) => {
     try {
       const liabilities = await getLiabilitiesForUser(input.userId);
-      return { liabilities, isEmpty: liabilities.length === 0 };
+      return { liabilities, isEmpty: liabilities.length === 0 } as unknown as JSONValue;
     } catch (err) {
       return { error: 'FAILED_TO_FETCH_LIABILITIES', message: errorMessage(err), retryable: true };
     }
@@ -323,7 +323,7 @@ export const getUserProfile = tool({
         firstName: user.firstName,
         lastName: user.lastName,
         age: user.birthday ? computeAge(user.birthday) : null,
-      };
+      } as unknown as JSONValue;
     } catch (err) {
       if (err instanceof NotFoundError) {
         return { error: 'USER_NOT_FOUND', message: err.message, retryable: false };
@@ -385,6 +385,6 @@ export const getUserFinancialSnapshot = tool({
       liabilities: liabilities.data,
       liabilitiesEmpty: liabilities.data ? (liabilities.data as unknown[]).length === 0 : null,
       liabilitiesError: liabilities.error,
-    };
+    } as unknown as JSONValue;
   },
 });
