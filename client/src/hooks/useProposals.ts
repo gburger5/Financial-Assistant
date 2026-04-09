@@ -10,7 +10,6 @@ interface UseProposalsResult {
   approve: (proposalId: string) => Promise<void>
   execute: (proposalId: string) => Promise<void>
   reject: (proposalId: string) => Promise<void>
-  remove: (proposalId: string) => Promise<void>
   refetch: () => void
 }
 
@@ -42,17 +41,9 @@ export function useProposals(): UseProposalsResult {
     [refetch],
   )
 
-  const remove = useCallback(
-    async (proposalId: string): Promise<void> => {
-      await api.delete(`/api/agent/proposals/${proposalId}`)
-      refetch()
-    },
-    [refetch],
-  )
-
   const proposals = data ?? []
   // Agent routes not yet registered — gracefully return empty array on 404
   const safeError = error?.status === 404 ? null : error
 
-  return { proposals, loading, error: safeError, approve, execute, reject, remove, refetch }
+  return { proposals, loading, error: safeError, approve, execute, reject, refetch }
 }

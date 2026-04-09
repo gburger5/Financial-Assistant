@@ -1,60 +1,89 @@
 .check-email-page {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
-}
-
-.check-email-page__hero {
-  background: var(--gradient-cta);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12);
-}
-
-.check-email-page__hero-content { max-width: 400px; }
-
-.check-email-page__hero-title {
-  font-family: var(--font-heading);
-  font-size: var(--text-4xl);
-  font-weight: var(--weight-extrabold);
-  color: #fff;
-  margin-bottom: var(--space-4);
-}
-
-.check-email-page__hero-sub {
-  font-size: var(--text-lg);
-  color: rgba(255, 255, 255, 0.8);
-  line-height: var(--leading-relaxed);
-}
-
-.check-email-page__form-side {
   background: var(--color-bg-body);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-8);
+  overflow: hidden;
+  padding: var(--space-6);
 }
 
-.check-email-page__box {
+.check-email-page__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.check-email-page__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.35;
+}
+
+.check-email-page__orb--1 {
+  width: 500px;
+  height: 500px;
+  background: var(--color-purple-600);
+  top: -10%;
+  left: -8%;
+}
+
+.check-email-page__orb--2 {
+  width: 400px;
+  height: 400px;
+  background: #EC4899;
+  bottom: -12%;
+  right: -6%;
+}
+
+.check-email-page__card {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-5);
-  text-align: center;
+  gap: var(--space-6);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10);
+  box-shadow: var(--shadow-lg);
 }
 
-.check-email-page__icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgba(99, 102, 241, 0.12);
-  color: #6366F1;
+.check-email-page__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.check-email-page__logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-cta);
+}
+
+.check-email-page__logo-text {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+}
+
+.check-email-page__icon-wrap {
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-lg);
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--color-purple-400);
 }
 
 .check-email-page__heading {
@@ -65,11 +94,11 @@
   margin: 0;
 }
 
-.check-email-page__description {
+.check-email-page__sub {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-4));
   line-height: var(--leading-relaxed);
-  margin: 0;
 }
 
 .check-email-page__error {
@@ -78,27 +107,27 @@
   padding: var(--space-3) var(--space-4);
   background: var(--color-danger-bg);
   border-radius: var(--radius-md);
-  width: 100%;
-  margin: 0;
 }
 
 .check-email-page__success {
   font-size: var(--text-sm);
-  color: #22C55E;
+  color: var(--color-success);
   padding: var(--space-3) var(--space-4);
-  background: rgba(34, 197, 94, 0.08);
+  background: var(--color-success-bg);
   border-radius: var(--radius-md);
-  width: 100%;
-  margin: 0;
 }
 
 .check-email-page__footer {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  text-align: center;
 }
 
-@media (max-width: 767px) {
-  .check-email-page { grid-template-columns: 1fr; }
-  .check-email-page__hero { padding: var(--space-8); min-height: 160px; }
-  .check-email-page__hero-title { font-size: var(--text-2xl); }
+.check-email-page__back-icon {
+  vertical-align: -2px;
+  margin-right: var(--space-1);
+}
+
+@media (max-width: 520px) {
+  .check-email-page__card { padding: var(--space-6); }
 }

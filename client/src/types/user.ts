@@ -5,7 +5,6 @@ export interface PublicUser {
   email: string
   createdAt?: string
   agentBudgetApproved?: boolean
-  birthday?: string
 }
 
 export interface AuthState {
@@ -17,4 +16,10 @@ export interface AuthState {
 export interface LoginResponse {
   user: PublicUser
   token: string
+  refreshToken: string
+}
+
+export interface RefreshResponse {
+  accessToken: string
+  refreshToken: string
 }

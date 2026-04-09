@@ -26,6 +26,19 @@ import {
 } from 'lucide-react'
 import './BudgetPage.css'
 
+/* Theme-safe colors — visible in both light and dark */
+const COLORS = {
+  housing:        '#457B9D',
+  utilities:      '#3B82F6',
+  transportation: '#00D4AA',
+  groceries:      '#F59E0B',
+  takeout:        '#EF4444',
+  shopping:       '#8B5CF6',
+  personalCare:   '#EC4899',
+  debts:          '#F97316',
+  investments:    '#14B8A6',
+}
+
 export default function BudgetPage() {
   const { budget, loading, error } = useBudget()
   const navigate = useNavigate()
@@ -86,7 +99,7 @@ export default function BudgetPage() {
       <div className="budget-page__stat-grid">
         <StatCard
           icon={<DollarSign size={20} />}
-          iconBg="var(--color-chart-3)"
+          iconBg={COLORS.transportation}
           label="Monthly Income"
           value={fmt(income)}
           change="from bank data"
@@ -94,7 +107,7 @@ export default function BudgetPage() {
         />
         <StatCard
           icon={<Home size={20} />}
-          iconBg="var(--color-chart-1)"
+          iconBg={COLORS.housing}
           label="Needs"
           value={fmt(needsTotal)}
           change={pct(needsTotal)}
@@ -102,7 +115,7 @@ export default function BudgetPage() {
         />
         <StatCard
           icon={<ShoppingBag size={20} />}
-          iconBg="var(--color-chart-5)"
+          iconBg={COLORS.takeout}
           label="Wants"
           value={fmt(wantsTotal)}
           change={pct(wantsTotal)}
@@ -110,7 +123,7 @@ export default function BudgetPage() {
         />
         <StatCard
           icon={<TrendingUp size={20} />}
-          iconBg="#14B8A6"
+          iconBg={COLORS.investments}
           label="Savings & Debt"
           value={fmt(savingsDebtTotal)}
           change={pct(savingsDebtTotal)}

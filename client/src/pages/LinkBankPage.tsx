@@ -666,7 +666,7 @@ export default function LinkBankPage() {
             </div>
             {BUDGET_CATEGORIES.map(({ key, label, icon }) => {
               const current = ((budget[key as BudgetKey] as { amount: number } | undefined)?.amount ?? 0)
-              const proposedRaw = getProposedAmount(result, key)
+              const proposedRaw = getProposedAmount(proposal.result ?? {}, key)
               const proposed = proposedRaw ?? current
               const { label: diffLabel, positive } = diff(current, proposed)
               return (

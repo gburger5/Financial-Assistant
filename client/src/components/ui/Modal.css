@@ -1,7 +1,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,13 +16,14 @@
 }
 
 .modal {
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-lg);
   animation: modal-in var(--transition-base) both;
 }
 
@@ -40,7 +41,7 @@
 
 .modal__title {
   font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   font-family: var(--font-heading);
 }
@@ -56,7 +57,7 @@
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all var(--transition-fast);
   margin-left: auto;
 }
 
@@ -72,4 +73,10 @@
 
 .modal__body {
   padding: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .modal {
+    max-width: calc(100vw - 2rem);
+  }
 }

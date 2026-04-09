@@ -1,13 +1,9 @@
 .spinner {
   border-radius: var(--radius-full);
   border: 2px solid var(--color-border);
-  border-top-color: var(--color-purple-500);
+  border-top-color: var(--color-teal-500);
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .spinner--sm {

@@ -24,30 +24,6 @@
   gap: var(--space-4);
 }
 
-.topbar__bell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.topbar__bell:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-
-.topbar__bell:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 2px;
-}
-
 .topbar__user {
   display: flex;
   align-items: center;

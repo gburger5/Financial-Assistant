@@ -3,10 +3,10 @@
   width: 44px;
   height: 24px;
   border-radius: var(--radius-full);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
+  background: var(--color-border);
+  border: none;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition: background var(--transition-fast);
   padding: 0;
   flex-shrink: 0;
 }
@@ -22,22 +22,21 @@
 }
 
 .toggle--on {
-  background: var(--color-purple-500);
-  border-color: var(--color-purple-500);
+  background: var(--color-teal-500);
 }
 
 .toggle__thumb {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-full);
-  background: var(--color-text-muted);
-  transition: transform var(--transition-fast), background var(--transition-fast);
+  background: #fff;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .toggle--on .toggle__thumb {
   transform: translateX(20px);
-  background: #fff;
 }
