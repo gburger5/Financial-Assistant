@@ -93,6 +93,8 @@ export const registerSchema = {
 /**
  * Schema for POST /login.
  * Responds 200 with a token string and a PublicUser.
+ * Password has no minLength here, enforcement is at registration.
+ * Any credential mismatch returns 401 from the service layer.
  */
 export const loginSchema = {
   body: {
@@ -101,7 +103,7 @@ export const loginSchema = {
     additionalProperties: false,
     properties: {
       email: { type: 'string', format: 'email' },
-      password: { type: 'string', minLength: 10 },
+      password: { type: 'string', minLength: 1 },
     },
   },
   response: {

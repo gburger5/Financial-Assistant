@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
 import type { Proposal } from '../../types/proposal'
 import Card from '../ui/Card'
 import Badge from '../ui/Badge'
@@ -11,7 +10,6 @@ interface ProposalCardProps {
   onApprove: (id: string) => void | Promise<void>
   onExecute?: (id: string) => void | Promise<void>
   onReject: (id: string) => void | Promise<void>
-  onDelete?: (id: string) => void | Promise<void>
 }
 
 const TYPE_VARIANT: Record<string, 'info' | 'warning' | 'success'> = {
@@ -26,9 +24,8 @@ const STATUS_VARIANT: Record<string, 'neutral' | 'success' | 'danger'> = {
   rejected: 'danger',
 }
 
-export default function ProposalCard({ proposal, onApprove, onReject, onDelete }: ProposalCardProps) {
+export default function ProposalCard({ proposal, onApprove, onReject }: ProposalCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -59,31 +56,6 @@ export default function ProposalCard({ proposal, onApprove, onReject, onDelete }
           <Badge variant={TYPE_VARIANT[displayType] ?? 'info'}>{displayType}</Badge>
           <Badge variant={STATUS_VARIANT[proposal.status] ?? 'neutral'}>{proposal.status}</Badge>
         </div>
-        {confirmDelete ? (
-          <div className="proposal-card__delete-confirm">
-            <span className="proposal-card__delete-confirm-label">Delete?</span>
-            <button
-              className="proposal-card__delete-confirm-yes"
-              onClick={() => onDelete?.(proposal.proposalId)}
-            >
-              Yes
-            </button>
-            <button
-              className="proposal-card__delete-confirm-no"
-              onClick={() => setConfirmDelete(false)}
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            className="proposal-card__delete-btn"
-            onClick={() => setConfirmDelete(true)}
-            aria-label="Delete proposal"
-          >
-            <Trash2 size={15} />
-          </button>
-        )}
       </div>
 
       {summary && <p className="proposal-card__summary">{summary}</p>}

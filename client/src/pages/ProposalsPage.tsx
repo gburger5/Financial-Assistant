@@ -11,7 +11,7 @@ const TYPE_OPTIONS = ['All', 'Budget', 'Debt', 'Investing']
 const STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Executed', 'Rejected']
 
 export default function ProposalsPage() {
-  const { proposals, loading, approve, execute, reject, remove } = useProposals()
+  const { proposals, loading, approve, execute, reject } = useProposals()
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
 
@@ -51,7 +51,6 @@ export default function ProposalsPage() {
               onApprove={(id) => approve(id)}
               onExecute={(id) => execute(id)}
               onReject={(id) => reject(id)}
-              onDelete={(id) => remove(id)}
             />
           ))}
         </div>

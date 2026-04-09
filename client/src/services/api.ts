@@ -3,31 +3,31 @@
  * Thin HTTP client with automatic access-token refresh on 401.
  *
  * Tokens are held in module-scoped variables (memory) and mirrored to
- * sessionStorage so they survive a page refresh within the same tab but
- * aren't exposed to arbitrary JS the way localStorage is.
+ * localStorage so they persist across tabs and browser sessions, allowing
+ * returning users to remain logged in without re-authenticating.
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-// ── Token store (in-memory + sessionStorage mirror) ─────────────────────
+// ── Token store (in-memory + localStorage mirror) ────────────────────────
 
-let accessToken: string | null = sessionStorage.getItem('token')
-let refreshToken: string | null = sessionStorage.getItem('refreshToken')
+let accessToken: string | null = localStorage.getItem('token')
+let refreshToken: string | null = localStorage.getItem('refreshToken')
 
 /** Persist both tokens. Called after login and after a successful refresh. */
 export function setTokens(access: string, refresh: string): void {
   accessToken = access
   refreshToken = refresh
-  sessionStorage.setItem('token', access)
-  sessionStorage.setItem('refreshToken', refresh)
+  localStorage.setItem('token', access)
+  localStorage.setItem('refreshToken', refresh)
 }
 
 /** Clear both tokens. Called on logout or when refresh fails. */
 export function clearTokens(): void {
   accessToken = null
   refreshToken = null
-  sessionStorage.removeItem('token')
-  sessionStorage.removeItem('refreshToken')
+  localStorage.removeItem('token')
+  localStorage.removeItem('refreshToken')
 }
 
 export function getAccessToken(): string | null {
@@ -37,16 +37,6 @@ export function getAccessToken(): string | null {
 export function getRefreshToken(): string | null {
   return refreshToken
 }
-
-// ── Migrate any legacy localStorage token on first load ─────────────────
-;(function migrateLegacyToken() {
-  const legacy = localStorage.getItem('token')
-  if (legacy && !accessToken) {
-    accessToken = legacy
-    sessionStorage.setItem('token', legacy)
-    localStorage.removeItem('token')
-  }
-})()
 
 // ── Error class ─────────────────────────────────────────────────────────
 
@@ -122,7 +112,7 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body.error || 'Request failed')
+    throw new ApiError(res.status, body.message || 'Request failed')
   }
 
   if (res.status === 204) return null as T

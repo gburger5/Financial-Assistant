@@ -78,11 +78,12 @@ const TRUST_ITEMS: { icon: React.ReactNode; label: string }[] = [
 
 export default function Landing() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true })
-  }, [isAuthenticated, navigate])
+    if (!isAuthenticated) return
+    navigate(user?.agentBudgetApproved ? '/dashboard' : '/link-bank', { replace: true })
+  }, [isAuthenticated, user, navigate])
 
   return (
     /*
