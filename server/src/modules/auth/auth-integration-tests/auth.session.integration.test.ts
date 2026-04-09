@@ -28,6 +28,7 @@ import {
   createVerifiedUser,
   cleanupUser,
   makeAccessToken,
+  extractTokenCookies,
 } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -62,7 +63,7 @@ describe('authentication middleware', () => {
 
   const protectedRoutes = [
     { method: 'GET'    as const, url: '/api/auth/verify' },
-    { method: 'POST'   as const, url: '/api/auth/logout',           payload: { refreshToken: 'x' } },
+    { method: 'POST'   as const, url: '/api/auth/logout' },
     { method: 'PATCH'  as const, url: '/api/auth/profile/name',     payload: { firstName: 'A', lastName: 'B' } },
     { method: 'PATCH'  as const, url: '/api/auth/profile/password', payload: { currentPassword: 'OldPassword1!', newPassword: 'NewPassword1!', confirmNewPassword: 'NewPassword1!' } },
     { method: 'PATCH'  as const, url: '/api/auth/profile/email',    payload: { newEmail: 'a@b.com', currentPassword: 'OldPassword1!' } },
@@ -70,7 +71,7 @@ describe('authentication middleware', () => {
   ];
 
   it.each(protectedRoutes)(
-    'returns 401 with no Authorization header on $method $url',
+    'returns 401 with no accessToken cookie on $method $url',
     async ({ method, url, payload }) => {
       app = await buildTestApp();
 
@@ -109,7 +110,7 @@ describe('POST /api/auth/login', () => {
 
     expect(res.statusCode).toBe(200);
 
-    const { refreshToken } = res.json();
+    const { refreshToken } = extractTokenCookies(res);
     const tokenId = refreshToken.split('.')[0];
 
     const record = await authTokensRepo.findRefreshToken(tokenId);
@@ -232,7 +233,7 @@ describe('GET /api/auth/verify', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/verify',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);
@@ -251,7 +252,7 @@ describe('GET /api/auth/verify', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/verify',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.json()).not.toHaveProperty('password_hash');
@@ -270,7 +271,7 @@ describe('GET /api/auth/verify', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/verify',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -296,22 +297,19 @@ describe('POST /api/auth/logout', () => {
   it('deletes the refresh token from the database on logout', async () => {
     app = await buildTestApp();
     testUser = await createVerifiedUser();
-    const jti = uuidv4();
-    const accessToken = makeAccessToken(testUser.id, testUser.email, jti);
 
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { accessToken, refreshToken } = extractTokenCookies(loginRes);
     const tokenId = refreshToken.split('.')[0];
 
     await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { refreshToken },
+      cookies: { accessToken, refreshToken },
     });
 
     const record = await authTokensRepo.findRefreshToken(tokenId);
@@ -329,13 +327,12 @@ describe('POST /api/auth/logout', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { refreshToken } = extractTokenCookies(loginRes);
 
     await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { refreshToken },
+      cookies: { accessToken, refreshToken },
     });
 
     const isRevoked = await authTokensRepo.isAccessTokenRevoked(jti);
@@ -353,19 +350,18 @@ describe('POST /api/auth/logout', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { refreshToken } = extractTokenCookies(loginRes);
 
     await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
-      headers: { authorization: `Bearer ${accessToken}` },
-      payload: { refreshToken },
+      cookies: { accessToken, refreshToken },
     });
 
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/verify',
-      headers: { authorization: `Bearer ${accessToken}` },
+      cookies: { accessToken },
     });
 
     expect(res.statusCode).toBe(401);
@@ -397,17 +393,17 @@ describe('POST /api/auth/refresh', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const oldRefreshToken = loginRes.json().refreshToken;
+    const { refreshToken: oldRefreshToken } = extractTokenCookies(loginRes);
     const oldTokenId = oldRefreshToken.split('.')[0];
 
     const refreshRes = await app.inject({
       method: 'POST',
       url: '/api/auth/refresh',
-      payload: { refreshToken: oldRefreshToken },
+      cookies: { refreshToken: oldRefreshToken },
     });
 
     expect(refreshRes.statusCode).toBe(200);
-    const newRefreshToken = refreshRes.json().refreshToken;
+    const { refreshToken: newRefreshToken } = extractTokenCookies(refreshRes);
     const newTokenId = newRefreshToken.split('.')[0];
 
     const oldRecord = await authTokensRepo.findRefreshToken(oldTokenId);
@@ -427,20 +423,20 @@ describe('POST /api/auth/refresh', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const oldRefreshToken = loginRes.json().refreshToken;
+    const { refreshToken: oldRefreshToken } = extractTokenCookies(loginRes);
 
     // First use - rotates the token
     await app.inject({
       method: 'POST',
       url: '/api/auth/refresh',
-      payload: { refreshToken: oldRefreshToken },
+      cookies: { refreshToken: oldRefreshToken },
     });
 
     // Second use of the consumed token must be rejected
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/refresh',
-      payload: { refreshToken: oldRefreshToken },
+      cookies: { refreshToken: oldRefreshToken },
     });
 
     expect(res.statusCode).toBe(401);
@@ -455,19 +451,20 @@ describe('POST /api/auth/refresh', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
+    const { refreshToken } = extractTokenCookies(loginRes);
 
     const refreshRes = await app.inject({
       method: 'POST',
       url: '/api/auth/refresh',
-      payload: { refreshToken: loginRes.json().refreshToken },
+      cookies: { refreshToken },
     });
 
-    const newAccessToken = refreshRes.json().accessToken;
+    const { accessToken: newAccessToken } = extractTokenCookies(refreshRes);
 
     const verifyRes = await app.inject({
       method: 'GET',
       url: '/api/auth/verify',
-      headers: { authorization: `Bearer ${newAccessToken}` },
+      cookies: { accessToken: newAccessToken },
     });
 
     expect(verifyRes.statusCode).toBe(200);

@@ -9,6 +9,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 import { ConflictError, UnauthorizedError, BadRequestError, NotFoundError } from '../../../lib/errors.js';
 
 vi.mock('../auth.service.js', () => ({
@@ -64,6 +65,7 @@ function makeToken(payload: Record<string, unknown> = {}): string {
 
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
+  await app.register(cookie);
   await app.register(errorHandlerPlugin);
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.ready();
@@ -201,7 +203,7 @@ describe('POST /api/auth/login', () => {
     expect(res.json().message).toMatch(/Account locked/);
   });
 
-  it('returns 200 with user and token on success', async () => {
+  it('returns 200 with user in body and tokens in cookies on success', async () => {
     mockLoginUser.mockResolvedValue({
       user: {
         userId: 'user-uuid', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z',
@@ -215,9 +217,11 @@ describe('POST /api/auth/login', () => {
     app = await buildTestApp();
     const res = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'alice@example.com', password: 'ValidPass1!' } });
     expect(res.statusCode).toBe(200);
-    expect(res.json().token).toBe('jwt-token-here');
+    // Tokens are set as httpOnly cookies, not in the response body
     expect(res.json().user.firstName).toBe('Alice');
     expect(res.json().user.lastName).toBe('Smith');
+    expect(res.cookies.find(c => c.name === 'accessToken')?.value).toBe('jwt-token-here');
+    expect(res.cookies.find(c => c.name === 'refreshToken')?.value).toBe('refresh-token-here');
   });
 });
 
@@ -240,7 +244,7 @@ describe('GET /api/auth/verify', () => {
     app = await buildTestApp();
     // Even with jti, wrong secret is rejected
     const token = jwt.sign({ userId: 'u-1', email: 'a@b.com', jti: 'j1' }, 'wrong-secret');
-    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', headers: { authorization: `Bearer ${token}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', cookies: { accessToken: token } });
     expect(res.statusCode).toBe(401);
     expect(res.json().message).toBe('Invalid token');
   });
@@ -249,7 +253,7 @@ describe('GET /api/auth/verify', () => {
     app = await buildTestApp();
     // Old-style token — no jti — must be rejected
     const token = jwt.sign({ userId: 'u-1', email: 'a@b.com' }, TEST_SECRET, { expiresIn: '15m' });
-    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', headers: { authorization: `Bearer ${token}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', cookies: { accessToken: token } });
     expect(res.statusCode).toBe(401);
     expect(res.json().message).toBe('Invalid token');
   });
@@ -265,7 +269,7 @@ describe('GET /api/auth/verify', () => {
     });
     app = await buildTestApp();
     const token = makeToken({ userId: 'user-uuid', email: 'alice@example.com' });
-    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', headers: { authorization: `Bearer ${token}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/auth/verify', cookies: { accessToken: token } });
     expect(res.statusCode).toBe(200);
     expect(res.json().userId).toBe('user-uuid');
     expect(res.json().email).toBe('alice@example.com');
@@ -288,27 +292,27 @@ describe('PATCH /api/auth/profile/name', () => {
 
   it('returns 400 when firstName is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { lastName: 'Smith' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', cookies: { accessToken: makeToken() }, payload: { lastName: 'Smith' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when lastName is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { firstName: 'Alice' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', cookies: { accessToken: makeToken() }, payload: { firstName: 'Alice' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('calls updateName with the authenticated userId from the JWT', async () => {
     mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false });
     app = await buildTestApp();
-    await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { firstName: 'Alice', lastName: 'Smith' } });
+    await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', cookies: { accessToken: makeToken() }, payload: { firstName: 'Alice', lastName: 'Smith' } });
     expect(mockUpdateName).toHaveBeenCalledWith('user-route-123', 'Alice', 'Smith');
   });
 
   it('returns 200 on success', async () => {
     mockUpdateName.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false });
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', headers: { authorization: `Bearer ${makeToken()}` }, payload: { firstName: 'Alice', lastName: 'Smith' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/name', cookies: { accessToken: makeToken() }, payload: { firstName: 'Alice', lastName: 'Smith' } });
     expect(res.statusCode).toBe(200);
   });
 });
@@ -329,25 +333,25 @@ describe('PATCH /api/auth/profile/password', () => {
 
   it('returns 400 when currentPassword is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { newPassword: 'NewPass1!', confirmNewPassword: 'NewPass1!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { newPassword: 'NewPass1!', confirmNewPassword: 'NewPass1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when newPassword is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!', confirmNewPassword: 'NewPass1!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'OldPass1!', confirmNewPassword: 'NewPass1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when confirmNewPassword is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!', newPassword: 'NewPass1!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'OldPass1!', newPassword: 'NewPass1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when passwords do not match', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'Different1!!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'Different1!!' } });
     expect(res.statusCode).toBe(400);
     expect(res.json().message).toBe('Passwords do not match');
   });
@@ -355,14 +359,14 @@ describe('PATCH /api/auth/profile/password', () => {
   it('calls updatePassword with the authenticated userId, passwords, jti, and exp', async () => {
     mockUpdatePassword.mockResolvedValue(undefined);
     app = await buildTestApp();
-    await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'NewPass1!!' } });
+    await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'NewPass1!!' } });
     expect(mockUpdatePassword).toHaveBeenCalledWith('user-route-123', 'OldPass1!!', 'NewPass1!!', 'test-jti', expect.any(Number));
   });
 
   it('returns 200 on success', async () => {
     mockUpdatePassword.mockResolvedValue(undefined);
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'NewPass1!!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/password', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'OldPass1!!', newPassword: 'NewPass1!!', confirmNewPassword: 'NewPass1!!' } });
     expect(res.statusCode).toBe(200);
   });
 });
@@ -383,26 +387,26 @@ describe('PATCH /api/auth/profile/email', () => {
 
   it('returns 400 when newEmail is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'ValidPass1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when currentPassword is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', headers: { authorization: `Bearer ${makeToken()}` }, payload: { newEmail: 'new@example.com' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', cookies: { accessToken: makeToken() }, payload: { newEmail: 'new@example.com' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when newEmail is not a valid email', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', headers: { authorization: `Bearer ${makeToken()}` }, payload: { newEmail: 'not-an-email', currentPassword: 'ValidPass1!' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', cookies: { accessToken: makeToken() }, payload: { newEmail: 'not-an-email', currentPassword: 'ValidPass1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('calls initiateEmailChange with the authenticated userId', async () => {
     mockInitiateEmailChange.mockResolvedValue(undefined);
     app = await buildTestApp();
-    await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', headers: { authorization: `Bearer ${makeToken()}` }, payload: { newEmail: 'new@example.com', currentPassword: 'ValidPass1!' } });
+    await app.inject({ method: 'PATCH', url: '/api/auth/profile/email', cookies: { accessToken: makeToken() }, payload: { newEmail: 'new@example.com', currentPassword: 'ValidPass1!' } });
     expect(mockInitiateEmailChange).toHaveBeenCalledWith('user-route-123', 'new@example.com', 'ValidPass1!');
   });
 });
@@ -415,32 +419,34 @@ describe('POST /api/auth/logout', () => {
   let app: FastifyInstance;
   afterEach(() => app?.close());
 
-  it('returns 401 when no Authorization header is provided', async () => {
+  it('returns 401 when no accessToken cookie is present', async () => {
     app = await buildTestApp();
-    // Body must be valid so schema validation passes and the auth check fires
-    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', payload: { refreshToken: 'rt.secret' } });
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout' });
     expect(res.statusCode).toBe(401);
   });
 
-  it('returns 400 when refreshToken is missing from the body', async () => {
+  it('returns 200 even when refreshToken cookie is absent (graceful no-op on missing token)', async () => {
+    mockLogoutUser.mockResolvedValue(undefined);
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: {} });
-    expect(res.statusCode).toBe(400);
+    // No refreshToken cookie — controller passes '' to logoutUser
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', cookies: { accessToken: makeToken() } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
   });
 
   it('returns 200 and calls logoutUser on success', async () => {
     mockLogoutUser.mockResolvedValue(undefined);
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout', cookies: { accessToken: makeToken(), refreshToken: 'rt-uuid.rawsecret' } });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
     expect(mockLogoutUser).toHaveBeenCalled();
   });
 
-  it('passes jti, userId, exp, and refreshToken from request to logoutUser', async () => {
+  it('passes jti, userId, exp, and refreshToken cookie to logoutUser', async () => {
     mockLogoutUser.mockResolvedValue(undefined);
     app = await buildTestApp();
-    await app.inject({ method: 'POST', url: '/api/auth/logout', headers: { authorization: `Bearer ${makeToken()}` }, payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    await app.inject({ method: 'POST', url: '/api/auth/logout', cookies: { accessToken: makeToken(), refreshToken: 'rt-uuid.rawsecret' } });
     const [jti, userId, exp, rawRefreshToken] = mockLogoutUser.mock.calls[0];
     expect(jti).toBe('test-jti');
     expect(userId).toBe('user-route-123');
@@ -457,41 +463,43 @@ describe('POST /api/auth/refresh', () => {
   let app: FastifyInstance;
   afterEach(() => app?.close());
 
-  it('returns 400 when refreshToken is missing from the body', async () => {
+  it('returns 401 when refreshToken cookie is absent', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', payload: {} });
-    expect(res.statusCode).toBe(400);
+    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh' });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().message).toBe('No refresh token provided');
   });
 
-  it('returns 200 with accessToken and refreshToken on success', async () => {
+  it('returns 200 with success and rotates tokens into cookies', async () => {
     mockRefreshAccessToken.mockResolvedValue({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', cookies: { refreshToken: 'rt-uuid.rawsecret' } });
     expect(res.statusCode).toBe(200);
-    expect(res.json().accessToken).toBe('new-access-token');
-    expect(res.json().refreshToken).toBe('new-refresh-token');
+    expect(res.json().success).toBe(true);
+    expect(res.cookies.find(c => c.name === 'accessToken')?.value).toBe('new-access-token');
+    expect(res.cookies.find(c => c.name === 'refreshToken')?.value).toBe('new-refresh-token');
   });
 
-  it('calls refreshAccessToken with the provided token', async () => {
+  it('calls refreshAccessToken with the refreshToken cookie value', async () => {
     mockRefreshAccessToken.mockResolvedValue({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
     app = await buildTestApp();
-    await app.inject({ method: 'POST', url: '/api/auth/refresh', payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    await app.inject({ method: 'POST', url: '/api/auth/refresh', cookies: { refreshToken: 'rt-uuid.rawsecret' } });
     expect(mockRefreshAccessToken).toHaveBeenCalledWith('rt-uuid.rawsecret');
   });
 
   it('returns 401 when service throws UnauthorizedError (invalid/expired token)', async () => {
     mockRefreshAccessToken.mockRejectedValue(new UnauthorizedError('Invalid refresh token'));
     app = await buildTestApp();
-    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', payload: { refreshToken: 'bad-token' } });
+    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', cookies: { refreshToken: 'bad-token' } });
     expect(res.statusCode).toBe(401);
     expect(res.json().message).toBe('Invalid refresh token');
   });
 
-  it('does not require an Authorization header (refresh uses the token in the body)', async () => {
+  it('does not require an accessToken cookie (refresh uses only the refreshToken cookie)', async () => {
     mockRefreshAccessToken.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt' });
     app = await buildTestApp();
-    // No Authorization header — should still work
-    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', payload: { refreshToken: 'rt-uuid.rawsecret' } });
+    // No accessToken cookie — only refreshToken is needed
+    const res = await app.inject({ method: 'POST', url: '/api/auth/refresh', cookies: { refreshToken: 'rt-uuid.rawsecret' } });
     expect(res.statusCode).toBe(200);
   });
 });
@@ -613,20 +621,20 @@ describe('DELETE /api/auth/account', () => {
 
   it('returns 400 when currentPassword is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: {} });
+    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: {} });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when currentPassword is shorter than 10 characters', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'Short1!' } });
+    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'Short1!' } });
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 200 on success', async () => {
     mockDeleteAccount.mockResolvedValue(undefined);
     app = await buildTestApp();
-    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!!' } });
+    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'ValidPass1!!' } });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
   });
@@ -634,14 +642,14 @@ describe('DELETE /api/auth/account', () => {
   it('calls deleteAccount with the authenticated userId and supplied password', async () => {
     mockDeleteAccount.mockResolvedValue(undefined);
     app = await buildTestApp();
-    await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!!' } });
+    await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'ValidPass1!!' } });
     expect(mockDeleteAccount).toHaveBeenCalledWith('user-route-123', 'ValidPass1!!', 'test-jti', expect.any(Number));
   });
 
   it('returns 401 when service throws UnauthorizedError (wrong password)', async () => {
     mockDeleteAccount.mockRejectedValue(new UnauthorizedError('Current password is incorrect'));
     app = await buildTestApp();
-    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'WrongPass1!!' } });
+    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'WrongPass1!!' } });
     expect(res.statusCode).toBe(401);
     expect(res.json().message).toBe('Current password is incorrect');
   });
@@ -649,7 +657,7 @@ describe('DELETE /api/auth/account', () => {
   it('returns 404 when service throws NotFoundError', async () => {
     mockDeleteAccount.mockRejectedValue(new NotFoundError('User not found'));
     app = await buildTestApp();
-    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', headers: { authorization: `Bearer ${makeToken()}` }, payload: { currentPassword: 'ValidPass1!!' } });
+    const res = await app.inject({ method: 'DELETE', url: '/api/auth/account', cookies: { accessToken: makeToken() }, payload: { currentPassword: 'ValidPass1!!' } });
     expect(res.statusCode).toBe(404);
   });
 });
@@ -671,21 +679,21 @@ describe('PATCH /api/auth/profile', () => {
   it('returns 200 with updated user on valid birthday', async () => {
     mockUpdateBirthday.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Test', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false, birthday: '1990-05-15' });
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: { birthday: '1990-05-15' } });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', cookies: { accessToken: makeToken() }, payload: { birthday: '1990-05-15' } });
     expect(res.statusCode).toBe(200);
     expect(res.json().birthday).toBe('1990-05-15');
   });
 
   it('returns 400 when birthday is missing', async () => {
     app = await buildTestApp();
-    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: {} });
+    const res = await app.inject({ method: 'PATCH', url: '/api/auth/profile', cookies: { accessToken: makeToken() }, payload: {} });
     expect(res.statusCode).toBe(400);
   });
 
   it('calls updateBirthday with correct userId and birthday', async () => {
     mockUpdateBirthday.mockResolvedValue({ userId: 'user-route-123', firstName: 'Alice', lastName: 'Test', email: 'alice@example.com', createdAt: '2024-01-01T00:00:00.000Z', agentBudgetApproved: false, birthday: '1990-05-15' });
     app = await buildTestApp();
-    await app.inject({ method: 'PATCH', url: '/api/auth/profile', headers: { authorization: `Bearer ${makeToken()}` }, payload: { birthday: '1990-05-15' } });
+    await app.inject({ method: 'PATCH', url: '/api/auth/profile', cookies: { accessToken: makeToken() }, payload: { birthday: '1990-05-15' } });
     expect(mockUpdateBirthday).toHaveBeenCalledWith('user-route-123', '1990-05-15');
   });
 });

@@ -27,6 +27,7 @@ import {
   createVerifiedUser,
   cleanupUser,
   makeAccessToken,
+  extractTokenCookies,
 } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -89,7 +90,7 @@ describe('PATCH /api/auth/profile/name', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/name',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { firstName: 'UpdatedFirst', lastName: 'UpdatedLast' },
     });
 
@@ -108,7 +109,7 @@ describe('PATCH /api/auth/profile/name', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/name',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { firstName: 'NewFirst', lastName: 'NewLast' },
     });
 
@@ -143,7 +144,7 @@ describe('PATCH /api/auth/profile/password', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/password',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: TEST_PASSWORD, newPassword: NEW_PASSWORD, confirmNewPassword: NEW_PASSWORD },
     });
 
@@ -163,7 +164,7 @@ describe('PATCH /api/auth/profile/password', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { refreshToken } = extractTokenCookies(loginRes);
     const tokenId = refreshToken.split('.')[0];
 
     const beforeChange = await authTokensRepo.findRefreshToken(tokenId);
@@ -173,7 +174,7 @@ describe('PATCH /api/auth/profile/password', () => {
     await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/password',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: TEST_PASSWORD, newPassword: NEW_PASSWORD, confirmNewPassword: NEW_PASSWORD },
     });
 
@@ -190,7 +191,7 @@ describe('PATCH /api/auth/profile/password', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/password',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: 'WrongCurrent1!', newPassword: NEW_PASSWORD, confirmNewPassword: NEW_PASSWORD },
     });
 
@@ -231,7 +232,7 @@ describe('PATCH /api/auth/profile/email', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/email',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { newEmail, currentPassword: TEST_PASSWORD },
     });
 
@@ -250,7 +251,7 @@ describe('PATCH /api/auth/profile/email', () => {
     await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/email',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { newEmail, currentPassword: TEST_PASSWORD },
     });
 
@@ -268,7 +269,7 @@ describe('PATCH /api/auth/profile/email', () => {
     await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/email',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { newEmail, currentPassword: TEST_PASSWORD },
     });
 
@@ -295,7 +296,7 @@ describe('PATCH /api/auth/profile/email', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/email',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { newEmail: second.email, currentPassword: TEST_PASSWORD },
     });
 
@@ -310,7 +311,7 @@ describe('PATCH /api/auth/profile/email', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/auth/profile/email',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { newEmail: `new-${uuidv4()}@example.com`, currentPassword: 'WrongPassword1!' },
     });
 

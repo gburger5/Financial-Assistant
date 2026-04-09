@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -51,6 +52,7 @@ function signToken(userId = TEST_USER_ID): string {
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandlerPlugin);
+  await app.register(cookie);
   await app.register(liabilitiesRoutes, { prefix: '/api/liabilities' });
   await app.ready();
   return app;
@@ -108,7 +110,7 @@ describe('GET /api/liabilities', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/liabilities',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -123,7 +125,7 @@ describe('GET /api/liabilities', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/liabilities',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -137,7 +139,7 @@ describe('GET /api/liabilities', () => {
     await app.inject({
       method: 'GET',
       url: '/api/liabilities',
-      headers: { authorization: `Bearer ${signToken('custom-user-99')}` },
+      cookies: { accessToken: signToken('custom-user-99') },
     });
 
     expect(mockGetLiabilitiesForUser).toHaveBeenCalledWith('custom-user-99');

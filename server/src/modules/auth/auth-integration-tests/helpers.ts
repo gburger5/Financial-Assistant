@@ -6,6 +6,7 @@
  * vi.mock() calls and test-framework imports so it can be re-used cleanly.
  */
 import type { FastifyInstance } from 'fastify';
+import type { Response as InjectResponse } from 'light-my-request';
 import { hash } from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
@@ -111,4 +112,17 @@ export async function cleanupUser(userId: string): Promise<void> {
  */
 export function makeAccessToken(userId: string, email: string, jti: string = uuidv4()): string {
   return jwt.sign({ userId, email, jti }, TEST_SECRET, { expiresIn: '15m', algorithm: 'HS256' });
+}
+
+/**
+ * Extracts the accessToken and refreshToken values from the Set-Cookie headers
+ * on a Fastify inject response.
+ *
+ * @param {InjectResponse} res - The inject response to read cookies from.
+ * @returns {{ accessToken: string; refreshToken: string }}
+ */
+export function extractTokenCookies(res: InjectResponse): { accessToken: string; refreshToken: string } {
+  const accessToken  = res.cookies.find((c) => c.name === 'accessToken')?.value  ?? '';
+  const refreshToken = res.cookies.find((c) => c.name === 'refreshToken')?.value ?? '';
+  return { accessToken, refreshToken };
 }

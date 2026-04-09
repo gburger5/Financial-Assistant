@@ -14,6 +14,7 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import gracefulShutdown from 'fastify-graceful-shutdown';
 import rateLimit from '@fastify/rate-limit';
@@ -120,6 +121,10 @@ export function buildApp(): FastifyInstance {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // Cookie parser — required before any route reads request.cookies.
+  // No signing secret needed: the JWT is already cryptographically signed.
+  app.register(cookie);
 
   // Graceful shutdown plugin — listens for SIGINT/SIGTERM and calls
   // app.close() to allow in-flight requests to complete before exit.

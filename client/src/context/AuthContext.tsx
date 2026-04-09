@@ -1,16 +1,9 @@
 import { createContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import {
-  api,
-  setTokens,
-  clearTokens,
-  getAccessToken,
-  getRefreshToken,
-} from '../services/api'
-import type { PublicUser, LoginResponse } from '../types/user'
+import { api } from '../services/api'
+import type { PublicUser } from '../types/user'
 
 interface AuthContextValue {
   user: PublicUser | null
-  token: string | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -24,57 +17,36 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<PublicUser | null>(null)
-  const [token, setToken] = useState<string | null>(() => getAccessToken())
-  const [ready, setReady] = useState(() => !getAccessToken())
+  const [ready, setReady] = useState(false)
 
-  // On mount, verify the stored access token (api layer auto-refreshes if needed)
+  // On mount, verify the session cookie with the server.
+  // If valid, the server returns the current user; otherwise we stay logged out.
   useEffect(() => {
-    const storedToken = getAccessToken()
-    if (!storedToken) return
-
     api
       .get<PublicUser>('/api/auth/verify')
-      .then((payload) => {
-        setUser(payload)
-        setToken(getAccessToken())
-      })
-      .catch(() => {
-        clearTokens()
-        setToken(null)
-      })
+      .then(setUser)
+      .catch(() => {})
       .finally(() => setReady(true))
   }, [])
 
   async function login(email: string, password: string): Promise<void> {
-    const res = await api.post<LoginResponse>('/api/auth/login', {
-      email,
-      password,
-    })
-    setTokens(res.token, res.refreshToken)
-    setToken(res.token)
+    const res = await api.post<{ user: PublicUser }>('/api/auth/login', { email, password })
     setUser(res.user)
   }
 
   const logout = useCallback(async (): Promise<void> => {
-    const currentRefresh = getRefreshToken()
-    if (currentRefresh) {
-      try {
-        await api.post('/api/auth/logout', { refreshToken: currentRefresh })
-      } catch {
-        // Network error or already expired — still clear locally
-      }
+    try {
+      await api.post('/api/auth/logout')
+    } catch {
+      // Network error — still clear local state
     }
-    clearTokens()
-    setToken(null)
     setUser(null)
   }, [])
 
   if (!ready) return null
 
   return (
-    <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!user, login, logout }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
