@@ -9,6 +9,7 @@ export const Tables = {
   Liabilities: "Liabilities",
   Proposals: "Proposals",
   AuthTokens: "auth_tokens",
+  AgentMetrics: "AgentMetrics",
 } as const;
 
 export const Indexes = {
@@ -36,5 +37,8 @@ export const Indexes = {
   },
   AuthTokens: {
     userIdIndex: "userId-index",
+  },
+  AgentMetrics: {
+    agentTypeIndex: "agentType-createdAt-index",
   },
 } as const;

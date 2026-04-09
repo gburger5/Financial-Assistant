@@ -23,6 +23,7 @@ vi.mock('../agents.repository.js', () => ({
   getProposalHistory: vi.fn(),
   getProposalsByType: vi.fn(),
   updateProposalStatus: vi.fn(),
+  saveAgentMetrics: vi.fn(),
 }));
 
 vi.mock('../../budget/budget.service.js', () => ({
@@ -60,21 +61,21 @@ vi.mock('../../transactions/transactions.service.js', () => ({
 const { mockInvokeBudgetAgent } = vi.hoisted(() => ({
   mockInvokeBudgetAgent: vi.fn(),
 }));
-vi.mock('../budget-agent.js', () => ({
+vi.mock('../core/budget-agent.js', () => ({
   invokeBudgetAgent: mockInvokeBudgetAgent,
 }));
 
 const { mockInvokeDebtAgent } = vi.hoisted(() => ({
   mockInvokeDebtAgent: vi.fn(),
 }));
-vi.mock('../debt-agent.js', () => ({
+vi.mock('../core/debt-agent.js', () => ({
   invokeDebtAgent: mockInvokeDebtAgent,
 }));
 
 const { mockInvokeInvestingAgent } = vi.hoisted(() => ({
   mockInvokeInvestingAgent: vi.fn(),
 }));
-vi.mock('../investing-agent.js', () => ({
+vi.mock('../core/investing-agent.js', () => ({
   invokeInvestingAgent: mockInvokeInvestingAgent,
 }));
 
@@ -101,7 +102,7 @@ import * as investmentsService from '../../investments/investments.service.js';
 import * as authService from '../../auth/auth.service.js';
 import * as txService from '../../transactions/transactions.service.js';
 import type { Proposal } from '../agents.types.js';
-import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from '../tools.js';
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from '../core/tools.js';
 
 const mockSaveProposal = vi.mocked(agentsRepo.saveProposal);
 const mockGetProposalById = vi.mocked(agentsRepo.getProposalById);
@@ -109,6 +110,7 @@ const mockGetPendingProposal = vi.mocked(agentsRepo.getPendingProposal);
 const mockGetProposalHistory = vi.mocked(agentsRepo.getProposalHistory);
 const mockGetProposalsByType = vi.mocked(agentsRepo.getProposalsByType);
 const mockUpdateProposalStatus = vi.mocked(agentsRepo.updateProposalStatus);
+const mockSaveAgentMetrics = vi.mocked(agentsRepo.saveAgentMetrics);
 const mockGetLatestBudget = vi.mocked(budgetService.getLatestBudget);
 const mockUpdateBudget = vi.mocked(budgetService.updateBudget);
 const mockGetLiabilitiesForUser = vi.mocked(liabilitiesService.getLiabilitiesForUser);
@@ -212,17 +214,84 @@ describe('runBudgetAgent', () => {
     await expect(runBudgetAgent('user-1')).rejects.toThrow(NotFoundError);
   });
 
-  it('saves the proposal with status pending', async () => {
+  it('saves the proposal with status pending and result matching agent output', async () => {
     mockGetPendingProposal.mockResolvedValue(null);
     mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
-    mockInvokeBudgetAgent.mockResolvedValue(sampleBudgetProposal);
+    mockInvokeBudgetAgent.mockResolvedValue({ output: sampleBudgetProposal, metrics: undefined });
     mockSaveProposal.mockResolvedValue(undefined);
 
     const result = await runBudgetAgent('user-1');
 
     expect(result.status).toBe('pending');
     expect(result.agentType).toBe('budget');
+    expect(result.result).toEqual(sampleBudgetProposal);
     expect(mockSaveProposal).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves agent metrics after a successful invocation when metrics are present', async () => {
+    const fakeMetrics = {
+      cycleCount: 1,
+      accumulatedUsage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      accumulatedMetrics: { latencyMs: 1000 },
+      agentInvocations: [],
+      toolMetrics: {},
+      totalDuration: 1200,
+      averageCycleTime: 1200,
+      toolUsage: {},
+    };
+    mockGetPendingProposal.mockResolvedValue(null);
+    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
+    mockInvokeBudgetAgent.mockResolvedValue({ output: sampleBudgetProposal, metrics: fakeMetrics });
+    mockSaveProposal.mockResolvedValue(undefined);
+    mockSaveAgentMetrics.mockResolvedValue(undefined);
+
+    await runBudgetAgent('user-1');
+
+    // Allow fire-and-forget to settle
+    await Promise.resolve();
+
+    expect(mockSaveAgentMetrics).toHaveBeenCalledTimes(1);
+    const savedRecord = mockSaveAgentMetrics.mock.calls[0][0];
+    expect(savedRecord.agentType).toBe('budget');
+    expect(savedRecord.totalTokens).toBe(150);
+    expect(savedRecord.cycleCount).toBe(1);
+  });
+
+  it('does not save metrics when the invocation returns no metrics', async () => {
+    mockGetPendingProposal.mockResolvedValue(null);
+    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
+    mockInvokeBudgetAgent.mockResolvedValue({ output: sampleBudgetProposal, metrics: undefined });
+    mockSaveProposal.mockResolvedValue(undefined);
+
+    await runBudgetAgent('user-1');
+
+    await Promise.resolve();
+
+    expect(mockSaveAgentMetrics).not.toHaveBeenCalled();
+  });
+
+  it('still returns the proposal when saveAgentMetrics rejects (fire-and-forget)', async () => {
+    const fakeMetrics = {
+      cycleCount: 1,
+      accumulatedUsage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+      accumulatedMetrics: { latencyMs: 1000 },
+      agentInvocations: [],
+      toolMetrics: {},
+      totalDuration: 1200,
+      averageCycleTime: 1200,
+      toolUsage: {},
+    };
+    mockGetPendingProposal.mockResolvedValue(null);
+    mockGetLatestBudget.mockResolvedValue({ userId: 'user-1' } as unknown as Budget);
+    mockInvokeBudgetAgent.mockResolvedValue({ output: sampleBudgetProposal, metrics: fakeMetrics });
+    mockSaveProposal.mockResolvedValue(undefined);
+    mockSaveAgentMetrics.mockRejectedValue(new Error('DynamoDB unavailable'));
+
+    // The proposal should be returned even though metrics save fails
+    const result = await runBudgetAgent('user-1');
+
+    expect(result.status).toBe('pending');
+    expect(result.agentType).toBe('budget');
   });
 
   it('wraps agent invocation errors in ServiceUnavailableError', async () => {
@@ -245,17 +314,18 @@ describe('runDebtAgent', () => {
     await expect(runDebtAgent('user-1', 500)).rejects.toThrow(ConflictError);
   });
 
-  it('gathers liabilities and accounts, invokes agent, and saves proposal', async () => {
+  it('gathers liabilities and accounts, invokes agent, saves proposal with correct result', async () => {
     mockGetPendingProposal.mockResolvedValue(null);
     mockGetLiabilitiesForUser.mockResolvedValue([]);
     mockGetAccountsForUser.mockResolvedValue([]);
-    mockInvokeDebtAgent.mockResolvedValue(sampleDebtPlan);
+    mockInvokeDebtAgent.mockResolvedValue({ output: sampleDebtPlan, metrics: undefined });
     mockSaveProposal.mockResolvedValue(undefined);
 
     const result = await runDebtAgent('user-1', 500);
 
     expect(result.agentType).toBe('debt');
     expect(result.status).toBe('pending');
+    expect(result.result).toEqual(sampleDebtPlan);
     expect(mockSaveProposal).toHaveBeenCalledTimes(1);
   });
 
@@ -280,18 +350,19 @@ describe('runInvestingAgent', () => {
     await expect(runInvestingAgent('user-1', 500)).rejects.toThrow(ConflictError);
   });
 
-  it('gathers accounts, holdings, and user age, invokes agent, and saves proposal', async () => {
+  it('gathers accounts, holdings, and user age, invokes agent, saves proposal with correct result', async () => {
     mockGetPendingProposal.mockResolvedValue(null);
     mockGetAccountsForUser.mockResolvedValue([]);
     mockGetLatestHoldings.mockResolvedValue([]);
     mockGetUserById.mockResolvedValue({ userId: 'user-1', firstName: 'Test', lastName: 'User', email: 'test@test.com', createdAt: '2024-01-01' } as unknown as PublicUser);
-    mockInvokeInvestingAgent.mockResolvedValue(sampleInvestmentPlan);
+    mockInvokeInvestingAgent.mockResolvedValue({ output: sampleInvestmentPlan, metrics: undefined });
     mockSaveProposal.mockResolvedValue(undefined);
 
     const result = await runInvestingAgent('user-1', 500);
 
     expect(result.agentType).toBe('investing');
     expect(result.status).toBe('pending');
+    expect(result.result).toEqual(sampleInvestmentPlan);
   });
 
   it('wraps agent invocation errors in ServiceUnavailableError', async () => {
@@ -304,6 +375,7 @@ describe('runInvestingAgent', () => {
     await expect(runInvestingAgent('user-1', 500)).rejects.toThrow(ServiceUnavailableError);
   });
 });
+
 
 // ---------------------------------------------------------------------------
 // getProposal

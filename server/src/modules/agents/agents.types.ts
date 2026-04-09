@@ -2,11 +2,12 @@
  * @module agents.types
  * @description Shared TypeScript interfaces for the agent modules (debt, investing).
  * Covers agent input shapes, scheduled payment/contribution outputs, proposal
- * persistence types, and the intermediate account representations used to bridge
- * Plaid data into agent prompts.
+ * persistence types, the intermediate account representations used to bridge
+ * Plaid data into agent prompts, and the AgentMetrics persistence types.
  */
 
-import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js';
+import type { AgentMetrics } from '@strands-agents/sdk';
+import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './core/tools.js';
 
 // ---------------------------------------------------------------------------
 // Agent & proposal enums
@@ -14,6 +15,84 @@ import type { BudgetProposal, DebtPaymentPlan, InvestmentPlan } from './tools.js
 
 /** Discriminant for the kind of agent that produced a proposal. */
 export type AgentType = 'budget' | 'debt' | 'investing';
+
+// ---------------------------------------------------------------------------
+// Agent invoke result (returned by each invoke* function in core/)
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps the structured output from an agent invocation alongside the raw
+ * SDK metrics snapshot. Generic over the specific output type (BudgetProposal,
+ * DebtPaymentPlan, InvestmentPlan).
+ */
+export interface AgentInvokeResult<T> {
+  output: T;
+  metrics: AgentMetrics | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Metrics persistence (stored in the AgentMetrics DynamoDB table)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-tool statistics stored in an AgentMetricsRecord.
+ * Computed from the SDK's ToolMetricsData at record-build time.
+ */
+export interface StoredToolMetrics {
+  callCount: number;
+  successCount: number;
+  errorCount: number;
+  /** Sum of all tool execution durations in milliseconds. */
+  totalTimeMs: number;
+  /** Average execution duration per call in milliseconds. 0 when callCount is 0. */
+  averageTimeMs: number;
+  /** Success rate as a percentage (0–100). 100 when callCount is 0. */
+  successRate: number;
+}
+
+/**
+ * Persisted record of a single agent invocation's metrics.
+ * PK = userId, SK = metricId (ULID).
+ * GSI: agentType (hash) + createdAt (range) for trend queries.
+ */
+export interface AgentMetricsRecord {
+  userId: string;
+  metricId: string;
+  proposalId: string;
+  /**
+   * Correlation id shared with log lines emitted during this agent run.
+   * Joining on `agent.invocation_id` lets an operator pivot from a log
+   * entry to the persisted metrics record (and vice-versa) for a single
+   * invocation. ULID, generated at the start of each run*Agent call.
+   */
+  invocationId: string;
+  agentType: AgentType;
+  createdAt: string;
+
+  /** Total tokens consumed (input + output). Best practice: monitor for cost thresholds. */
+  totalTokens: number;
+  /** Prompt tokens sent to the model. */
+  inputTokens: number;
+  /** Completion tokens returned by the model. */
+  outputTokens: number;
+  /** Tokens served from the prompt cache (reduces cost). */
+  cacheReadTokens: number;
+  /** Tokens written to the prompt cache. */
+  cacheWriteTokens: number;
+
+  /** Total wall-clock duration of all agent cycles in milliseconds. Best practice: latency baseline. */
+  totalDurationMs: number;
+  /** Cumulative model API latency across all cycles in milliseconds. */
+  modelLatencyMs: number;
+
+  /** Number of agent reasoning cycles executed. Best practice: high counts may indicate prompt/tool issues. */
+  cycleCount: number;
+  /** Average duration per cycle in milliseconds. */
+  averageCycleDurationMs: number;
+
+  /** Per-tool breakdown. Best practice: flag tools with successRate < 95 or high averageTimeMs. */
+  toolMetrics: Record<string, StoredToolMetrics>;
+}
 
 /** Status lifecycle: pending → approved → executed, or pending → rejected. */
 export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'executed';

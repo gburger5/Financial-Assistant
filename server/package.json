@@ -12,6 +12,10 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "eval": "vitest run --config vitest.eval.config.ts",
+    "eval:budget": "vitest run --config vitest.eval.config.ts src/evals/runners/budget.eval.ts",
+    "eval:debt": "vitest run --config vitest.eval.config.ts src/evals/runners/debt.eval.ts",
+    "eval:investing": "vitest run --config vitest.eval.config.ts src/evals/runners/investing.eval.ts",
     "deploy": "serverless deploy"
   },
   "dependencies": {

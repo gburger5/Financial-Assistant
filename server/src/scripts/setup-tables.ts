@@ -261,6 +261,31 @@ export async function setupTables(endpoint?: string): Promise<void> {
     ],
   });
 
+  await createTable(client, "AgentMetrics", {
+    TableName: "AgentMetrics",
+    BillingMode: "PAY_PER_REQUEST",
+    AttributeDefinitions: [
+      { AttributeName: "userId", AttributeType: "S" },
+      { AttributeName: "metricId", AttributeType: "S" },
+      { AttributeName: "agentType", AttributeType: "S" },
+      { AttributeName: "createdAt", AttributeType: "S" },
+    ],
+    KeySchema: [
+      { AttributeName: "userId", KeyType: "HASH" },
+      { AttributeName: "metricId", KeyType: "RANGE" },
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: "agentType-createdAt-index",
+        KeySchema: [
+          { AttributeName: "agentType", KeyType: "HASH" },
+          { AttributeName: "createdAt", KeyType: "RANGE" },
+        ],
+        Projection: { ProjectionType: "ALL" },
+      },
+    ],
+  });
+
   console.log("Done.");
 }
 

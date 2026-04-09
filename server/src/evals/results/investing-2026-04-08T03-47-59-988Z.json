@@ -1,0 +1,1016 @@
+[
+  {
+    "caseId": "invest-young-401k-only",
+    "caseName": "Young user with only a 401k",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 0,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 0,
+    "meanWeightedSoftScore": 0.5454545454545454,
+    "medianDurationMs": 42051.225046,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=500.00 allocation=500.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": false,
+            "detail": "unknown: acc_roth_ira, acc_roth_ira"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "actual=34 expected=35"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 0,
+            "weight": 4,
+            "detail": "no priority signal"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 1,
+            "weight": 3,
+            "detail": "actual=0% target=0%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=true"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 0,
+            "weight": 1,
+            "detail": "no contributions"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": false,
+        "weightedSoftScore": 0.5454545454545454,
+        "rawOutput": {
+          "summary": "All $500 goes into a Fidelity Roth IRA this month, split between a total domestic market index fund and an international index fund. At age 26 with no employer match on record, the Roth IRA is the highest-priority tax-advantaged account and keeps all growth permanently tax-free. No bonds are included because the age-based rule calls for 0% bonds until age 30.",
+          "rationale": "At 26, Eval is well below the Roth IRA income limit and has no confirmed employer 401k match to capture, so the Roth IRA is the best next dollar — tax-free compounding over a 34-year horizon maximizes long-term wealth. The full $500 fits within the $7,000 annual IRA limit, so no dollars need to flow to lower-priority accounts.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_roth_ira",
+              "account_name": "Fidelity Roth IRA",
+              "amount": 400,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "FSKAX",
+              "fund_name": "Fidelity Total Market Index Fund"
+            },
+            {
+              "plaid_account_id": "acc_roth_ira",
+              "account_name": "Fidelity Roth IRA",
+              "amount": 100,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "FZILX",
+              "fund_name": "Fidelity Zero International Index Fund"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 34,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 204000,
+            "total_projected_growth": 589487,
+            "total_at_retirement": 793487,
+            "holdings": [
+              {
+                "fund_ticker": "FSKAX",
+                "fund_name": "Fidelity Total Market Index Fund",
+                "current_value": 0,
+                "projected_value_at_retirement": 634790
+              },
+              {
+                "fund_ticker": "FZILX",
+                "fund_name": "Fidelity Zero International Index Fund",
+                "current_value": 0,
+                "projected_value_at_retirement": 158697
+              }
+            ]
+          },
+          "positive_outcome": "At this contribution rate, Eval is on track to build a portfolio worth approximately $793,487 by age 60. Nearly $590,000 of that total comes from compound growth alone — more than double the actual dollars contributed."
+        },
+        "durationMs": 42051.225046
+      }
+    ]
+  },
+  {
+    "caseId": "invest-mid-career-waterfall",
+    "caseName": "Mid-career three-account waterfall",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 0.927125,
+        "min": 0.927125,
+        "max": 0.927125,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 0.8,
+        "min": 0.8,
+        "max": 0.8,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9189545454545454,
+    "medianDurationMs": 51017.402521,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=2000.00 allocation=2000.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "actual=20 expected=20"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 0.927125,
+            "weight": 4,
+            "detail": "weighted=7417 ideal=8000"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 0.8,
+            "weight": 3,
+            "detail": "actual=0% target=10%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=true"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 1,
+            "weight": 1,
+            "detail": "2/2"
+          },
+          {
+            "name": "summary_quality",
+            "score": 1,
+            "weight": 1,
+            "detail": "clean, sentences=3"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9189545454545454,
+        "rawOutput": {
+          "summary": "This month's $2,000 is split between your Fidelity 401k ($1,417) and Schwab Roth IRA ($583), directing funds into the best available index funds in each account. The Roth IRA is funded first to capture your annual tax-free growth allowance, with the remainder going into the 401k to build long-term retirement savings. Both accounts hold broad total market index funds, keeping costs low and diversification high.",
+          "rationale": "At age 40, maximizing tax-advantaged space is the top priority before any taxable investing — the Roth IRA's tax-free compounding is especially valuable with 20 years of runway to retirement. The 401k absorbs the remaining allocation after IRA room is filled for the month.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 583,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWTSX",
+              "fund_name": "Schwab Total Stock Market Index"
+            },
+            {
+              "plaid_account_id": "acc_401k",
+              "account_name": "Fidelity 401k",
+              "amount": 1417,
+              "contribution_type": "401k",
+              "fund_ticker": "VTSAX",
+              "fund_name": "Vanguard Total Stock Market Index"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 20,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 480000,
+            "total_projected_growth": 824434,
+            "total_at_retirement": 1384434,
+            "holdings": [
+              {
+                "fund_ticker": "VTSAX",
+                "fund_name": "Vanguard Total Stock Market Index",
+                "current_value": 50000,
+                "projected_value_at_retirement": 956000
+              },
+              {
+                "fund_ticker": "SWTSX",
+                "fund_name": "Schwab Total Stock Market Index",
+                "current_value": 20000,
+                "projected_value_at_retirement": 390000
+              },
+              {
+                "fund_ticker": "VTI",
+                "fund_name": "Vanguard Total Market ETF",
+                "current_value": 10000,
+                "projected_value_at_retirement": 38697
+              }
+            ]
+          },
+          "positive_outcome": "At your current monthly pace, your portfolio is projected to reach approximately $1.38 million by age 60. Over $824,000 of that total comes from compound growth alone — more than your contributions will ever put in."
+        },
+        "durationMs": 51017.402521
+      }
+    ]
+  },
+  {
+    "caseId": "invest-near-retirement",
+    "caseName": "Near-retirement conservative tilt",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 0.5,
+        "min": 0.5,
+        "max": 0.5,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.8181818181818182,
+    "medianDurationMs": 53646.81113000002,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=3000.00 allocation=3000.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "actual=5 expected=5"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 1,
+            "weight": 4,
+            "detail": "weighted=9000 ideal=9000"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 1,
+            "weight": 3,
+            "detail": "actual=25% target=25%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 0.5,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=false"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 1,
+            "weight": 1,
+            "detail": "3/3"
+          },
+          {
+            "name": "summary_quality",
+            "score": 0,
+            "weight": 1,
+            "detail": "ALL CAPS run; sentences=5"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.8181818181818182,
+        "rawOutput": {
+          "summary": "All $3,000 this month goes into your Schwab Roth IRA, which takes priority as the most tax-efficient account available after capturing any employer match. Within the IRA, contributions are spread across Schwab Total Stock Market Index (SWTSX), Schwab International Index (SWISX), and Schwab U.S. Aggregate Bond Index (SWAGX) to reflect an age-appropriate allocation that introduces meaningful bond exposure at age 55. Maxing out your Roth IRA first locks in tax-free growth on every dollar contributed before any taxable dollars are deployed.",
+          "rationale": "At age 55, with 5 years to retirement, capturing tax-free Roth IRA growth is the highest-priority move after any employer match; since no employer match was identified, the full $3,000 fills IRA room first, consistent with the priority rules. The bond allocation is elevated to 25% to reflect the shorter investment horizon and need for reduced volatility as retirement approaches.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 1800,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWTSX",
+              "fund_name": "Schwab Total Stock Market Index"
+            },
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 450,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWISX",
+              "fund_name": "Schwab International Index"
+            },
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 750,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWAGX",
+              "fund_name": "Schwab U.S. Aggregate Bond Index"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 5,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 180000,
+            "total_projected_growth": 70708,
+            "total_at_retirement": 330708,
+            "holdings": [
+              {
+                "fund_ticker": "VTSAX",
+                "fund_name": "Vanguard Total Stock Market Index",
+                "current_value": 50000,
+                "projected_value_at_retirement": 70530
+              },
+              {
+                "fund_ticker": "SWTSX",
+                "fund_name": "Schwab Total Stock Market Index",
+                "current_value": 20000,
+                "projected_value_at_retirement": 158928
+              },
+              {
+                "fund_ticker": "SWISX",
+                "fund_name": "Schwab International Index",
+                "current_value": 0,
+                "projected_value_at_retirement": 32679
+              },
+              {
+                "fund_ticker": "SWAGX",
+                "fund_name": "Schwab U.S. Aggregate Bond Index",
+                "current_value": 0,
+                "projected_value_at_retirement": 54465
+              },
+              {
+                "fund_ticker": "VTI",
+                "fund_name": "Vanguard Total Market ETF",
+                "current_value": 10000,
+                "projected_value_at_retirement": 14106
+              }
+            ]
+          },
+          "positive_outcome": "At your current contribution rate, your portfolio is projected to reach approximately $330,700 by age 60. Over $70,700 of that total comes from compound investment growth alone, on top of the $180,000 you'll contribute over the next 5 years."
+        },
+        "durationMs": 53646.81113000002
+      }
+    ]
+  },
+  {
+    "caseId": "invest-no-401k",
+    "caseName": "No 401k, only IRA and brokerage",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9090909090909091,
+    "medianDurationMs": 40728.822251000005,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=1000.00 allocation=1000.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "actual=30 expected=30"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 1,
+            "weight": 4,
+            "detail": "weighted=3000 ideal=3000"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 1,
+            "weight": 3,
+            "detail": "actual=0% target=0%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=true"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 1,
+            "weight": 1,
+            "detail": "2/2"
+          },
+          {
+            "name": "summary_quality",
+            "score": 0,
+            "weight": 1,
+            "detail": "ALL CAPS run"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9090909090909091,
+        "rawOutput": {
+          "summary": "The full $1,000 goes into your Schwab Roth IRA this month — $800 into SWTSX (domestic total market) and $200 into SWISX (international index). Prioritizing the Roth IRA maximizes tax-free growth since you have $6,000 of annual IRA room remaining after this contribution, and no employer 401k match to capture first.",
+          "rationale": "At age 30 with no employer 401k match available, the Roth IRA is the highest-priority account, offering tax-free compounding for the next 30 years. The full $1,000 fits within the 2026 annual IRA limit of $7,000, so no dollars flow to the taxable brokerage this month.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab IRA",
+              "amount": 800,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWTSX",
+              "fund_name": "Schwab Total Stock Market Index"
+            },
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab IRA",
+              "amount": 200,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWISX",
+              "fund_name": "Schwab International Index"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 30,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 360000,
+            "total_projected_growth": 893135,
+            "total_at_retirement": 1253135,
+            "holdings": [
+              {
+                "fund_ticker": "SWTSX",
+                "fund_name": "Schwab Total Stock Market Index",
+                "current_value": 8000,
+                "projected_value_at_retirement": 996418
+              },
+              {
+                "fund_ticker": "SWISX",
+                "fund_name": "Schwab International Index",
+                "current_value": 0,
+                "projected_value_at_retirement": 233880
+              },
+              {
+                "fund_ticker": "VTI",
+                "fund_name": "Vanguard Total Market ETF",
+                "current_value": 3000,
+                "projected_value_at_retirement": 22837
+              }
+            ]
+          },
+          "positive_outcome": "At this monthly rate, your portfolio is projected to reach approximately $1,253,135 by age 60. Over $893,000 of that total comes purely from compound growth — more than double what you'll contribute out of pocket."
+        },
+        "durationMs": 40728.822251000005
+      }
+    ]
+  },
+  {
+    "caseId": "invest-small-allocation",
+    "caseName": "Tiny allocation",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9090909090909091,
+    "medianDurationMs": 45214.79647,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=100.00 allocation=100.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "actual=25 expected=25"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 1,
+            "weight": 4,
+            "detail": "weighted=300 ideal=300"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 1,
+            "weight": 3,
+            "detail": "actual=0% target=5%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=true"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 1,
+            "weight": 1,
+            "detail": "1/1"
+          },
+          {
+            "name": "summary_quality",
+            "score": 0,
+            "weight": 1,
+            "detail": "ALL CAPS run"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9090909090909091,
+        "rawOutput": {
+          "summary": "The full $100 is directed into the Schwab Roth IRA, which takes priority over additional 401k contributions and the taxable brokerage because tax-free Roth growth is the most valuable account type available after no employer match is present. Within the IRA, the contribution goes into SWTSX (Schwab Total Stock Market Index), the only fund available in that account, serving as a substitute for the target domestic stock, international stock, and bond allocations until additional funds are added to the account lineup.",
+          "rationale": "At age 35, this user has 25 years of runway to retirement, making tax-free Roth IRA growth the highest-priority vehicle after securing any employer match — since no match is available, the IRA is funded first and the full $100 fits well within the $7,000 annual limit.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 100,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWTSX",
+              "fund_name": "Schwab Total Stock Market Index"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 25,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 30000,
+            "total_projected_growth": 48300,
+            "total_at_retirement": 78300,
+            "holdings": [
+              {
+                "fund_ticker": "SWTSX",
+                "fund_name": "Schwab Total Stock Market Index",
+                "current_value": 20000,
+                "projected_value_at_retirement": 186848
+              }
+            ]
+          },
+          "positive_outcome": "At this monthly rate, your Roth IRA contributions alone are projected to grow to approximately $78,300 by age 60 — and more than $48,000 of that comes from compound growth, not your own contributions."
+        },
+        "durationMs": 45214.79647
+      }
+    ]
+  },
+  {
+    "caseId": "invest-unknown-age",
+    "caseName": "Unknown user age",
+    "agentType": "investing",
+    "runCount": 1,
+    "hardConstraintPassRate": {
+      "contributions_sum_equals_allocation": 1,
+      "all_amounts_positive": 1,
+      "account_ids_valid": 1,
+      "retirement_age_is_60": 1,
+      "assumed_return_is_seven_percent": 1,
+      "years_to_retirement_correct": 1
+    },
+    "softScoreStats": {
+      "account_priority_order": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "three_fund_bond_ratio": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "projection_math_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "contribution_type_accuracy": {
+        "mean": 1,
+        "min": 1,
+        "max": 1,
+        "stddev": 0
+      },
+      "summary_quality": {
+        "mean": 0,
+        "min": 0,
+        "max": 0,
+        "stddev": 0
+      }
+    },
+    "overallPassRate": 1,
+    "meanWeightedSoftScore": 0.9090909090909091,
+    "medianDurationMs": 37978.709611,
+    "runs": [
+      {
+        "hardConstraints": [
+          {
+            "name": "contributions_sum_equals_allocation",
+            "passed": true,
+            "detail": "sum=800.00 allocation=800.00"
+          },
+          {
+            "name": "all_amounts_positive",
+            "passed": true,
+            "detail": "all amounts > 0"
+          },
+          {
+            "name": "account_ids_valid",
+            "passed": true,
+            "detail": "all ids valid"
+          },
+          {
+            "name": "retirement_age_is_60",
+            "passed": true,
+            "detail": "retirement_age=60"
+          },
+          {
+            "name": "assumed_return_is_seven_percent",
+            "passed": true,
+            "detail": "assumed_annual_return=0.07"
+          },
+          {
+            "name": "years_to_retirement_correct",
+            "passed": true,
+            "detail": "age is null — cannot validate"
+          }
+        ],
+        "softScores": [
+          {
+            "name": "account_priority_order",
+            "score": 1,
+            "weight": 4,
+            "detail": "weighted=2400 ideal=2400"
+          },
+          {
+            "name": "three_fund_bond_ratio",
+            "score": 1,
+            "weight": 3,
+            "detail": "actual=0% target=0%"
+          },
+          {
+            "name": "projection_math_accuracy",
+            "score": 1,
+            "weight": 2,
+            "detail": "contribsOk=true totalOk=true"
+          },
+          {
+            "name": "contribution_type_accuracy",
+            "score": 1,
+            "weight": 1,
+            "detail": "2/2"
+          },
+          {
+            "name": "summary_quality",
+            "score": 0,
+            "weight": 1,
+            "detail": "ALL CAPS run"
+          }
+        ],
+        "allHardConstraintsPassed": true,
+        "weightedSoftScore": 0.9090909090909091,
+        "rawOutput": {
+          "summary": "The full $800 is directed to your Schwab Roth IRA, split between SWTSX for domestic stocks and SWISX for international stocks. The Roth IRA takes priority because tax-free growth is the highest-value next step once no employer match is available. With no age on file, a 30-year timeline to retirement at age 60 is assumed.",
+          "rationale": "Since no employer match is available in the 401k, the Roth IRA is the top priority — it offers tax-free compounding with no required minimum distributions. With age unknown, a conservative default of age 30 is used, producing a 100% stock allocation appropriate for a long horizon.",
+          "scheduled_contributions": [
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 640,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWTSX",
+              "fund_name": "Schwab Total Stock Market Index"
+            },
+            {
+              "plaid_account_id": "acc_ira",
+              "account_name": "Schwab Roth IRA",
+              "amount": 160,
+              "contribution_type": "roth_ira",
+              "fund_ticker": "SWISX",
+              "fund_name": "Schwab International Index"
+            }
+          ],
+          "projections": {
+            "retirement_age": 60,
+            "years_to_retirement": 30,
+            "assumed_annual_return": 0.07,
+            "total_projected_contributions": 288000,
+            "total_projected_growth": 515612,
+            "total_at_retirement": 803612,
+            "holdings": [
+              {
+                "fund_ticker": "SWTSX",
+                "fund_name": "Schwab Total Stock Market Index",
+                "current_value": 20000,
+                "projected_value_at_retirement": 643090
+              },
+              {
+                "fund_ticker": "SWISX",
+                "fund_name": "Schwab International Index",
+                "current_value": 0,
+                "projected_value_at_retirement": 160523
+              }
+            ]
+          },
+          "positive_outcome": "At this contribution rate, your portfolio is projected to reach approximately $803,612 by age 60. More than $515,000 of that total comes from compound growth alone — your money working for you, not just your contributions."
+        },
+        "durationMs": 37978.709611
+      }
+    ]
+  }
+]

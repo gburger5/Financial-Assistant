@@ -29,12 +29,41 @@ import {
   getProposalHistory,
   getProposalsByType,
   updateProposalStatus,
+  saveAgentMetrics,
 } from '../agents.repository.js';
-import type { Proposal } from '../agents.types.js';
+import type { Proposal, AgentMetricsRecord } from '../agents.types.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
+
+const sampleMetricsRecord: AgentMetricsRecord = {
+  userId: 'user-agent-1',
+  metricId: '01ARZ3NDEKTSV4RRFFQ69G5FAX',
+  proposalId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+  invocationId: '01ARZ3NDEKTSV4RRFFQ69G5FAW',
+  agentType: 'budget',
+  createdAt: '2024-01-01T00:00:00.000Z',
+  totalTokens: 1500,
+  inputTokens: 1100,
+  outputTokens: 400,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalDurationMs: 3200,
+  modelLatencyMs: 2800,
+  cycleCount: 2,
+  averageCycleDurationMs: 1600,
+  toolMetrics: {
+    get_user_accounts: {
+      callCount: 1,
+      successCount: 1,
+      errorCount: 0,
+      totalTimeMs: 45,
+      averageTimeMs: 45,
+      successRate: 100,
+    },
+  },
+};
 
 const sampleProposal: Proposal = {
   userId: 'user-agent-1',
@@ -370,5 +399,85 @@ describe('updateProposalStatus', () => {
 
     const command = mockSend.mock.calls[0][0];
     expect(command.input.UpdateExpression).toContain('updatedAt');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveAgentMetrics
+// ---------------------------------------------------------------------------
+
+describe('saveAgentMetrics', () => {
+  it('calls db.send exactly once', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores the record in the AgentMetrics table', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    const command = mockSend.mock.calls[0][0];
+    expect(command.input.TableName).toBe('AgentMetrics');
+  });
+
+  it('stores the full record including userId, metricId, and proposalId', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    const command = mockSend.mock.calls[0][0];
+    expect(command.input.Item).toMatchObject({
+      userId: 'user-agent-1',
+      metricId: '01ARZ3NDEKTSV4RRFFQ69G5FAX',
+      proposalId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+      agentType: 'budget',
+    });
+  });
+
+  it('stores token usage fields', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    const command = mockSend.mock.calls[0][0];
+    expect(command.input.Item).toMatchObject({
+      totalTokens: 1500,
+      inputTokens: 1100,
+      outputTokens: 400,
+    });
+  });
+
+  it('stores latency and cycle fields', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    const command = mockSend.mock.calls[0][0];
+    expect(command.input.Item).toMatchObject({
+      totalDurationMs: 3200,
+      modelLatencyMs: 2800,
+      cycleCount: 2,
+      averageCycleDurationMs: 1600,
+    });
+  });
+
+  it('stores the toolMetrics map', async () => {
+    mockSend.mockResolvedValue({});
+
+    await saveAgentMetrics(sampleMetricsRecord);
+
+    const command = mockSend.mock.calls[0][0];
+    expect(command.input.Item.toolMetrics).toMatchObject({
+      get_user_accounts: {
+        callCount: 1,
+        successCount: 1,
+        errorCount: 0,
+        successRate: 100,
+      },
+    });
   });
 });
