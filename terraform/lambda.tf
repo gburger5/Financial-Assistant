@@ -83,6 +83,7 @@ resource "aws_iam_role_policy" "lambda_ssm" {
         "arn:aws:ssm:${var.aws_region}:*:parameter${var.jwt_secret_ssm_path}",
         "arn:aws:ssm:${var.aws_region}:*:parameter${var.frontend_url_ssm_path}",
         "arn:aws:ssm:${var.aws_region}:*:parameter${var.encryption_key_ssm_path}",
+        "arn:aws:ssm:${var.aws_region}:*:parameter${var.anthropic_api_key_ssm_path}",
       ]
     }]
   })
@@ -103,6 +104,11 @@ data "aws_ssm_parameter" "encryption_key" {
   with_decryption = true
 }
 
+data "aws_ssm_parameter" "anthropic_api_key" {
+  name            = var.anthropic_api_key_ssm_path
+  with_decryption = true
+}
+
 # ── Lambda function ────────────────────────────────────────────────────────────
 resource "aws_lambda_function" "api" {
   function_name    = var.lambda_function_name
@@ -116,16 +122,17 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      NODE_ENV         = "production"
-      JWT_SECRET       = data.aws_ssm_parameter.jwt_secret.value
-      FRONTEND_URL     = data.aws_ssm_parameter.frontend_url.value
-      ENCRYPTION_KEY   = data.aws_ssm_parameter.encryption_key.value
-      EMAIL_FROM       = var.email_from
-      EMAIL_FROM_NAME  = var.email_from_name
-      BREVO_API_KEY    = var.brevo_api_key
-      PLAID_CLIENT_ID  = var.plaid_client_id
-      PLAID_SECRET     = var.plaid_secret
-      PLAID_ENV        = var.plaid_env
+      NODE_ENV          = "production"
+      JWT_SECRET        = data.aws_ssm_parameter.jwt_secret.value
+      FRONTEND_URL      = data.aws_ssm_parameter.frontend_url.value
+      ENCRYPTION_KEY    = data.aws_ssm_parameter.encryption_key.value
+      ANTHROPIC_API_KEY = data.aws_ssm_parameter.anthropic_api_key.value
+      EMAIL_FROM        = var.email_from
+      EMAIL_FROM_NAME   = var.email_from_name
+      BREVO_API_KEY     = var.brevo_api_key
+      PLAID_CLIENT_ID   = var.plaid_client_id
+      PLAID_SECRET      = var.plaid_secret
+      PLAID_ENV         = var.plaid_env
     }
   }
 

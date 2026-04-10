@@ -2,11 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--gradient-primary);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #0A2540, #457B9D);
   color: #fff;
   font-family: var(--font-body);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-extrabold);
   flex-shrink: 0;
   overflow: hidden;
 }

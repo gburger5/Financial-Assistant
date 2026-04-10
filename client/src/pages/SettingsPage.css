@@ -1,0 +1,283 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 680px;
+}
+
+/* ── Header ───────────────────────────────── */
+.settings-page__header {
+  margin-bottom: var(--space-2);
+}
+
+.settings-page__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-extrabold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+}
+
+.settings-page__subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ── Section ──────────────────────────────── */
+.settings-page__section {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.settings-page__section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-heading);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  padding: 0.875rem 1.25rem 0.6875rem;
+  border-bottom: 1px solid var(--color-border-light);
+  margin: 0;
+}
+
+/* ── Row ──────────────────────────────────── */
+.settings-page__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border-light);
+  gap: var(--space-6);
+}
+
+.settings-page__row:last-child {
+  border-bottom: none;
+}
+
+.settings-page__row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-page__row-label {
+  font-size: 0.875rem;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-page__row-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* ── Theme Picker ─────────────────────────── */
+.settings-page__theme-picker {
+  display: flex;
+  gap: 0.375rem;
+  background: var(--color-bg-hover);
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+}
+
+.settings-page__theme-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.75rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-height: unset;
+  min-width: unset;
+}
+
+.settings-page__theme-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+}
+
+.settings-page__theme-btn--active {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(10, 37, 64, 0.1);
+}
+
+/* ── Text Size Picker ─────────────────────── */
+.settings-page__text-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.settings-page__text-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 56px;
+  min-height: unset;
+}
+
+.settings-page__text-btn:hover {
+  border-color: var(--color-teal-500);
+}
+
+.settings-page__text-btn--active {
+  border-color: var(--color-teal-500);
+  background: rgba(0, 212, 170, 0.06);
+}
+
+.settings-page__text-preview {
+  font-weight: var(--weight-extrabold);
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.settings-page__text-label {
+  font-size: 0.625rem;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Accent Color Picker ──────────────────── */
+.settings-page__accent-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.settings-page__accent-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 52px;
+  min-height: unset;
+}
+
+.settings-page__accent-btn:hover {
+  border-color: var(--color-text-muted);
+}
+
+.settings-page__accent-btn--active {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-text-primary);
+}
+
+.settings-page__accent-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.settings-page__accent-label {
+  font-size: 0.625rem;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+
+/* ── Toggle Switch ────────────────────────── */
+.settings-page__toggle {
+  position: relative;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: 12px;
+  background: var(--color-border);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+  min-height: unset;
+  min-width: unset;
+}
+
+.settings-page__toggle--on {
+  background: var(--color-teal-500);
+}
+
+.settings-page__toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.settings-page__toggle--on .settings-page__toggle-thumb {
+  transform: translateX(1.25rem);
+}
+
+/* ── Reset section ────────────────────────── */
+.settings-page__section--reset {
+  background: transparent;
+  border: 1px dashed var(--color-border);
+}
+
+.settings-page__section--reset .settings-page__row {
+  border-bottom: none;
+}
+
+/* ── Responsive ───────────────────────────── */
+@media (max-width: 640px) {
+  .settings-page__row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .settings-page__theme-picker,
+  .settings-page__text-picker,
+  .settings-page__accent-picker {
+    width: 100%;
+  }
+
+  .settings-page__theme-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .settings-page__text-btn,
+  .settings-page__accent-btn {
+    flex: 1;
+  }
+}

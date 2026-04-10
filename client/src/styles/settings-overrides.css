@@ -1,0 +1,105 @@
+/* ══════════════════════════════════════════════════════════════
+   Settings Overrides
+   Import in global.css AFTER tokens.css:
+     @import './settings-overrides.css';
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Compact Mode ─────────────────────────── */
+html.compact {
+  --space-1:  0.125rem;
+  --space-2:  0.375rem;
+  --space-3:  0.5rem;
+  --space-4:  0.75rem;
+  --space-5:  1rem;
+  --space-6:  1.125rem;
+  --space-8:  1.5rem;
+  --space-10: 1.75rem;
+  --space-12: 2rem;
+  --space-16: 3rem;
+
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --text-xs:   0.6875rem;
+  --text-sm:   0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg:   1rem;
+  --text-xl:   1.125rem;
+  --text-2xl:  1.25rem;
+  --text-3xl:  1.5rem;
+}
+
+/* ── Reduce Motion ────────────────────────── */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* ── Accent: Teal (default — no overrides needed) ─────── */
+
+/* ── Accent: Blue ─────────────────────────── */
+html[data-accent="blue"] {
+  --color-teal-500: #3B82F6;
+  --color-teal-600: #2563EB;
+  --color-teal-700: #1D4ED8;
+  --color-teal-400: #60A5FA;
+  --color-teal-300: #93C5FD;
+
+  --color-border-focus: #3B82F6;
+  --color-success:    #3B82F6;
+
+  --gradient-primary: linear-gradient(135deg, #0A2540 0%, #3B82F6 100%);
+  --gradient-cta:     linear-gradient(135deg, #0A2540 0%, #3B82F6 100%);
+  --gradient-glow:    linear-gradient(135deg, #0A2540 0%, #457B9D 50%, #3B82F6 100%);
+  --shadow-glow:      0 4px 20px rgba(59, 130, 246, 0.2);
+}
+
+/* ── Accent: Purple ───────────────────────── */
+html[data-accent="purple"] {
+  --color-teal-500: #8B5CF6;
+  --color-teal-600: #7C3AED;
+  --color-teal-700: #6D28D9;
+  --color-teal-400: #A78BFA;
+  --color-teal-300: #C4B5FD;
+
+  --color-border-focus: #8B5CF6;
+  --color-success:    #8B5CF6;
+
+  --gradient-primary: linear-gradient(135deg, #0A2540 0%, #8B5CF6 100%);
+  --gradient-cta:     linear-gradient(135deg, #0A2540 0%, #8B5CF6 100%);
+  --gradient-glow:    linear-gradient(135deg, #0A2540 0%, #457B9D 50%, #8B5CF6 100%);
+  --shadow-glow:      0 4px 20px rgba(139, 92, 246, 0.2);
+}
+
+/* ── Accent: Amber ────────────────────────── */
+html[data-accent="amber"] {
+  --color-teal-500: #F59E0B;
+  --color-teal-600: #D97706;
+  --color-teal-700: #B45309;
+  --color-teal-400: #FBC02D;
+  --color-teal-300: #FDE68A;
+
+  --color-border-focus: #F59E0B;
+  --color-success:    #F59E0B;
+
+  --gradient-primary: linear-gradient(135deg, #0A2540 0%, #F59E0B 100%);
+  --gradient-cta:     linear-gradient(135deg, #0A2540 0%, #F59E0B 100%);
+  --gradient-glow:    linear-gradient(135deg, #0A2540 0%, #457B9D 50%, #F59E0B 100%);
+  --shadow-glow:      0 4px 20px rgba(245, 158, 11, 0.2);
+}
+
+/* ── Accent colors in dark mode ───────────── */
+[data-theme="dark"][data-accent="blue"] {
+  --shadow-glow: 0 4px 20px rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"][data-accent="purple"] {
+  --shadow-glow: 0 4px 20px rgba(139, 92, 246, 0.15);
+}
+
+[data-theme="dark"][data-accent="amber"] {
+  --shadow-glow: 0 4px 20px rgba(245, 158, 11, 0.15);
+}

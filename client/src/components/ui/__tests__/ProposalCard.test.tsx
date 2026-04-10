@@ -5,7 +5,6 @@ import ProposalCard from '../../features/ProposalCard'
 import type { Proposal } from '../../../types/proposal'
 
 const pendingProposal: Proposal = {
-  userId: 'u1',
   proposalId: 'p1',
   agentType: 'budget',
   status: 'pending',
@@ -15,7 +14,6 @@ const pendingProposal: Proposal = {
 }
 
 const executedProposal: Proposal = {
-  userId: 'u1',
   proposalId: 'p2',
   agentType: 'investing',
   status: 'executed',
@@ -51,7 +49,7 @@ describe('ProposalCard', () => {
     expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
   })
 
-  it('calls onApprove with proposal id when approved', async () => {
+  it('calls onApprove with proposal id after confirmation', async () => {
     const onApprove = vi.fn()
     render(
       <ProposalCard
@@ -61,11 +59,15 @@ describe('ProposalCard', () => {
         onReject={vi.fn()}
       />,
     )
+    // First click shows confirmation
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    expect(screen.getByText(/Are you sure/)).toBeInTheDocument()
+    // Second click confirms
+    await userEvent.click(screen.getByRole('button', { name: /Yes, approve/ }))
     expect(onApprove).toHaveBeenCalledWith('p1')
   })
 
-  it('shows summary text', () => {
+  it('shows summary text from result', () => {
     render(
       <ProposalCard
         proposal={pendingProposal}

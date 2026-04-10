@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './settings-overrides.css';
 @import './animations.css';
 
 *, *::before, *::after {
@@ -42,30 +43,54 @@ h2 { font-size: var(--text-4xl); font-weight: var(--weight-bold); }
 h3 { font-size: var(--text-2xl); font-weight: var(--weight-bold); line-height: var(--leading-snug); }
 h4 { font-size: var(--text-xl);  font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
 
-a { color: var(--color-purple-400); text-decoration: none; }
-a:hover { color: var(--color-purple-300); }
+a { color: var(--color-teal-500); text-decoration: none; }
+a:hover { color: var(--color-teal-700); }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-bg-surface); }
+::-webkit-scrollbar-track { background: var(--color-bg-body); }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
 
-::selection { background: rgba(139, 92, 246, 0.3); color: #fff; }
+::selection { background: rgba(0, 212, 170, 0.25); color: var(--color-text-primary); }
 
-/* ── Accessibility ──────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 
-/* Ensure all interactive elements meet 44px touch target */
 button, a, [role="button"], [role="switch"] {
   min-height: 44px;
   min-width: 44px;
 }
 
-/* Override for inline elements where 44px height would break layout */
 .badge, .filter-chip, .btn--sm {
   min-height: unset;
   min-width: unset;
+}
+
+.pw-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pw-checklist__rule {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #94A3B8;
+  transition: color 0.15s;
+}
+
+.pw-checklist__rule--pass {
+  color: #00A884;
+}
+
+.pw-checklist__rule svg {
+  flex-shrink: 0;
 }

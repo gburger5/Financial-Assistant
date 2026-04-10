@@ -1,6 +1,6 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
   min-height: 100vh;
   width: 100%;
 }
@@ -15,19 +15,23 @@
 
 .app-shell__content {
   flex: 1;
-  padding: var(--space-8);
+  padding: 1.625rem 1.75rem;
   overflow-y: auto;
   max-width: 100%;
 }
 
 @media (max-width: 1024px) {
   .app-shell {
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
   }
 }
 
 @media (max-width: 767px) {
   .app-shell {
     grid-template-columns: 1fr;
+  }
+
+  .app-shell__content {
+    padding: var(--space-5) var(--space-4);
   }
 }

@@ -37,7 +37,7 @@ describe('useApi', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
-      json: () => Promise.resolve({ error: 'Server error' }),
+      json: () => Promise.resolve({ message: 'Server error' }),
     }))
 
     const { result } = renderHook(() => useApi<unknown>('/api/test'))

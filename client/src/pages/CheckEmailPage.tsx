@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Mail } from 'lucide-react'
+import { Mail, ArrowLeft } from 'lucide-react'
 import { api } from '../services/api'
 import Button from '../components/ui/Button'
 import './CheckEmailPage.css'
@@ -29,45 +29,48 @@ export default function CheckEmailPage() {
 
   return (
     <div className="check-email-page">
-      <div className="check-email-page__hero">
-        <div className="check-email-page__hero-content">
-          <h1 className="check-email-page__hero-title">Financial Assistant</h1>
-          <p className="check-email-page__hero-sub">
-            Connect your accounts. Get personalized budget insights powered by AI.
-          </p>
-        </div>
+      <div className="check-email-page__bg" aria-hidden="true">
+        <div className="check-email-page__orb check-email-page__orb--1" />
+        <div className="check-email-page__orb check-email-page__orb--2" />
       </div>
 
-      <div className="check-email-page__form-side">
-        <div className="check-email-page__box">
-          <div className="check-email-page__icon">
-            <Mail size={40} />
-          </div>
-          <h2 className="check-email-page__heading">Check your email</h2>
-          <p className="check-email-page__description">
-            We sent a verification link to{' '}
-            {email ? <strong>{email}</strong> : 'your email address'}.
-            Click the link in the email to verify your account.
-          </p>
+      <div className="check-email-page__card">
+        <Link to="/" className="check-email-page__logo" aria-label="FinanceAI home">
+          <span className="check-email-page__logo-icon" aria-hidden="true" />
+          <span className="check-email-page__logo-text">FinanceAI</span>
+        </Link>
 
-          {error && <p className="check-email-page__error" role="alert">{error}</p>}
-          {resent && <p className="check-email-page__success" role="status">Verification email sent!</p>}
-
-          {email && (
-            <Button
-              variant="secondary"
-              fullWidth
-              disabled={resending || resent}
-              onClick={handleResend}
-            >
-              {resending ? 'Sending...' : resent ? 'Email sent!' : 'Resend verification email'}
-            </Button>
-          )}
-
-          <p className="check-email-page__footer">
-            <Link to="/login">Back to login</Link>
-          </p>
+        <div className="check-email-page__icon-wrap">
+          <Mail size={32} />
         </div>
+
+        <h1 className="check-email-page__heading">Check your email</h1>
+        <p className="check-email-page__sub">
+          We sent a verification link to{' '}
+          {email ? <strong>{email}</strong> : 'your email address'}.
+          Click the link in the email to verify your account.
+        </p>
+
+        {error && <p className="check-email-page__error" role="alert">{error}</p>}
+        {resent && <p className="check-email-page__success" role="status">Verification email sent!</p>}
+
+        {email && (
+          <Button
+            variant="secondary"
+            fullWidth
+            disabled={resending || resent}
+            onClick={handleResend}
+          >
+            {resending ? 'Sending…' : resent ? 'Email sent!' : 'Resend verification email'}
+          </Button>
+        )}
+
+        <p className="check-email-page__footer">
+          <Link to="/login">
+            <ArrowLeft size={14} className="check-email-page__back-icon" />
+            Back to sign in
+          </Link>
+        </p>
       </div>
     </div>
   )

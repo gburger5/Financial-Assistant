@@ -1,5 +1,11 @@
-import { createContext, useEffect, useState, ReactNode } from 'react'
-import { api } from '../services/api'
+import { createContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import {
+  api,
+  setTokens,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+} from '../services/api'
 import type { PublicUser, LoginResponse } from '../types/user'
 
 interface AuthContextValue {
@@ -7,7 +13,7 @@ interface AuthContextValue {
   token: string | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -18,44 +24,57 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<PublicUser | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
-  // Initialize as ready when there is no stored token — no async work needed.
-  const [ready, setReady] = useState(() => !localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(() => getAccessToken())
+  const [ready, setReady] = useState(() => !getAccessToken())
 
+  // On mount, verify the stored access token (api layer auto-refreshes if needed)
   useEffect(() => {
-    const storedToken = localStorage.getItem('token')
+    const storedToken = getAccessToken()
     if (!storedToken) return
 
     api
       .get<PublicUser>('/api/auth/verify')
       .then((payload) => {
         setUser(payload)
-        setToken(storedToken)
+        setToken(getAccessToken())
       })
       .catch(() => {
-        localStorage.removeItem('token')
+        clearTokens()
         setToken(null)
       })
       .finally(() => setReady(true))
   }, [])
 
   async function login(email: string, password: string): Promise<void> {
-    const res = await api.post<LoginResponse>('/api/auth/login', { email, password })
-    localStorage.setItem('token', res.token)
+    const res = await api.post<LoginResponse>('/api/auth/login', {
+      email,
+      password,
+    })
+    setTokens(res.token, res.refreshToken)
     setToken(res.token)
     setUser(res.user)
   }
 
-  function logout(): void {
-    localStorage.removeItem('token')
+  const logout = useCallback(async (): Promise<void> => {
+    const currentRefresh = getRefreshToken()
+    if (currentRefresh) {
+      try {
+        await api.post('/api/auth/logout', { refreshToken: currentRefresh })
+      } catch {
+        // Network error or already expired — still clear locally
+      }
+    }
+    clearTokens()
     setToken(null)
     setUser(null)
-  }
+  }, [])
 
   if (!ready) return null
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, token, isAuthenticated: !!user, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )

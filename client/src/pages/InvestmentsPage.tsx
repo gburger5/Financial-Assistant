@@ -44,7 +44,7 @@ export default function InvestmentsPage() {
   const investingProposal = useMemo(() => {
     const investing = proposals
       .filter((p) => p.agentType === 'investing')
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
     return investing[0] ?? null
   }, [proposals])
 

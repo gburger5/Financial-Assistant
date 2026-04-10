@@ -169,6 +169,12 @@ variable "plaid_env" {
   default     = "sandbox"
 }
 
+variable "anthropic_api_key_ssm_path" {
+  description = "SSM Parameter Store path for the Anthropic API key"
+  type        = string
+  default     = "/myapp/anthropic-api-key"
+}
+
 # Optional HTTPS / custom domain (leave empty to deploy HTTP only)
 variable "domain_name" {
   description = "Custom domain for the ALB (e.g. agents.example.com). Leave empty to use HTTP only."

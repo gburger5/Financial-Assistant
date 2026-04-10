@@ -72,7 +72,7 @@ export default function DebtsPage() {
   const debtProposal = useMemo(() => {
     const debt = proposals
       .filter((p) => p.agentType === 'debt')
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
     return debt[0] ?? null
   }, [proposals])
 

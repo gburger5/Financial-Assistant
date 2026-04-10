@@ -16,6 +16,23 @@ import type { Transaction, InvestmentTransaction } from '../types/transaction'
 import { LayoutDashboard, Receipt, RefreshCw } from 'lucide-react'
 import './DashboardPage.css'
 
+const CHART_COLORS = {
+  housing:        '#457B9D',
+  utilities:      '#3B82F6',
+  transportation: '#00D4AA',
+  groceries:      '#F59E0B',
+  takeout:        '#EF4444',
+  shopping:       '#8B5CF6',
+  personalCare:   '#EC4899',
+  entertainment:  '#A78BFA',
+  medical:        '#F472B6',
+  emergencyFund:  '#06B6D4',
+  debts:          '#F97316',
+  investments:    '#14B8A6',
+  income:         '#00D4AA',
+  expenses:       '#457B9D',
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { budget, loading, error } = useBudget()
@@ -34,7 +51,6 @@ export default function DashboardPage() {
     }
   }, [refetchTx, refetchInvTx])
 
-  // Merge regular and investment transactions, sorted newest-first
   const allTransactions: Array<{ key: string; name: string; category: string; date: string; amount: number }> = []
   if (txData?.transactions) {
     for (const tx of txData.transactions) {
@@ -81,21 +97,20 @@ export default function DashboardPage() {
     )
   }
 
-  // Build chart data from real budget
   const donutSlices: DonutSlice[] = budget
     ? [
-        { name: 'Housing', value: budget.housing?.amount ?? 0, color: 'var(--color-chart-1)' },
-        { name: 'Utilities', value: budget.utilities?.amount ?? 0, color: 'var(--color-chart-2)' },
-        { name: 'Transportation', value: budget.transportation?.amount ?? 0, color: 'var(--color-chart-3)' },
-        { name: 'Groceries', value: budget.groceries?.amount ?? 0, color: 'var(--color-chart-4)' },
-        { name: 'Takeout', value: budget.takeout?.amount ?? 0, color: 'var(--color-chart-5)' },
-        { name: 'Shopping', value: budget.shopping?.amount ?? 0, color: 'var(--color-chart-6)' },
-        { name: 'Personal Care', value: budget.personalCare?.amount ?? 0, color: 'var(--color-chart-7)' },
-        { name: 'Entertainment', value: budget.entertainment?.amount ?? 0, color: '#8B5CF6' },
-        { name: 'Medical', value: budget.medical?.amount ?? 0, color: '#EC4899' },
-        { name: 'Emergency Fund', value: budget.emergencyFund?.amount ?? 0, color: '#06B6D4' },
-        { name: 'Debts', value: budget.debts?.amount ?? 0, color: '#F97316' },
-        { name: 'Investments', value: budget.investments?.amount ?? 0, color: '#14B8A6' },
+        { name: 'Housing',        value: budget.housing?.amount ?? 0,        color: CHART_COLORS.housing },
+        { name: 'Utilities',      value: budget.utilities?.amount ?? 0,      color: CHART_COLORS.utilities },
+        { name: 'Transportation', value: budget.transportation?.amount ?? 0, color: CHART_COLORS.transportation },
+        { name: 'Groceries',      value: budget.groceries?.amount ?? 0,      color: CHART_COLORS.groceries },
+        { name: 'Takeout',        value: budget.takeout?.amount ?? 0,        color: CHART_COLORS.takeout },
+        { name: 'Shopping',       value: budget.shopping?.amount ?? 0,       color: CHART_COLORS.shopping },
+        { name: 'Personal Care',  value: budget.personalCare?.amount ?? 0,   color: CHART_COLORS.personalCare },
+        { name: 'Entertainment',  value: budget.entertainment?.amount ?? 0,  color: CHART_COLORS.entertainment },
+        { name: 'Medical',        value: budget.medical?.amount ?? 0,        color: CHART_COLORS.medical },
+        { name: 'Emergency Fund', value: budget.emergencyFund?.amount ?? 0,  color: CHART_COLORS.emergencyFund },
+        { name: 'Debts',          value: budget.debts?.amount ?? 0,          color: CHART_COLORS.debts },
+        { name: 'Investments',    value: budget.investments?.amount ?? 0,    color: CHART_COLORS.investments },
       ].filter((s) => s.value > 0)
     : []
 
@@ -136,7 +151,7 @@ export default function DashboardPage() {
           subtitle={budget ? `Monthly income: $${(budget.income?.amount ?? 0).toLocaleString()}` : ''}
         >
           {budget && barData.some((d) => d.value > 0) ? (
-            <BarChart data={barData} color="var(--color-chart-1)" />
+            <BarChart data={barData} />
           ) : (
             <EmptyState title="No budget data" description="Connect your bank to see your budget." />
           )}

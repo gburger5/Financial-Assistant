@@ -29,6 +29,8 @@
   font-weight: var(--weight-medium);
   cursor: pointer;
   padding: 0;
+  min-height: unset;
+  min-width: unset;
   transition: color var(--transition-fast);
 }
 
@@ -54,6 +56,31 @@
   gap: var(--space-3);
 }
 
+/* ── Confirmation dialog ──────────────────── */
+.proposal-card__action-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.proposal-card__action-confirm-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+.proposal-card__action-confirm-btns {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Delete ───────────────────────────────── */
 .proposal-card__delete-btn {
   background: transparent;
   border: none;
@@ -63,6 +90,8 @@
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
+  min-height: unset;
+  min-width: unset;
   transition: color var(--transition-fast);
 }
 
@@ -89,6 +118,8 @@
   font-weight: var(--weight-medium);
   cursor: pointer;
   padding: 0;
+  min-height: unset;
+  min-width: unset;
 }
 
 .proposal-card__delete-confirm-yes {
@@ -96,7 +127,6 @@
 }
 
 .proposal-card__delete-confirm-yes:hover {
-  color: var(--color-danger-light, var(--color-danger));
   text-decoration: underline;
 }
 

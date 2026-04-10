@@ -105,3 +105,17 @@ describe('DashboardPage', () => {
     expect(screen.getByText('No transactions yet')).toBeInTheDocument()
   })
 })
+
+vi.mock('recharts', () => ({
+  PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
+  Pie: () => null,
+  Cell: () => null,
+  Tooltip: () => null,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="bar-chart">{children}</div>,
+  Bar: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  LabelList: () => null,
+}))

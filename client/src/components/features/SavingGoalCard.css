@@ -16,9 +16,9 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
+  border-radius: 11px;
+  background: var(--color-bg-hover);
+  color: var(--color-text-dimmed);
   flex-shrink: 0;
 }
 
@@ -49,7 +49,7 @@
 
 .saving-goal__saved {
   font-size: var(--text-xl);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-extrabold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
