@@ -1,14 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { useApi } from '../useApi'
 
 describe('useApi', () => {
-  beforeEach(() => {
-    localStorage.setItem('token', 'test-token')
-  })
-
   afterEach(() => {
-    localStorage.clear()
     vi.restoreAllMocks()
   })
 

@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
+import cookie from '@fastify/cookie';
 import errorHandlerPlugin from '../errorHandler.plugin.js';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,7 @@ const TEST_SECRET = 'test-jwt-secret-for-auth-plugin-tests';
  */
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
+  await app.register(cookie);
   await app.register(errorHandlerPlugin);
   app.get('/protected', { preHandler: verifyJWT }, async (request) => {
     return request.user;
@@ -59,7 +61,7 @@ afterEach(() => app?.close());
 // ---------------------------------------------------------------------------
 
 describe('verifyJWT — missing token', () => {
-  it('returns 401 when Authorization header is absent', async () => {
+  it('returns 401 when no accessToken cookie is present', async () => {
     app = await buildTestApp();
 
     const res = await app.inject({ method: 'GET', url: '/protected' });
@@ -72,26 +74,13 @@ describe('verifyJWT — missing token', () => {
     });
   });
 
-  it('returns 401 when Authorization header is not Bearer scheme', async () => {
+  it('returns 401 when accessToken cookie is empty string', async () => {
     app = await buildTestApp();
 
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: 'Basic dXNlcjpwYXNz' },
-    });
-
-    expect(res.statusCode).toBe(401);
-    expect(res.json().message).toBe('No token provided');
-  });
-
-  it('returns 401 when Bearer token value is empty', async () => {
-    app = await buildTestApp();
-
-    const res = await app.inject({
-      method: 'GET',
-      url: '/protected',
-      headers: { authorization: 'Bearer ' },
+      cookies: { accessToken: '' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -115,7 +104,7 @@ describe('verifyJWT — expired token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -133,7 +122,7 @@ describe('verifyJWT — expired token', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).not.toHaveBeenCalled();
@@ -155,7 +144,7 @@ describe('verifyJWT — invalid token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -168,7 +157,7 @@ describe('verifyJWT — invalid token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: 'Bearer not.a.jwt' },
+      cookies: { accessToken: 'not.a.jwt' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -185,7 +174,7 @@ describe('verifyJWT — invalid token', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).not.toHaveBeenCalled();
@@ -202,7 +191,7 @@ describe('verifyJWT — invalid token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${noneToken}` },
+      cookies: { accessToken: noneToken },
     });
 
     expect(res.statusCode).toBe(401);
@@ -226,7 +215,7 @@ describe('verifyJWT — missing jti claim', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -244,7 +233,7 @@ describe('verifyJWT — missing jti claim', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).not.toHaveBeenCalled();
@@ -268,7 +257,7 @@ describe('verifyJWT — revoked token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -286,7 +275,7 @@ describe('verifyJWT — revoked token', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).toHaveBeenCalledWith('specific-jti-value');
@@ -303,7 +292,7 @@ describe('verifyJWT — revoked token', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).toHaveBeenCalledTimes(1);
@@ -329,7 +318,7 @@ describe('verifyJWT — valid token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);
@@ -352,7 +341,7 @@ describe('verifyJWT — valid token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);
@@ -372,7 +361,7 @@ describe('verifyJWT — valid token', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     // isAccessTokenRevoked IS called — just returns false
@@ -398,7 +387,7 @@ describe('verifyJWT — session invalidation', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -416,7 +405,7 @@ describe('verifyJWT — session invalidation', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsSessionsInvalidated).toHaveBeenCalledWith('u-check', expect.any(Number));
@@ -433,7 +422,7 @@ describe('verifyJWT — session invalidation', () => {
     await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockIsRevoked).toHaveBeenCalledTimes(1);
@@ -453,7 +442,7 @@ describe('verifyJWT — session invalidation', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/protected',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);

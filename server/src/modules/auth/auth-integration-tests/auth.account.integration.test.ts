@@ -23,6 +23,7 @@ import {
   createVerifiedUser,
   cleanupUser,
   makeAccessToken,
+  extractTokenCookies,
 } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ describe('DELETE /api/auth/account', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/auth/account',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: TEST_PASSWORD },
     });
 
@@ -89,14 +90,14 @@ describe('DELETE /api/auth/account', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { refreshToken } = extractTokenCookies(loginRes);
     const tokenId = refreshToken.split('.')[0];
 
     const token = makeAccessToken(testUser.id, testUser.email);
     await app.inject({
       method: 'DELETE',
       url: '/api/auth/account',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: TEST_PASSWORD },
     });
 
@@ -113,7 +114,7 @@ describe('DELETE /api/auth/account', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/auth/account',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { currentPassword: 'WrongPassword1!' },
     });
 

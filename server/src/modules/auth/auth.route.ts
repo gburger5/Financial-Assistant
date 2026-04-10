@@ -43,8 +43,6 @@ import type {
   UpdateNameRouteGeneric,
   UpdatePasswordRouteGeneric,
   UpdateEmailRouteGeneric,
-  LogoutRouteGeneric,
-  RefreshRouteGeneric,
   ForgotPasswordRouteGeneric,
   ResetPasswordRouteGeneric,
   DeleteAccountRouteGeneric,
@@ -108,7 +106,7 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.get('/verify-email', { schema: verifyEmailSchema }, verifyEmail);
 
-  fastify.post<RefreshRouteGeneric>(
+  fastify.post(
     '/refresh',
     {
       schema: refreshSchema,
@@ -141,7 +139,7 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.get('/verify', { schema: verifySchema, preHandler: verifyJWT }, verify);
 
-  fastify.post<LogoutRouteGeneric>(
+  fastify.post(
     '/logout',
     {
       schema: logoutSchema,

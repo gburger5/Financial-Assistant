@@ -25,6 +25,7 @@ import {
   buildTestApp,
   createVerifiedUser,
   cleanupUser,
+  extractTokenCookies,
 } from './helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -195,7 +196,7 @@ describe('POST /api/auth/reset-password', () => {
       url: '/api/auth/login',
       payload: { email: testUser.email, password: TEST_PASSWORD },
     });
-    const { refreshToken } = loginRes.json();
+    const { refreshToken } = extractTokenCookies(loginRes);
     const tokenId = refreshToken.split('.')[0];
 
     capturedEmails.length = 0;

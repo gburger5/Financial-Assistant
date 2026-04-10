@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -68,6 +69,7 @@ function signToken(userId = TEST_USER_ID): string {
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandlerPlugin);
+  await app.register(cookie);
   await app.register(agentRoutes, { prefix: '/api/agent' });
   await app.ready();
   return app;
@@ -118,7 +120,7 @@ describe('POST /api/agent/budget', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/budget',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(201);
@@ -153,7 +155,7 @@ describe('POST /api/agent/debt', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/debt',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { debtAllocation: 500 },
     });
 
@@ -167,7 +169,7 @@ describe('POST /api/agent/debt', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/debt',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: {},
     });
 
@@ -180,7 +182,7 @@ describe('POST /api/agent/debt', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/debt',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { debtAllocation: -100 },
     });
 
@@ -203,7 +205,7 @@ describe('POST /api/agent/investing', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/investing',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { investingAllocation: 300 },
     });
 
@@ -217,7 +219,7 @@ describe('POST /api/agent/investing', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/investing',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: {},
     });
 
@@ -251,7 +253,7 @@ describe('GET /api/agent/proposals', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/agent/proposals',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -265,7 +267,7 @@ describe('GET /api/agent/proposals', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/agent/proposals?agentType=debt',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -288,7 +290,7 @@ describe('GET /api/agent/proposals/:proposalId', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/agent/proposals/01ABC',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -311,7 +313,7 @@ describe('POST /api/agent/proposals/:proposalId/approve', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/proposals/01ABC/approve',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -334,7 +336,7 @@ describe('POST /api/agent/proposals/:proposalId/reject', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/proposals/01ABC/reject',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -357,7 +359,7 @@ describe('POST /api/agent/proposals/:proposalId/execute', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/agent/proposals/01ABC/execute',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);

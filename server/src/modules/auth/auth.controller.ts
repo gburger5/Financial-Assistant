@@ -8,7 +8,28 @@
  */
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import * as authService from './auth.service.js';
-import { BadRequestError } from '../../lib/errors.js';
+import { BadRequestError, UnauthorizedError } from '../../lib/errors.js';
+
+// ---------------------------------------------------------------------------
+// Cookie option constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Base cookie options applied to both token cookies.
+ * `secure` is only enforced in production — localhost dev doesn't use HTTPS.
+ */
+const COOKIE_BASE = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  path: '/',
+};
+
+/** Access token cookie — short-lived to match the 15 min JWT expiry. */
+const ACCESS_COOKIE  = { ...COOKIE_BASE, maxAge: 15 * 60 };
+
+/** Refresh token cookie — long-lived, matches REFRESH_TOKEN_TTL_DAYS (30 days). */
+const REFRESH_COOKIE = { ...COOKIE_BASE, maxAge: 30 * 24 * 60 * 60 };
 import type {
   RegisterRouteGeneric,
   LoginRouteGeneric,
@@ -16,8 +37,6 @@ import type {
   UpdateNameRouteGeneric,
   UpdatePasswordRouteGeneric,
   UpdateEmailRouteGeneric,
-  LogoutRouteGeneric,
-  RefreshRouteGeneric,
   ForgotPasswordRouteGeneric,
   ResetPasswordRouteGeneric,
   DeleteAccountRouteGeneric,
@@ -50,7 +69,8 @@ export async function register(
 
 /**
  * Handles POST /login.
- * Delegates entirely to the service and forwards its result as 200.
+ * Sets httpOnly cookies for the access and refresh tokens so they are never
+ * readable by client-side JavaScript. Returns only the PublicUser in the body.
  *
  * @param {FastifyRequest<LoginRouteGeneric>} request
  * @param {FastifyReply} reply
@@ -61,8 +81,10 @@ export async function login(
   reply: FastifyReply
 ): Promise<void> {
   const { email, password } = request.body;
-  const result = await authService.loginUser(email, password);
-  return reply.status(200).send(result);
+  const { token, refreshToken, user } = await authService.loginUser(email, password);
+  reply.setCookie('accessToken', token, ACCESS_COOKIE);
+  reply.setCookie('refreshToken', refreshToken, REFRESH_COOKIE);
+  return reply.status(200).send({ user });
 }
 
 /**
@@ -179,38 +201,45 @@ export async function updateEmail(
 
 /**
  * Handles POST /logout.
- * Reads the `jti` and `exp` from the verified JWT payload, revokes the access
- * token, and optionally deletes the refresh token if its id is in the body.
+ * Reads the access token jti from request.user (already verified by verifyJWT),
+ * reads the refresh token from its httpOnly cookie, revokes both, then clears
+ * both cookies so the browser discards them immediately.
  *
  * @param {FastifyRequest} request
  * @param {FastifyReply} reply
  * @returns {Promise<void>}
  */
 export async function logout(
-  request: FastifyRequest<LogoutRouteGeneric>,
+  request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
   const { userId, jti, exp } = request.user as { userId: string; jti: string; exp: number };
-  const { refreshToken } = request.body;
+  const refreshToken = request.cookies.refreshToken ?? '';
   await authService.logoutUser(jti, userId, exp, refreshToken);
+  reply.clearCookie('accessToken',  { path: '/' });
+  reply.clearCookie('refreshToken', { path: '/' });
   return reply.status(200).send({ success: true });
 }
 
 /**
  * Handles POST /refresh.
- * Exchanges a valid refresh token for a new access + refresh token pair.
+ * Reads the refresh token from its httpOnly cookie, rotates both tokens,
+ * and sets fresh cookies. Returns 200 with no body on success.
  *
- * @param {FastifyRequest<RefreshRouteGeneric>} request
+ * @param {FastifyRequest} request
  * @param {FastifyReply} reply
  * @returns {Promise<void>}
  */
 export async function refresh(
-  request: FastifyRequest<RefreshRouteGeneric>,
+  request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
-  const { refreshToken } = request.body;
+  const refreshToken = request.cookies.refreshToken;
+  if (!refreshToken) throw new UnauthorizedError('No refresh token provided');
   const result = await authService.refreshAccessToken(refreshToken);
-  return reply.status(200).send(result);
+  reply.setCookie('accessToken',  result.accessToken,  ACCESS_COOKIE);
+  reply.setCookie('refreshToken', result.refreshToken, REFRESH_COOKIE);
+  return reply.status(200).send({ success: true });
 }
 
 /**

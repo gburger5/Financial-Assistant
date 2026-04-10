@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -50,6 +51,7 @@ function signToken(userId = TEST_USER_ID): string {
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandlerPlugin);
+  await app.register(cookie);
   await app.register(transactionRoutes, { prefix: '/api/transactions' });
   await app.ready();
   return app;
@@ -114,7 +116,7 @@ describe('GET /api/transactions', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/transactions',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -130,7 +132,7 @@ describe('GET /api/transactions', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/transactions?category=LOAN_PAYMENTS',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -146,7 +148,7 @@ describe('GET /api/transactions', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/transactions?category=LOAN_PAYMENTS',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);

@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 
 vi.mock('../auth.service.js', () => ({
   registerUser: vi.fn(),
@@ -25,6 +26,7 @@ const mockGetUserById = vi.mocked(authService.getUserById);
 /** Minimal Fastify app with controller handlers wired to plain routes. */
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
+  await app.register(cookie);
   await app.register(errorHandlerPlugin);
 
   // Mount handlers directly — no schema validation so we test controller logic only.
@@ -145,7 +147,10 @@ describe('login controller', () => {
 
     expect(res.statusCode).toBe(200);
     expect(mockLoginUser).toHaveBeenCalledWith('alice@example.com', 'ValidPass1!');
-    expect(res.json().token).toBe('some-jwt');
+    // Tokens are set as httpOnly cookies, not in the response body
+    expect(res.cookies.find(c => c.name === 'accessToken')?.value).toBe('some-jwt');
+    expect(res.cookies.find(c => c.name === 'refreshToken')?.value).toBe('some-refresh-token');
+    expect(res.json().user.userId).toBe('user-uuid');
   });
 });
 

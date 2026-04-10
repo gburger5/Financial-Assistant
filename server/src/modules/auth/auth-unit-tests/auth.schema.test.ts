@@ -95,10 +95,11 @@ describe('loginSchema', () => {
     expect(loginSchema.body.additionalProperties).toBe(false);
   });
 
-  it('defines a 200 response schema with user and token', () => {
+  it('defines a 200 response schema with only user (tokens are set as cookies)', () => {
     const { properties } = loginSchema.response[200];
     expect(properties).toHaveProperty('user');
-    expect(properties).toHaveProperty('token');
+    expect(properties).not.toHaveProperty('token');
+    expect(properties).not.toHaveProperty('refreshToken');
   });
 });
 
@@ -221,12 +222,9 @@ describe('logoutSchema', () => {
     expect((properties.success as { type: string }).type).toBe('boolean');
   });
 
-  it('requires refreshToken in the request body so it can be revoked server-side', () => {
+  it('has no request body (refresh token is read from httpOnly cookie)', () => {
     const schema = logoutSchema as Record<string, unknown>;
-    const body = schema.body as { required: string[]; properties: Record<string, unknown> };
-    expect(body).toBeDefined();
-    expect(body.required).toContain('refreshToken');
-    expect(body.properties).toHaveProperty('refreshToken');
+    expect(schema.body).toBeUndefined();
   });
 });
 
@@ -235,24 +233,16 @@ describe('logoutSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('refreshSchema', () => {
-  it('requires refreshToken in the body', () => {
-    const required = refreshSchema.body.required as readonly string[];
-    expect(required).toContain('refreshToken');
+  it('has no request body (refresh token is read from httpOnly cookie)', () => {
+    const schema = refreshSchema as Record<string, unknown>;
+    expect(schema.body).toBeUndefined();
   });
 
-  it('sets additionalProperties: false on the body', () => {
-    expect(refreshSchema.body.additionalProperties).toBe(false);
-  });
-
-  it('defines a 200 response schema with accessToken and refreshToken', () => {
+  it('defines a 200 response schema with a success boolean (tokens are set as cookies)', () => {
     const { properties } = refreshSchema.response[200];
-    expect(properties).toHaveProperty('accessToken');
-    expect(properties).toHaveProperty('refreshToken');
-  });
-
-  it('enforces minLength: 1 on refreshToken', () => {
-    const prop = refreshSchema.body.properties.refreshToken as { minLength: number };
-    expect(prop.minLength).toBe(1);
+    expect(properties).toHaveProperty('success');
+    expect(properties).not.toHaveProperty('accessToken');
+    expect(properties).not.toHaveProperty('refreshToken');
   });
 });
 
