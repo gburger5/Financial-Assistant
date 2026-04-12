@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -68,6 +69,7 @@ function signToken(userId = TEST_USER_ID): string {
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandlerPlugin);
+  await app.register(cookie);
   await app.register(plaidRoutes, { prefix: '/api/plaid' });
   await app.ready();
   return app;
@@ -101,7 +103,7 @@ describe('GET /api/plaid/link-token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/plaid/link-token',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -115,7 +117,7 @@ describe('GET /api/plaid/link-token', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/plaid/link-token',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);
@@ -130,7 +132,7 @@ describe('GET /api/plaid/link-token', () => {
     await app.inject({
       method: 'GET',
       url: '/api/plaid/link-token',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockCreateLinkToken).toHaveBeenCalledWith(TEST_USER_ID);
@@ -165,7 +167,7 @@ describe('POST /api/plaid/exchange-token', () => {
       method: 'POST',
       url: '/api/plaid/exchange-token',
       payload: { institutionId: 'ins-1', institutionName: 'Bank' },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(400);
@@ -179,7 +181,7 @@ describe('POST /api/plaid/exchange-token', () => {
       method: 'POST',
       url: '/api/plaid/exchange-token',
       payload: { publicToken: 'pub-tok', institutionName: 'Bank' },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(400);
@@ -193,7 +195,7 @@ describe('POST /api/plaid/exchange-token', () => {
       method: 'POST',
       url: '/api/plaid/exchange-token',
       payload: { publicToken: 'pub-tok', institutionId: 'ins-1' },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(400);
@@ -211,7 +213,7 @@ describe('POST /api/plaid/exchange-token', () => {
       method: 'POST',
       url: '/api/plaid/exchange-token',
       payload: { publicToken: 'pub-tok', institutionId: 'ins-1', institutionName: 'Chase' },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockLinkBankAccount).toHaveBeenCalledWith(
@@ -234,7 +236,7 @@ describe('POST /api/plaid/exchange-token', () => {
       method: 'POST',
       url: '/api/plaid/exchange-token',
       payload: { publicToken: 'pub-tok', institutionId: 'ins-1', institutionName: 'Chase' },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);
@@ -261,7 +263,7 @@ describe('POST /api/plaid/exchange-token', () => {
         institutionName: 'Chase',
         userId: 'attacker-injected-id', // must be stripped
       },
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     // The service is called with the authenticated userId, not the injected one
@@ -358,7 +360,7 @@ describe('GET /api/plaid/sync-status', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/plaid/sync-status',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -372,7 +374,7 @@ describe('GET /api/plaid/sync-status', () => {
     await app.inject({
       method: 'GET',
       url: '/api/plaid/sync-status',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(mockGetSyncStatus).toHaveBeenCalledWith(TEST_USER_ID);
@@ -386,7 +388,7 @@ describe('GET /api/plaid/sync-status', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/plaid/sync-status',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(200);

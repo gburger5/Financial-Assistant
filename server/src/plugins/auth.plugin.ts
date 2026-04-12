@@ -1,22 +1,21 @@
 /**
  * @module auth.plugin
  * @description Fastify JWT authentication plugin.
- * Exports a single preHandler — verifyJWT — that validates the Bearer token
- * in the Authorization header, checks it against the revocation list, and
- * attaches the decoded payload to request.user.
+ * Exports a single preHandler — verifyJWT — that validates the access token
+ * stored in the httpOnly `accessToken` cookie, checks it against the
+ * revocation list, and attaches the decoded payload to request.user.
+ *
+ * Tokens are transmitted as httpOnly cookies (set by the login/refresh
+ * handlers) so they are never accessible to client-side JavaScript.
  *
  * Usage:
  *   fastify.get('/protected', { preHandler: verifyJWT }, handler)
  *
  * Failure cases (all result in 401):
- *   "No token provided"    — header absent or wrong scheme
- *   "Invalid token"        — bad signature, malformed, no jti, or wrong alg
+ *   "No token provided"      — accessToken cookie absent or empty
+ *   "Invalid token"          — bad signature, malformed, no jti, or wrong alg
+ *   "Token expired"          — token past its exp claim
  *   "Token has been revoked" — jti found in the revocation list
- *
- * Note: "Token expired" is intentionally subsumed under "Invalid token"
- * here because the route-level schema response does not need to distinguish
- * the cases and over-disclosure is avoided. If you need distinct messages,
- * catch jwt.TokenExpiredError separately.
  */
 import jwt from 'jsonwebtoken';
 import type { FastifyRequest } from 'fastify';
@@ -60,12 +59,8 @@ declare module 'fastify' {
 export async function verifyJWT(
   request: FastifyRequest,
 ): Promise<void> {
-  const authHeader = request.headers.authorization;
+  const token = request.cookies?.accessToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new UnauthorizedError('No token provided');
-  }
-  const token = authHeader.slice('Bearer '.length).trim();
   if (!token) {
     throw new UnauthorizedError('No token provided');
   }

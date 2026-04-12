@@ -18,7 +18,6 @@ function renderLoginPage(loginImpl = mockLogin) {
     <AuthContext.Provider
       value={{
         user: null,
-        token: null,
         isAuthenticated: false,
         login: loginImpl,
         logout: vi.fn(),

@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import errorHandlerPlugin from '../../../plugins/errorHandler.plugin.js';
+import cookie from '@fastify/cookie';
 import { NotFoundError } from '../../../lib/errors.js';
 import type { BudgetGoal } from '../budget.types.js';
 
@@ -65,6 +66,7 @@ function signToken(userId = TEST_USER_ID): string {
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandlerPlugin);
+  await app.register(cookie);
   await app.register(budgetRoutes, { prefix: '/api/budget' });
   await app.ready();
   return app;
@@ -128,7 +130,7 @@ describe('POST /api/budget/initialize', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
       payload: { goals: testGoals },
     });
 
@@ -141,7 +143,7 @@ describe('POST /api/budget/initialize', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: {},
     });
 
@@ -154,7 +156,7 @@ describe('POST /api/budget/initialize', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { goals: [] },
     });
 
@@ -167,7 +169,7 @@ describe('POST /api/budget/initialize', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { goals: ['not a real goal'] },
     });
 
@@ -181,7 +183,7 @@ describe('POST /api/budget/initialize', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
       payload: { goals: testGoals },
     });
 
@@ -196,7 +198,7 @@ describe('POST /api/budget/initialize', () => {
     await app.inject({
       method: 'POST',
       url: '/api/budget/initialize',
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
       payload: { goals: testGoals },
     });
 
@@ -227,7 +229,7 @@ describe('GET /api/budget', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -242,7 +244,7 @@ describe('GET /api/budget', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(404);
@@ -256,7 +258,7 @@ describe('GET /api/budget', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -273,7 +275,7 @@ describe('GET /api/budget', () => {
     await app.inject({
       method: 'GET',
       url: '/api/budget',
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
     });
 
     expect(mockGetLatestBudget).toHaveBeenCalledWith(TEST_USER_ID);
@@ -307,7 +309,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: -1 } },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(400);
@@ -320,7 +322,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 'lots' } },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(400);
@@ -334,7 +336,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 500 } },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(404);
@@ -349,7 +351,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 999 } },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -369,7 +371,7 @@ describe('PATCH /api/budget', () => {
         budgetId: 'fake-id',           // system field — must be stripped
         createdAt: '1970-01-01',       // system field — must be stripped
       },
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
     });
 
     expect(mockUpdateBudget).toHaveBeenCalledWith(
@@ -386,7 +388,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 500 } },
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
     });
 
     expect(mockUpdateBudget).toHaveBeenCalledWith(TEST_USER_ID, { groceries: { amount: 500 } });
@@ -400,7 +402,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: {},
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -414,7 +416,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { groceries: { amount: 0 } },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -429,7 +431,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { goals: ['pay down debt', 'save for big purchase'] },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -443,7 +445,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { goals: ['invalid goal'] },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(400);
@@ -456,7 +458,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { goals: [123] },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(400);
@@ -470,7 +472,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { goals: ['build a strong emergency fund'], groceries: { amount: 500 } },
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
     });
 
     expect(mockUpdateBudget).toHaveBeenCalledWith(TEST_USER_ID, {
@@ -487,7 +489,7 @@ describe('PATCH /api/budget', () => {
       method: 'PATCH',
       url: '/api/budget',
       payload: { goals: [] },
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -517,7 +519,7 @@ describe('GET /api/budget/history', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget/history',
-      headers: { authorization: `Bearer ${token}` },
+      cookies: { accessToken: token },
     });
 
     expect(res.statusCode).toBe(401);
@@ -530,7 +532,7 @@ describe('GET /api/budget/history', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget/history',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -544,7 +546,7 @@ describe('GET /api/budget/history', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/budget/history',
-      headers: { authorization: `Bearer ${signToken()}` },
+      cookies: { accessToken: signToken() },
     });
 
     expect(res.statusCode).toBe(200);
@@ -558,7 +560,7 @@ describe('GET /api/budget/history', () => {
     await app.inject({
       method: 'GET',
       url: '/api/budget/history',
-      headers: { authorization: `Bearer ${signToken(TEST_USER_ID)}` },
+      cookies: { accessToken: signToken(TEST_USER_ID) },
     });
 
     expect(mockGetBudgetHistory).toHaveBeenCalledWith(TEST_USER_ID);

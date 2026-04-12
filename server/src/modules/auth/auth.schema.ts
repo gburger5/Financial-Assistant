@@ -92,8 +92,8 @@ export const registerSchema = {
 
 /**
  * Schema for POST /login.
- * Responds 200 with a token string and a PublicUser.
- * Password has no minLength here, enforcement is at registration.
+ * Tokens are set as httpOnly cookies — only the PublicUser is in the body.
+ * Password has no minLength here; enforcement is at registration.
  * Any credential mismatch returns 401 from the service layer.
  */
 export const loginSchema = {
@@ -111,8 +111,6 @@ export const loginSchema = {
       type: 'object',
       properties: {
         user: publicUserSchema,
-        token: { type: 'string' },
-        refreshToken: { type: 'string' },
       },
     },
   },
@@ -277,28 +275,13 @@ export const updateEmailSchema = {
   },
 } as const;
 
-/** Route generics for POST /logout. */
-export interface LogoutRouteGeneric {
-  Body: {
-    refreshToken: string;
-  };
-}
-
 /**
  * Schema for POST /logout.
- * Body requires the opaque refreshToken so it can be deleted server-side,
- * preventing token reuse after logout. The access token is revoked via the
- * Authorization header (verifyJWT preHandler). Responds 200 with a success boolean.
+ * No request body — the refresh token is read from its httpOnly cookie.
+ * The access token is verified and revoked via the verifyJWT preHandler.
+ * Responds 200 and clears both token cookies.
  */
 export const logoutSchema = {
-  body: {
-    type: 'object',
-    required: ['refreshToken'],
-    additionalProperties: false,
-    properties: {
-      refreshToken: { type: 'string', minLength: 1 },
-    },
-  },
   response: {
     200: {
       type: 'object',
@@ -309,33 +292,17 @@ export const logoutSchema = {
   },
 } as const;
 
-/** Route generics for POST /refresh. */
-export interface RefreshRouteGeneric {
-  Body: {
-    refreshToken: string;
-  };
-}
-
 /**
  * Schema for POST /refresh.
- * Body requires the opaque refreshToken string issued at login.
- * Responds 200 with a new access token and a rotated refresh token.
+ * No request body — the refresh token is read from its httpOnly cookie.
+ * Responds 200 and sets fresh token cookies.
  */
 export const refreshSchema = {
-  body: {
-    type: 'object',
-    required: ['refreshToken'],
-    additionalProperties: false,
-    properties: {
-      refreshToken: { type: 'string', minLength: 1 },
-    },
-  },
   response: {
     200: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string' },
-        refreshToken: { type: 'string' },
+        success: { type: 'boolean' },
       },
     },
   },

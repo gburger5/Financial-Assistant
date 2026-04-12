@@ -9,17 +9,9 @@ export interface PublicUser {
 
 export interface AuthState {
   user: PublicUser | null
-  token: string | null
   isAuthenticated: boolean
 }
 
 export interface LoginResponse {
   user: PublicUser
-  token: string
-  refreshToken: string
-}
-
-export interface RefreshResponse {
-  accessToken: string
-  refreshToken: string
 }
