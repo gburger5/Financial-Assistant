@@ -41,6 +41,21 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  # API Gateway origin — requests routed via /api/* so the browser stays on the
+  # CloudFront domain. This keeps cookies same-site (SameSite=Strict is safe)
+  # and removes the need for CORS entirely.
+  origin {
+    domain_name = "${aws_apigatewayv2_api.api.id}.execute-api.${var.aws_region}.amazonaws.com"
+    origin_id   = "api-gateway"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   # Second origin: ALB → ECS Fargate (agent service) since no certificate for now
   origin {
     domain_name = aws_lb.agents.dns_name
@@ -54,6 +69,23 @@ resource "aws_cloudfront_distribution" "frontend" {
       origin_read_timeout      = 60
       origin_keepalive_timeout = 5
     }
+  }
+
+  # Route /api/* to API Gateway — caching disabled, all headers and cookies forwarded.
+  # Keeping API traffic on the CloudFront domain means the browser treats requests
+  # as same-site, so SameSite=Strict cookies are sent without any CORS negotiation.
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "api-gateway"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+
+    # CachingDisabled — never cache API responses
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    # AllViewerExceptHostHeader — forwards cookies, Authorization, Content-Type, etc.
+    # Host is excluded so API Gateway receives its own domain, not the CloudFront domain.
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   }
 
   # Route /agent/* to the ALB — caching disabled, full request forwarding

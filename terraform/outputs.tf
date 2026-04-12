@@ -24,7 +24,7 @@ output "agents_url" {
 }
 
 output "api_gateway_url" {
-  description = "HTTP API Gateway invoke URL — set this as VITE_API_URL in the frontend build"
+  description = "HTTP API Gateway invoke URL (direct) — for debugging only. Set VITE_API_URL to cloudfront_domain_name so /api/* routes through CloudFront and cookies stay same-site."
   value       = aws_apigatewayv2_stage.api.invoke_url
 }
 
