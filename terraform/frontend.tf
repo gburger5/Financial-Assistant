@@ -41,6 +41,23 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
+  # Lambda Function URL origin — used for /api/agent/* routes only.
+  # Function URLs use the same v2 payload format as API Gateway HTTP API so no
+  # code changes are needed. Supports up to 15-minute timeouts (vs API Gateway's
+  # hard 30s limit), which is required for Claude agent invocations.
+  origin {
+    domain_name = replace(aws_lambda_function_url.api.function_url, "https://", "")
+    origin_id   = "lambda-function-url"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 60
+    }
+  }
+
   # API Gateway origin — requests routed via /api/* so the browser stays on the
   # CloudFront domain. This keeps cookies same-site (SameSite=Strict is safe)
   # and removes the need for CORS entirely.
@@ -69,6 +86,24 @@ resource "aws_cloudfront_distribution" "frontend" {
       origin_read_timeout      = 60
       origin_keepalive_timeout = 5
     }
+  }
+
+  # Route /api/agent/* to the ALB — must appear before /api/* so CloudFront
+  # matches it first. Lambda Function URLs are blocked at the account level
+  # (AccessDeniedException despite AuthType=NONE), so we use ALB → Lambda instead.
+  # @fastify/aws-lambda handles ALB v1 event format natively, and the ALB has
+  # no timeout limit (Lambda max is 15 min), enabling long Claude agent calls.
+  ordered_cache_behavior {
+    path_pattern           = "/api/agent/*"
+    target_origin_id       = "agents-alb"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+
+    # CachingDisabled — never cache agent responses
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    # AllViewerExceptHostHeader — forwards cookies, Authorization, Content-Type, etc.
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   }
 
   # Route /api/* to API Gateway — caching disabled, all headers and cookies forwarded.

@@ -115,7 +115,7 @@ resource "aws_lambda_function" "api" {
   role             = aws_iam_role.lambda.arn
   runtime          = "nodejs20.x"
   handler          = "lambda.handler"
-  timeout          = 29
+  timeout          = 300
   memory_size      = 512
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256
@@ -172,6 +172,32 @@ resource "aws_apigatewayv2_stage" "api" {
   api_id      = aws_apigatewayv2_api.api.id
   name        = "$default"
   auto_deploy = true
+}
+
+# ── Lambda Function URL — used by CloudFront for /api/agent/* ─────────────────
+# Function URLs support up to 15 minutes and use the same v2 payload format as
+# API Gateway HTTP API, so no Lambda code changes are required. API Gateway's
+# hard 30s limit makes it unsuitable for agent invocations that call Claude.
+resource "aws_lambda_function_url" "api" {
+  function_name      = aws_lambda_function.api.function_name
+  authorization_type = "NONE"
+}
+
+resource "aws_lambda_permission" "function_url" {
+  statement_id           = "allow-function-url"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.api.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+# ── Allow ALB to invoke Lambda (for /api/agent/* long-running calls) ──────────
+resource "aws_lambda_permission" "alb" {
+  statement_id  = "allow-alb-invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "elasticloadbalancing.amazonaws.com"
+  source_arn    = aws_lb_target_group.lambda.arn
 }
 
 # ── Allow API Gateway to invoke Lambda ────────────────────────────────────────
