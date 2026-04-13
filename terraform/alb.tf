@@ -106,6 +106,36 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+# ── Lambda target group — used for /api/agent/* (long-running Claude calls) ──
+# Lambda Function URLs are blocked at the account level (AccessDeniedException
+# despite AuthType=NONE), so we route through ALB instead. @fastify/aws-lambda
+# handles ALB v1 event format natively; ALB has no timeout limit.
+resource "aws_lb_target_group" "lambda" {
+  name        = "financial-assistant-lambda"
+  target_type = "lambda"
+}
+
+resource "aws_lb_target_group_attachment" "lambda" {
+  target_group_arn = aws_lb_target_group.lambda.arn
+  target_id        = aws_lambda_function.api.arn
+}
+
+resource "aws_lb_listener_rule" "agent" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.lambda.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/agent/*"]
+    }
+  }
+}
+
 resource "aws_route53_record" "agents" {
   count   = var.domain_name != "" ? 1 : 0
   zone_id = var.route53_zone_id
